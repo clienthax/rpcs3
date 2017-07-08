@@ -357,8 +357,10 @@ namespace rsx
 		auto& clause = rsx::method_registers.current_draw_clause;
 		
 		m_last_command = clause.command;
-		m_last_first_count = (m_last_command == rsx::draw_command::inlined_array)? std::make_pair(0, (u32)clause.inline_vertex_array.size()):
-								std::make_pair(clause.first_count_commands.front().first, clause.first_count_commands.back().second);
+		if (m_last_command == rsx::draw_command::inlined_array)
+			m_last_first_count = std::make_pair(0, (u32)clause.inline_vertex_array.size());
+		else
+			m_last_first_count = std::make_pair(clause.first_count_commands.front().first, clause.first_count_commands.back().second);
 
 		m_index_buffer_changed = false;
 		m_vertex_attribs_changed = false;

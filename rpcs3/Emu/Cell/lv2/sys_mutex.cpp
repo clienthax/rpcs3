@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
@@ -34,7 +34,7 @@ error_code sys_mutex_create(vm::ptr<u32> mutex_id, vm::ptr<sys_mutex_attribute_t
 	default:
 	{
 		sys_mutex.error("sys_mutex_create(): unknown protocol (0x%x)", protocol);
-		return CELL_EINVAL;
+//		return CELL_EINVAL;
 	}
 	}
 
@@ -47,14 +47,14 @@ error_code sys_mutex_create(vm::ptr<u32> mutex_id, vm::ptr<sys_mutex_attribute_t
 	default:
 	{
 		sys_mutex.error("sys_mutex_create(): unknown recursive (0x%x)", recursive);
-		return CELL_EINVAL;
+//		return CELL_EINVAL;
 	}
 	}
 
 	if (attr->pshared != SYS_SYNC_NOT_PROCESS_SHARED || attr->adaptive != SYS_SYNC_NOT_ADAPTIVE || attr->ipc_key || attr->flags)
 	{
 		sys_mutex.error("sys_mutex_create(): unknown attributes (pshared=0x%x, adaptive=0x%x, ipc_key=0x%llx, flags=0x%x)", attr->pshared, attr->adaptive, attr->ipc_key, attr->flags);
-		return CELL_EINVAL;
+//		return CELL_EINVAL;
 	}
 
 	if (const u32 id = idm::make<lv2_obj, lv2_mutex>(protocol, recursive, attr->name_u64))

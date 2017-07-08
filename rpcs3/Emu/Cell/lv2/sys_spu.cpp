@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
@@ -18,21 +18,36 @@ namespace vm { using namespace ps3; }
 
 logs::channel sys_spu("sys_spu");
 
-void sys_spu_image::load(const fs::file& stream)
+void sys_spu_image::load(u32 data_addr, u32 type)
 {
-	const spu_exec_object obj{stream};
+	auto stream = fs::file{ vm::base(data_addr), size_t(-1) };
+	if (type == SYS_SPU_IMAGE_PROTECT)
+	{
+		LOG_TODO(SPU, "TODO Loading SYS_SPU_IMAGE_PROTECT SPU as SYS_SPU_IMAGE_DIRECT");
+	}
+
+	const spu_exec_object obj{ stream };
 
 	if (obj != elf_error::ok)
 	{
 		fmt::throw_exception("Failed to load SPU image: %s" HERE, obj.get_error());
 	}
 
-	this->type = SYS_SPU_IMAGE_TYPE_KERNEL;
+	int number_segs = obj.progs.size();
+	for (const auto& prog : obj.progs)
+	{
+		if (prog.p_type == SYS_SPU_SEGMENT_TYPE_COPY && prog.p_memsz != prog.p_filesz)
+		{
+			number_segs++;
+		}
+	}
+
+	this->type = SYS_SPU_IMAGE_TYPE_USER;
 	this->entry_point = obj.header.e_entry;
-	this->segs.set(vm::alloc(65 * 4096, vm::main));
+	this->segs.set(vm::alloc(number_segs * sizeof(sys_spu_segment), vm::main));
 	this->nsegs = 0;
 
-	const u32 addr = this->segs.addr() + 4096;
+	LOG_NOTICE(SPU, "Loading SPU program from memory 0x%x", data_addr);
 
 	sha1_context ctx;
 	u8 output[20];
@@ -47,38 +62,45 @@ void sys_spu_image::load(const fs::file& stream)
 		LOG_NOTICE(SPU, "** Section: sh_type=0x%x, addr=0x%llx, size=0x%llx, flags=0x%x", shdr.sh_type, shdr.sh_addr, shdr.sh_size, shdr.sh_flags);
 	}
 
-	for (const auto& prog : obj.progs)
+	for (auto it_prog = obj.progs.begin(); it_prog < obj.progs.end(); it_prog++)
 	{
+		auto& prog = *it_prog;
+
 		sha1_update(&ctx, reinterpret_cast<const u8*>(&prog), sizeof(spu_exec_object::phdr_t));
 		sha1_update(&ctx, reinterpret_cast<const u8*>(prog.bin.data()), prog.bin.size());
 
-		LOG_NOTICE(SPU, "** Segment: p_type=0x%x, p_vaddr=0x%llx, p_filesz=0x%llx, p_memsz=0x%llx, flags=0x%x", prog.p_type, prog.p_vaddr, prog.p_filesz, prog.p_memsz, prog.p_flags);
-
+		LOG_NOTICE(SPU, "** Segment: p_type=0x%x, p_offset=0x%llx, p_vaddr=0x%llx, p_filesz=0x%llx, p_memsz=0x%llx, flags=0x%x", prog.p_type, prog.p_offset, prog.p_vaddr, prog.p_filesz, prog.p_memsz, prog.p_flags);
 		if (prog.p_type == SYS_SPU_SEGMENT_TYPE_COPY)
 		{
-			auto& seg = segs[nsegs++];
-			seg.type  = prog.p_type;
-			seg.ls    = prog.p_vaddr;
-			seg.addr  = addr + prog.p_vaddr;
-			seg.size  = std::min(prog.p_filesz, prog.p_memsz);
-			std::memcpy(vm::base(seg.addr), prog.bin.data(), seg.size);
-
-			if (prog.p_memsz > prog.p_filesz)
+			if (prog.p_filesz != 0)
 			{
-				auto& zero = segs[nsegs++];
-				zero.type  = SYS_SPU_SEGMENT_TYPE_FILL;
-				zero.ls    = prog.p_vaddr + prog.p_filesz;
-				zero.addr  = 0;
-				zero.size  = prog.p_memsz - seg.size;
+				auto& seg = segs[nsegs++];
+
+				seg.type = SYS_SPU_SEGMENT_TYPE_COPY;
+				seg.addr = data_addr + prog.p_offset;
+				seg.ls = prog.p_vaddr;
+				seg.size = prog.p_filesz;
 			}
+
+			// There's a mismatch between here and the seg counting. It seems that it exists in the real function, too.
+			if (prog.p_memsz <= prog.p_filesz || nsegs + 1 >= number_segs)
+			{
+				continue;
+			}
+
+			auto& zero = segs[nsegs++];
+			zero.type = SYS_SPU_SEGMENT_TYPE_FILL;
+			zero.addr = 0;
+			zero.ls = prog.p_vaddr + prog.p_filesz;
+			zero.size = prog.p_memsz - prog.p_filesz;
 		}
 		else if (prog.p_type == SYS_SPU_SEGMENT_TYPE_INFO)
 		{
 			auto& seg = segs[nsegs++];
 			seg.type = SYS_SPU_SEGMENT_TYPE_INFO;
-			seg.ls   = prog.p_vaddr;
-			seg.addr = 0;
-			seg.size = prog.p_filesz;
+			seg.addr = data_addr + prog.p_offset + 0x14;
+			seg.ls = 0; // TODO Verify - noone writes to it, so it includes whatever malloc set there originally
+			seg.size = 0x20;
 		}
 		else
 		{
@@ -94,12 +116,12 @@ void sys_spu_image::load(const fs::file& stream)
 	LOG_NOTICE(LOADER, "Loaded SPU image: %s", hash);
 
 	// Apply the patch
-	fxm::check_unlocked<patch_engine>()->apply(hash, vm::g_base_addr + addr);
+	fxm::check_unlocked<patch_engine>()->apply(hash, vm::g_base_addr + data_addr);
 
 	if (!Emu.GetTitleID().empty())
 	{
 		// Alternative patch
-		fxm::check_unlocked<patch_engine>()->apply(Emu.GetTitleID() + '-' + hash, vm::g_base_addr + addr);
+		fxm::check_unlocked<patch_engine>()->apply(Emu.GetTitleID() + '-' + hash, vm::g_base_addr + data_addr);
 	}
 }
 
@@ -151,15 +173,41 @@ error_code sys_spu_image_open(vm::ptr<sys_spu_image> img, vm::cptr<char> path)
 {
 	sys_spu.warning("sys_spu_image_open(img=*0x%x, path=%s)", img, path);
 
-	const fs::file elf_file = decrypt_self(fs::file(vfs::get(path.get_ptr())));
+	const fs::file elf_file = fs::file(vfs::get(path.get_ptr()));
 
-	if (!elf_file)
+	if (elf_file)
 	{
-		sys_spu.error("sys_spu_image_open() error: %s not found!", path);
+		sys_spu.error("sys_spu_image_open: Failed creating given file");
 		return CELL_ENOENT;
 	}
 
-	img->load(elf_file);
+	u64 file_size = elf_file.size();
+	if (!file_size)
+	{
+		sys_spu.error("sys_spu_image_open: Given file is 0 sized");
+		return CELL_ENOENT;
+	}
+	else if (file_size > UINT_MAX)
+	{
+		sys_spu.error("sys_spu_image_open: File size too large");
+		return CELL_ENOMEM;
+	}
+
+	u32 elf_addr = vm::alloc((u32)file_size, vm::main);
+	if (!elf_addr)
+	{
+		sys_spu.error("sys_spu_image_open: Failed allocating elf");
+		return CELL_ENOMEM;
+	}
+
+	u64 bytes_read = elf_file.read(vm::base(elf_addr), (u32)file_size);
+	if (!bytes_read)
+	{
+		sys_spu.error("sys_spu_image_open: Failed reading ELF into memory");
+		return CELL_ENOENT;
+	}
+
+	img->load(elf_addr, SYS_SPU_IMAGE_DIRECT);
 
 	return CELL_OK;
 }
@@ -184,7 +232,7 @@ error_code sys_spu_thread_initialize(vm::ptr<u32> thread, u32 group_id, u32 spu_
 	{
 		return CELL_EINVAL;
 	}
-	
+
 	if (group->threads[spu_num] || group->run_state != SPU_THREAD_GROUP_STATUS_NOT_INITIALIZED)
 	{
 		return CELL_EBUSY;
@@ -202,7 +250,7 @@ error_code sys_spu_thread_initialize(vm::ptr<u32> thread, u32 group_id, u32 spu_
 	*thread = spu->id;
 
 	group->threads[spu_num] = std::move(spu);
-	group->args[spu_num] = {arg->arg1, arg->arg2, arg->arg3, arg->arg4};
+	group->args[spu_num] = { arg->arg1, arg->arg2, arg->arg3, arg->arg4 };
 	group->imgs[spu_num] = img;
 
 	if (++group->init == group->num)
@@ -228,7 +276,7 @@ error_code sys_spu_thread_set_argument(u32 id, vm::ptr<sys_spu_thread_argument> 
 
 	semaphore_lock lock(group->mutex);
 
-	group->args[thread->index] = {arg->arg1, arg->arg2, arg->arg3, arg->arg4};
+	group->args[thread->index] = { arg->arg1, arg->arg2, arg->arg3, arg->arg4 };
 
 	return CELL_OK;
 }
@@ -619,7 +667,7 @@ error_code sys_spu_thread_group_join(ppu_thread& ppu, u32 id, vm::ptr<u32> cause
 		group->join_state &= ~SPU_TGJSF_IS_JOINING;
 		group->run_state = SPU_THREAD_GROUP_STATUS_INITIALIZED; // hack
 	}
-	
+
 	ppu.test_state();
 
 	switch (join_state & ~SPU_TGJSF_IS_JOINING)
@@ -649,7 +697,7 @@ error_code sys_spu_thread_group_join(ppu_thread& ppu, u32 id, vm::ptr<u32> cause
 	{
 		*status = group->exit_status;
 	}
-	
+
 	return CELL_OK;
 }
 
@@ -886,7 +934,7 @@ error_code sys_spu_thread_group_connect_event(u32 id, u32 eq, u32 et)
 		{
 			return CELL_EBUSY;
 		}
-		
+
 		group->ep_run = queue;
 		break;
 	}
@@ -1335,7 +1383,7 @@ error_code sys_raw_spu_create_interrupt_tag(u32 id, u32 class_id, u32 hwthread, 
 		*intrtag = tag;
 		return CELL_OK;
 	}
-	
+
 	return error;
 }
 

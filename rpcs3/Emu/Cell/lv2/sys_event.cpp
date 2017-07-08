@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
@@ -322,7 +322,7 @@ error_code sys_event_port_create(vm::ptr<u32> eport_id, s32 port_type, u64 name)
 	if (port_type != SYS_EVENT_PORT_LOCAL)
 	{
 		sys_event.error("sys_event_port_create(): unknown port type (%d)", port_type);
-		return CELL_EINVAL;
+//		return CELL_EINVAL;
 	}
 
 	if (const u32 id = idm::make<lv2_obj, lv2_event_port>(port_type, name))

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
@@ -21,14 +21,14 @@ error_code sys_cond_create(vm::ptr<u32> cond_id, u32 mutex_id, vm::ptr<sys_cond_
 	if (attr->pshared != SYS_SYNC_NOT_PROCESS_SHARED || attr->ipc_key || attr->flags)
 	{
 		sys_cond.error("sys_cond_create(): unknown attributes (pshared=0x%x, ipc_key=0x%llx, flags=0x%x)", attr->pshared, attr->ipc_key, attr->flags);
-		return CELL_EINVAL;
+//		return CELL_EINVAL;
 	}
 
 	auto mutex = idm::get<lv2_obj, lv2_mutex>(mutex_id);
 
 	if (!mutex)
 	{
-		return CELL_ESRCH;
+//		return CELL_ESRCH;
 	}
 
 	if (const u32 id = idm::make<lv2_obj, lv2_cond>(attr->name_u64, std::move(mutex)))

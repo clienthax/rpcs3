@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/Cell/PPUModule.h"
 
@@ -41,7 +41,7 @@ void sys_game_process_exitspawn(vm::cptr<char> path, u32 argv_addr, u32 envp_add
 
 		for (auto &arg : argv)
 		{
-			sysPrxForUser.trace("argument: %s", arg.c_str());
+			sysPrxForUser.warning("argument: %s", arg.c_str());
 		}
 	}
 
@@ -56,7 +56,7 @@ void sys_game_process_exitspawn(vm::cptr<char> path, u32 argv_addr, u32 envp_add
 
 		for (auto &en : env)
 		{
-			sysPrxForUser.trace("env_argument: %s", en.c_str());
+			sysPrxForUser.warning("env_argument: %s", en.c_str());
 		}
 	}
 
@@ -110,7 +110,7 @@ void sys_game_process_exitspawn2(vm::cptr<char> path, u32 argv_addr, u32 envp_ad
 
 		for (auto &arg : argv)
 		{
-			sysPrxForUser.trace("argument: %s", arg.c_str());
+			sysPrxForUser.warning("argument: %s", arg.c_str());
 		}
 	}
 
@@ -125,7 +125,7 @@ void sys_game_process_exitspawn2(vm::cptr<char> path, u32 argv_addr, u32 envp_ad
 
 		for (auto &en : env)
 		{
-			sysPrxForUser.trace("env_argument: %s", en.c_str());
+			sysPrxForUser.warning("env_argument: %s", en.c_str());
 		}
 	}
 

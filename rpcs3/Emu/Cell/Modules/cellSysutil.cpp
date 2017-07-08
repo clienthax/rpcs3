@@ -390,32 +390,41 @@ s32 cellSysutilSetBgmPlaybackExtraParam()
 
 s32 cellSysutilRegisterCallbackDispatcher()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	return CELL_OK;
+
+//	fmt::throw_exception("Unimplemented" HERE);
 }
 
 s32 cellSysutilUnregisterCallbackDispatcher()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	return CELL_OK;
+//	fmt::throw_exception("Unimplemented" HERE);
 }
 
 s32 cellSysutilPacketRead()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	return CELL_OK;
+	//	fmt::throw_exception("Unimplemented" HERE);
 }
 
 s32 cellSysutilPacketWrite()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	return CELL_OK;
+
+//	fmt::throw_exception("Unimplemented" HERE);
 }
 
 s32 cellSysutilPacketBegin()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	return CELL_OK;
+
+//	fmt::throw_exception("Unimplemented" HERE);
 }
 
 s32 cellSysutilPacketEnd()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	return CELL_OK;
+//	fmt::throw_exception("Unimplemented" HERE);
 }
 
 s32 cellSysutilGameDataAssignVmc()

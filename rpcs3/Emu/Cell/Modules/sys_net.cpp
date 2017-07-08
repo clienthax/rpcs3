@@ -326,9 +326,17 @@ namespace sys_net
 		return CELL_OK;
 	}
 
-	s32 gethostbyname()
+	s32 gethostbyname(vm::cptr<char> name)
 	{
-		UNIMPLEMENTED_FUNC(libnet);
+		libnet.warning("gethostbyname(cp=%s)", name);
+		::hostent* hostinfo = ::gethostbyname(name.get_ptr());
+		libnet.warning("addr type %s", hostinfo->h_addrtype);
+		libnet.warning("addr name %s", hostinfo->h_name);
+		libnet.warning("addr list %s", hostinfo->h_addr_list);
+		libnet.warning("addr aliases %s", hostinfo->h_aliases);
+		libnet.warning("addr length %s", hostinfo->h_length);
+
+
 		return CELL_OK;
 	}
 
@@ -490,7 +498,7 @@ namespace sys_net
 
 		if (ret < 0)
 		{
-			libnet.error("recvfrom(): error %d", get_errno() = get_last_error());
+			libnet.error("recvfrom(): error %d %d", get_errno() = get_last_error(), ret);
 			return -1;
 		}
 
@@ -633,7 +641,8 @@ namespace sys_net
 			}
 			case OP_SO_BROADCAST:
 			{
-				u32 enablebroadcast = *(u32*)optval.get_ptr();
+				//u32 enablebroadcast = *(u32*)optval.get_ptr();
+				u32 enablebroadcast = *vm::static_ptr_cast<const u32>(optval);//const u32 test = *vm::static_ptr_cast<const u32>(optval);
 				ret = ::setsockopt(sock->s, SOL_SOCKET, SO_BROADCAST, (char*)&enablebroadcast, sizeof(enablebroadcast));
 				break;
 			}
