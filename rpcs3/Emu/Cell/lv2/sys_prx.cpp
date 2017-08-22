@@ -311,7 +311,40 @@ error_code _sys_prx_get_module_list(u64 flags, vm::ptr<sys_prx_get_module_list_o
 
 error_code _sys_prx_get_module_info(u32 id, u64 flags, vm::ptr<sys_prx_module_info_option_t> pOpt)
 {
-	sys_prx.todo("_sys_prx_get_module_info(id=0x%x, flags=%d, pOpt=*0x%x)", id, flags, pOpt);
+	sys_prx.warning("_sys_prx_get_module_info(id=0x%x, flags=%d, pOpt=*0x%x)", id, flags, pOpt);
+
+	const auto prx = idm::get<lv2_obj, lv2_prx>(id);
+
+	if (!pOpt || !pOpt->info || !prx)
+	{
+		return CELL_EINVAL;
+	}
+
+	memset(pOpt->info->name, 0, 30);
+	memcpy(pOpt->info->name, prx->prx_info.name, 28);
+	pOpt->info->version[0] = prx->prx_info.version[0];
+	pOpt->info->version[1] = prx->prx_info.version[1];
+	pOpt->info->modattribute = prx->prx_info.attributes;
+	pOpt->info->start_entry = prx->start.addr();
+	pOpt->info->stop_entry = prx->stop.addr();
+	pOpt->info->all_segments_num = prx->segs.size();
+	if (pOpt->info->filename)
+		strncpy(pOpt->info->filename.get_ptr(), prx->name.c_str(), pOpt->info->filename_size);
+
+	if (pOpt->info->segments)
+	{
+		u32 i = 0;
+		for (; i < prx->segs.size() && i < pOpt->info->segments_num; i++)
+		{
+			pOpt->info->segments[i].index = i;
+			pOpt->info->segments[i].base = prx->segs[i].addr;
+			pOpt->info->segments[i].filesz = prx->segs[i].filesz;
+			pOpt->info->segments[i].memsz = prx->segs[i].size;
+			pOpt->info->segments[i].type = prx->segs[i].type;
+		}
+		pOpt->info->segments_num = i;
+	}
+
 	return CELL_OK;
 }
 

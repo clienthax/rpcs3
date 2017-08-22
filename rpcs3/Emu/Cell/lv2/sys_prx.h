@@ -115,6 +115,18 @@ struct sys_prx_get_module_list_option_t
 	be_t<u32> unk; // 0
 };
 
+struct ppu_prx_library_info
+{
+	be_t<u16> attributes;
+	u8 version[2];
+	char name[28];
+	be_t<u32> toc;
+	be_t<u32> exports_start;
+	be_t<u32> exports_end;
+	be_t<u32> imports_start;
+	be_t<u32> imports_end;
+};
+
 struct lv2_prx final : lv2_obj, ppu_module
 {
 	static const u32 id_base = 0x23000000;
@@ -129,6 +141,8 @@ struct lv2_prx final : lv2_obj, ppu_module
 	vm::ps3::ptr<s32(u64 callback, u64 argc, vm::ps3::ptr<void, u64> argv)> prologue = vm::null;
 	vm::ps3::ptr<s32(u64 callback, u64 argc, vm::ps3::ptr<void, u64> argv)> epilogue = vm::null;
 	vm::ps3::ptr<s32()> exit = vm::null;
+
+	ppu_prx_library_info prx_info;
 };
 
 // SysCalls
