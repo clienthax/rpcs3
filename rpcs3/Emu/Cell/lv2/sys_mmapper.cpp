@@ -383,7 +383,7 @@ error_code sys_mmapper_enable_page_fault_notification(u32 start_addr, u32 event_
 	auto pf_entries = fxm::get_always<page_fault_notification_entries>();
 
 	// We're not allowed to have the same queue registered more than once for page faults.
-	for (auto entry : pf_entries->entries)
+	for (const auto& entry : pf_entries->entries)
 	{
 		if (entry.event_queue_id == event_queue_id)
 		{

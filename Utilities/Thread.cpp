@@ -1252,7 +1252,7 @@ bool handle_access_violation(u32 addr, bool is_writing, x64_context* context)
 	{
 		if (fxm::check<page_fault_notification_entries>())
 		{
-			for (auto entry : fxm::get<page_fault_notification_entries>()->entries)
+			for (const auto& entry : fxm::get<page_fault_notification_entries>()->entries)
 			{
 				auto mem = vm::get(vm::any, entry.start_addr);
 				if (!mem)
