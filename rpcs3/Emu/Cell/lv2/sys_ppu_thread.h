@@ -33,11 +33,11 @@ struct sys_ppu_thread_icontext_t
 {
 	be_t<u64> gpr[32];
 	be_t<u32> cr;
-	be_t<u32>  rsv1;
-	be_t<u64>  xer;
-	be_t<u64>  lr;
-	be_t<u64>  ctr;
-	be_t<u64>  pc;
+	be_t<u32> rsv1;
+	be_t<u64> xer;
+	be_t<u64> lr;
+	be_t<u64> ctr;
+	be_t<u64> pc;
 };
 
 enum : u32

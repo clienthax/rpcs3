@@ -431,7 +431,7 @@ error_code sys_ppu_thread_get_page_fault_context(u32 thread_id, vm::ptr<sys_ppu_
 	auto pf_events = fxm::get_always<page_fault_event_entries>();
 
 	bool found = false;
-	for (auto ev : pf_events->events)
+	for (const auto& ev : pf_events->events)
 	{
 		if (ev.thread_id == thread_id)
 		{

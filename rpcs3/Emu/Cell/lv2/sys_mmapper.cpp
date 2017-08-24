@@ -184,7 +184,7 @@ error_code sys_mmapper_free_address(u32 addr)
 
 	// If page fault notify exists and an address in this area is faulted, we can't free the memory.
 	auto pf_events = fxm::get_always<page_fault_event_entries>();
-	for (auto ev : pf_events->events)
+	for (const auto& ev : pf_events->events)
 	{
 		auto mem = vm::get(vm::any, addr);
 		if (mem && addr <= ev.fault_addr && ev.fault_addr <= addr + mem->size - 1)
