@@ -766,7 +766,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(syscall_...)                      //862  ROOT
 	null_func,//BIND_FUNC(syscall_...)                      //863  ROOT
 	null_func,//BIND_FUNC(syscall_...)                      //864  DBG
-	null_func,//BIND_FUNC(sys_ss_random_number_generator),  //865 (0x361)  ROOT  AUTHID
+	BIND_FUNC(sys_ss_random_number_generator),              //865 (0x361)
 	null_func,//BIND_FUNC(sys_...)                          //866  ROOT
 	null_func,//BIND_FUNC(sys_...)                          //867  ROOT
 	null_func,//BIND_FUNC(sys_...)                          //868  ROOT / DBG  AUTHID

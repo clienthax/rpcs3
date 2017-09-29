@@ -1,7 +1,5 @@
 #pragma once
 
-#include "sys_net_.h"
-
 namespace vm { using namespace ps3; }
 
 // Return Codes
@@ -78,6 +76,8 @@ enum
 	CELL_RUDP_POLL_EV_FLUSH = 0x0004,
 	CELL_RUDP_POLL_EV_ERROR = 0x0008,
 };
+
+struct sys_net_sockaddr;
 
 using CellRudpEventHandler = s32(s32 event_id, s32 soc, vm::cptr<u8> data, u32 datalen, vm::cptr<sys_net_sockaddr> addr, u32 addrlen, vm::ptr<void> arg);
 
