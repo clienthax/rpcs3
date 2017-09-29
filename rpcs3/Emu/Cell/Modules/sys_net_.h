@@ -78,6 +78,43 @@ enum
 	SYS_NET_SO_ONESBCAST    = 0x0800,
 	SYS_NET_SO_USECRYPTO    = 0x1000,
 	SYS_NET_SO_USESIGNATURE = 0x2000,
+
+	SYS_NET_SOL_SOCKET      = 0xffff,
+};
+
+// Family (prefixed with SYS_NET_)
+enum
+{
+	SYS_NET_AF_UNSPEC       = 0,
+	SYS_NET_AF_LOCAL        = 1,
+	SYS_NET_AF_UNIX         = SYS_NET_AF_LOCAL,
+	SYS_NET_AF_INET         = 2,
+	SYS_NET_AF_INET6        = 24,
+};
+
+// Flags (prefixed with SYS_NET_)
+enum
+{
+	SYS_NET_MSG_OOB         = 0x1,
+	SYS_NET_MSG_PEEK        = 0x2,
+	SYS_NET_MSG_DONTROUTE   = 0x4,
+	SYS_NET_MSG_EOR         = 0x8,
+	SYS_NET_MSG_TRUNC       = 0x10,
+	SYS_NET_MSG_CTRUNC      = 0x20,
+	SYS_NET_MSG_WAITALL     = 0x40,
+	SYS_NET_MSG_DONTWAIT    = 0x80,
+	SYS_NET_MSG_BCAST       = 0x100,
+	SYS_NET_MSG_MCAST       = 0x200,
+	SYS_NET_MSG_USECRYPTO   = 0x400,
+	SYS_NET_MSG_USESIGNATURE= 0x800,
+};
+
+// Shutdown types (prefixed with SYS_NET_)
+enum
+{
+	SYS_NET_SHUT_RD         = 0,
+	SYS_NET_SHUT_WR         = 1,
+	SYS_NET_SHUT_RDWR       = 2,
 };
 
 // TCP options (prefixed with SYS_NET_)
@@ -217,7 +254,7 @@ struct sys_net_sockaddr_in
 	u8 sin_family;
 	be_t<u16> sin_port;
 	be_t<u32> sin_addr;
-	char sin_zero[8];
+	be_t<u64> sin_zero;
 };
 
 // sockaddr_in_p2p prefixed with sys_net_
@@ -236,6 +273,13 @@ struct sys_net_timeval
 {
 	be_t<s64> tv_sec;
 	be_t<s64> tv_usec;
+};
+
+// linger prefixed with sys_net_
+struct sys_net_linger
+{
+	be_t<s32> l_onoff;
+	be_t<s32> l_linger;
 };
 
 struct sys_net_sockinfo_t

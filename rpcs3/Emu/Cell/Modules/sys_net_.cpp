@@ -39,21 +39,21 @@ static NEVER_INLINE vm::ptr<sys_net_tls_data> get_tls()
 
 s32 sys_net_accept(s32 s, vm::ptr<sys_net_sockaddr> addr, vm::ptr<u32> paddrlen)
 {
-	libnet.todo("accept(s=%d, family=*0x%x, paddrlen=*0x%x)", s, addr, paddrlen);
+	libnet.todo("accept(s=%d, addr=*0x%x, paddrlen=*0x%x)", s, addr, paddrlen);
 
 	return 0;
 }
 
 s32 sys_net_bind(s32 s, vm::cptr<sys_net_sockaddr> addr, u32 addrlen)
 {
-	libnet.todo("bind(s=%d, family=*0x%x, addrlen=%d)", s, addr, addrlen);
+	libnet.todo("bind(s=%d, addr=*0x%x, addrlen=%u)", s, addr, addrlen);
 
 	return 0;
 }
 
 s32 sys_net_connect(s32 s, vm::ptr<sys_net_sockaddr> addr, u32 addrlen)
 {
-	libnet.todo("connect(s=%d, family=*0x%x, addrlen=%d)", s, addr, addrlen);
+	libnet.todo("connect(s=%d, addr=*0x%x, addrlen=%u)", s, addr, addrlen);
 
 	return 0;
 }
@@ -92,7 +92,7 @@ u32 sys_net_inet_addr(vm::cptr<char> cp)
 {
 	libnet.todo("inet_addr(cp=%s)", cp);
 
-	return 0;
+	return 0xffffffff;
 }
 
 s32 sys_net_inet_aton()
