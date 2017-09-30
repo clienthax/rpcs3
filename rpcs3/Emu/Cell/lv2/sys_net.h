@@ -326,6 +326,11 @@ struct lv2_socket final
 
 	semaphore<> mutex;
 
+#ifdef _WIN32
+	// Remember events (WSAEnumNetworkEvents)
+	u32 ev_set = 0;
+#endif
+
 	// Native socket (must be non-blocking)
 	socket_type socket;
 

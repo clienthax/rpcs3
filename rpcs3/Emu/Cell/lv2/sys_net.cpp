@@ -62,6 +62,7 @@ static s32 get_last_error(bool is_blocking, int native_error = 0)
 		ERROR_CASE(EWOULDBLOCK);
 		ERROR_CASE(EINPROGRESS);
 		ERROR_CASE(EALREADY);
+		ERROR_CASE(ENOTCONN);
 	default: sys_net.error("Unknown/illegal socket error: %d", native_error);
 	}
 
@@ -141,22 +142,27 @@ extern void network_thread_init()
 			{
 				bs_t<lv2_socket::poll> events{};
 
+				lv2_socket& sock = *socklist[i];
+
 #ifdef _WIN32
 				WSANETWORKEVENTS nwe;
-				if (WSAEnumNetworkEvents(socklist[i]->socket, nullptr, &nwe) == 0)
+				if (WSAEnumNetworkEvents(sock.socket, nullptr, &nwe) == 0)
 				{
-					if (nwe.lNetworkEvents & (FD_READ | FD_ACCEPT | FD_CLOSE) && socklist[i]->events.test_and_reset(lv2_socket::poll::read))
+					sock.ev_set |= nwe.lNetworkEvents;
+
+					if (sock.ev_set & (FD_READ | FD_ACCEPT | FD_CLOSE) && sock.events.test_and_reset(lv2_socket::poll::read))
 						events += lv2_socket::poll::read;
-					if (nwe.lNetworkEvents & (FD_WRITE | FD_CONNECT | FD_CLOSE) && socklist[i]->events.test_and_reset(lv2_socket::poll::write))
+					if (sock.ev_set & (FD_WRITE | FD_CONNECT) && sock.events.test_and_reset(lv2_socket::poll::write))
 						events += lv2_socket::poll::write;
-					if (nwe.lNetworkEvents & FD_CLOSE ||
-						(nwe.lNetworkEvents & FD_READ && nwe.iErrorCode[FD_READ_BIT]) ||
+					
+					if ((nwe.lNetworkEvents & FD_READ && nwe.iErrorCode[FD_READ_BIT]) ||
 						(nwe.lNetworkEvents & FD_ACCEPT && nwe.iErrorCode[FD_ACCEPT_BIT]) ||
 						(nwe.lNetworkEvents & FD_CLOSE && nwe.iErrorCode[FD_CLOSE_BIT]) ||
 						(nwe.lNetworkEvents & FD_WRITE && nwe.iErrorCode[FD_WRITE_BIT]) ||
 						(nwe.lNetworkEvents & FD_CONNECT && nwe.iErrorCode[FD_CONNECT_BIT]))
 					{
-						if (socklist[i]->events.test_and_reset(lv2_socket::poll::error))
+						// TODO
+						if (sock.events.test_and_reset(lv2_socket::poll::error))
 							events += lv2_socket::poll::error;
 					}
 				}
@@ -165,7 +171,7 @@ extern void network_thread_init()
 					sys_net.error("WSAEnumNetworkEvents() failed (s=%d)", i);
 				}
 #else
-				if (fds[i].revents & POLLIN && socklist[i]->events.test_and_reset(lv2_socket::poll::read))
+				if (fds[i].revents & (POLLIN | POLLHUP) && socklist[i]->events.test_and_reset(lv2_socket::poll::read))
 					events += lv2_socket::poll::read;
 				if (fds[i].revents & POLLOUT && socklist[i]->events.test_and_reset(lv2_socket::poll::write))
 					events += lv2_socket::poll::write;
@@ -217,11 +223,7 @@ extern void network_thread_init()
 				auto events = socklist[i]->events.load();
 
 #ifdef _WIN32
-				verify(HERE), 0 == WSAEventSelect(socklist[i]->socket, _eventh,
-					(test(events, lv2_socket::poll::read) ? FD_READ | FD_ACCEPT : 0) |
-					(test(events, lv2_socket::poll::write) ? FD_WRITE | FD_CONNECT : 0) |
-					(test(events) ? FD_CLOSE : 0)
-				);
+				verify(HERE), 0 == WSAEventSelect(socklist[i]->socket, _eventh, FD_READ | FD_ACCEPT | FD_CLOSE | FD_WRITE | FD_CONNECT);
 #else
 				fds[i].fd = test(events) ? socklist[i]->socket : -1;
 				fds[i].events =
@@ -275,8 +277,11 @@ s32 sys_net_bnet_accept(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> addr, 
 	{
 		semaphore_lock lock(sock.mutex);
 
-		if (!test(sock.events, lv2_socket::poll::read))
+		//if (!test(sock.events, lv2_socket::poll::read))
 		{
+#ifdef _WIN32
+			sock.ev_set &= ~FD_ACCEPT;
+#endif
 			native_socket = ::accept(sock.socket, (::sockaddr*)&native_addr, &native_addrlen);
 
 			if (native_socket != -1)
@@ -298,6 +303,9 @@ s32 sys_net_bnet_accept(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> addr, 
 		{
 			if (test(events, lv2_socket::poll::read))
 			{
+#ifdef _WIN32
+				sock.ev_set &= ~FD_ACCEPT;
+#endif
 				native_socket = ::accept(sock.socket, (::sockaddr*)&native_addr, &native_addrlen);
 
 				if (native_socket != -1 || (result = get_last_error(!sock.so_nbio)))
@@ -435,6 +443,7 @@ s32 sys_net_bnet_connect(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> addr,
 			((sys_net_sockaddr_in*)addr.get_ptr())->sin_family = SYS_NET_AF_INET;
 			((sys_net_sockaddr_in*)addr.get_ptr())->sin_port   = 53;
 			((sys_net_sockaddr_in*)addr.get_ptr())->sin_addr   = 0x08080808;
+			sys_net.warning("sys_net_bnet_connect(s=%d): using DNS 8.8.8.8:53...");
 		}
 		else if (addr->sa_family != SYS_NET_AF_INET)
 		{
@@ -464,6 +473,9 @@ s32 sys_net_bnet_connect(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> addr,
 				{
 					if (test(events, lv2_socket::poll::write))
 					{
+#ifdef _WIN32
+						sock.ev_set &= ~FD_CONNECT;
+#endif
 						int native_error;
 						::socklen_t size = sizeof(native_error);
 						if (::getsockopt(sock.socket, SOL_SOCKET, SO_ERROR, (char*)&native_error, &size) != 0 || size != sizeof(int))
@@ -492,6 +504,9 @@ s32 sys_net_bnet_connect(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> addr,
 		{
 			if (test(events, lv2_socket::poll::write))
 			{
+#ifdef _WIN32
+				sock.ev_set &= ~FD_CONNECT;
+#endif
 				int native_error;
 				::socklen_t size = sizeof(native_error);
 				if (::getsockopt(sock.socket, SOL_SOCKET, SO_ERROR, (char*)&native_error, &size) != 0 || size != sizeof(int))
@@ -852,8 +867,11 @@ s32 sys_net_bnet_recvfrom(ppu_thread& ppu, s32 s, vm::ptr<void> buf, u32 len, s3
 	{
 		semaphore_lock lock(sock.mutex);
 
-		if (!test(sock.events, lv2_socket::poll::read))
+		//if (!test(sock.events, lv2_socket::poll::read))
 		{
+#ifdef _WIN32
+			sock.ev_set &= ~FD_READ;
+#endif
 			native_result = ::recvfrom(sock.socket, (char*)buf.get_ptr(), len, native_flags, (::sockaddr*)&native_addr, &native_addrlen);
 
 			if (native_result != -1)
@@ -875,6 +893,9 @@ s32 sys_net_bnet_recvfrom(ppu_thread& ppu, s32 s, vm::ptr<void> buf, u32 len, s3
 		{
 			if (test(events, lv2_socket::poll::read))
 			{
+#ifdef _WIN32
+				sock.ev_set &= ~FD_READ;
+#endif
 				native_result = ::recvfrom(sock.socket, (char*)buf.get_ptr(), len, native_flags, (::sockaddr*)&native_addr, &native_addrlen);
 
 				if (native_result != -1 || (result = get_last_error(!sock.so_nbio && (flags & SYS_NET_MSG_DONTWAIT) == 0)))
@@ -999,25 +1020,35 @@ s32 sys_net_bnet_sendto(ppu_thread& ppu, s32 s, vm::cptr<void> buf, u32 len, s32
 	{
 		semaphore_lock lock(sock.mutex);
 
-		native_result = ::sendto(sock.socket, (const char*)buf.get_ptr(), len, native_flags, addr ? (::sockaddr*)&name : nullptr, addr ? namelen : 0);
-
-		if (native_result != -1)
+		//if (!test(sock.events, lv2_socket::poll::write))
 		{
-			return true;
+#ifdef _WIN32
+			sock.ev_set &= ~FD_WRITE;
+#endif
+			native_result = ::sendto(sock.socket, (const char*)buf.get_ptr(), len, native_flags, addr ? (::sockaddr*)&name : nullptr, addr ? namelen : 0);
+
+			if (native_result != -1)
+			{
+				return true;
+			}
+
+			result = get_last_error(!sock.so_nbio && (flags & SYS_NET_MSG_DONTWAIT) == 0);
+
+			if (result)
+			{
+				return false;
+			}
 		}
 
-		result = get_last_error(!sock.so_nbio && (flags & SYS_NET_MSG_DONTWAIT) == 0);
-
-		if (result)
-		{
-			return false;
-		}
-
+		// Enable write event
 		sock.events += lv2_socket::poll::write;
 		sock.queue.emplace_back(ppu.id, [&](bs_t<lv2_socket::poll> events) -> bool
 		{
 			if (test(events, lv2_socket::poll::write))
 			{
+#ifdef _WIN32
+				sock.ev_set &= ~FD_WRITE;
+#endif
 				native_result = ::sendto(sock.socket, (const char*)buf.get_ptr(), len, native_flags, addr ? (::sockaddr*)&name : nullptr, addr ? namelen : 0);
 
 				if (native_result != -1 || (result = get_last_error(!sock.so_nbio && (flags & SYS_NET_MSG_DONTWAIT) == 0)))
@@ -1308,6 +1339,9 @@ s32 sys_net_bnet_close(ppu_thread& ppu, s32 s)
 		return -SYS_NET_EBADF;
 	}
 
+	if (!sock->queue.empty())
+		sys_net.fatal("CLOSE");
+
 	return 0;
 }
 
@@ -1316,30 +1350,97 @@ s32 sys_net_bnet_poll(ppu_thread& ppu, vm::ptr<sys_net_pollfd> fds, s32 nfds, s3
 	sys_net.warning("sys_net_bnet_poll(fds=*0x%x, nfds=%d, ms=%d)", fds, nfds, ms);
 
 	atomic_t<s32> signaled{0};
-	s32 total = 0; // Number of valid sockets
 
-	if (nfds > signaled)
+	u64 timeout = ms < 0 ? 0 : ms * 1000ull;
+
+	if (nfds)
 	{
 		semaphore_lock nw_lock(s_nw_mutex);
 
 		reader_lock lock(id_manager::g_mutex);
 
+#ifndef _WIN32
+		::pollfd _fds[1024]{};
+#endif
+
+		for (s32 i = 0; i < nfds; i++)
+		{
+#ifndef _WIN32
+			_fds[i].fd = -1;
+#endif
+			fds[i].revents = 0;
+
+			if (fds[i].fd < 0)
+			{
+				continue;
+			}
+
+			if (auto sock = idm::check_unlocked<lv2_socket>(fds[i].fd))
+			{
+				if (fds[i].events & ~(SYS_NET_POLLIN | SYS_NET_POLLOUT))
+					sys_net.error("sys_net_bnet_poll(fd=%d): events=0x%x", fds[i].fd, fds[i].events);
+#ifdef _WIN32
+				if (fds[i].events & SYS_NET_POLLIN && sock->ev_set & (FD_READ | FD_ACCEPT | FD_CLOSE))
+					fds[i].revents |= SYS_NET_POLLIN;
+				if (fds[i].events & SYS_NET_POLLOUT && sock->ev_set & (FD_WRITE | FD_CONNECT))
+					fds[i].revents |= SYS_NET_POLLOUT;
+
+				if (fds[i].revents)
+				{
+					signaled++;
+				}
+#else
+				_fds[i].fd = sock->socket;
+				if (fds[i].events & SYS_NET_POLLIN)
+					_fds[i].events |= POLLIN;
+				if (fds[i].events & SYS_NET_POLLOUT)
+					_fds[i].events |= POLLOUT;
+#endif
+			}
+			else
+			{
+				fds[i].revents |= SYS_NET_POLLNVAL;
+				signaled++;
+			}
+		}
+
+#ifndef _WIN32
+		::poll(_fds, nfds, 0);
+
+		for (s32 i = 0; i < nfds; i++)
+		{
+			if (_fds[i].revents & (POLLIN | POLLHUP))
+				fds[i].revents |= SYS_NET_POLLIN;
+			if (_fds[i].revents & POLLOUT)
+				fds[i].revents |= SYS_NET_POLLOUT;
+			if (_fds[i].revents & POLLERR)
+				fds[i].revents |= SYS_NET_POLLERR;
+
+			if (fds[i].revents)
+			{
+				signaled++;
+			}
+		}
+#endif
+
+		if (ms == 0 || signaled)
+		{
+			return signaled;
+		}
+
 		for (s32 i = 0; i < nfds; i++)
 		{
 			if (fds[i].fd < 0)
 			{
-				sys_net.error("IGNORE FD");
+				continue;
 			}
 
 			if (auto sock = idm::check_unlocked<lv2_socket>(fds[i].fd))
 			{
 				semaphore_lock lock(sock->mutex);
 
-				fds[i].revents = 0;
-
 				bs_t<lv2_socket::poll> selected = +lv2_socket::poll::error;
-				if (fds[i].events & ~(SYS_NET_POLLIN | SYS_NET_POLLOUT))
-					sys_net.error("sys_net_bnet_poll(fd=%d): events=0x%x", fds[i].fd, fds[i].events);
+				
 				if (fds[i].events & SYS_NET_POLLIN)
 					selected += lv2_socket::poll::read;
 				if (fds[i].events & SYS_NET_POLLOUT)
@@ -1367,58 +1468,45 @@ s32 sys_net_bnet_poll(ppu_thread& ppu, vm::ptr<sys_net_pollfd> fds, s32 nfds, s3
 					sock->events += selected;
 					return false;
 				});
-
-				total++;
-			}
-			else
-			{
-				fds[i].revents = SYS_NET_POLLNVAL;
 			}
 		}
-	}
 
-	// Hacked timeout (instant poll is not implemented, need to wait for response)
-	u64 timeout = ms < 0 ? 0 : ms * 1000 + 1;
-
-	if (total < nfds)
-	{
-		timeout = 1;
-	}
-
-	if (total)
-	{
 		lv2_obj::sleep(ppu, timeout);
+	}
+	else
+	{
+		return 0;
+	}
 
-		while (!ppu.state.test_and_reset(cpu_flag::signal))
+	while (!ppu.state.test_and_reset(cpu_flag::signal))
+	{
+		if (timeout)
 		{
-			if (timeout)
+			const u64 passed = get_system_time() - ppu.start_time;
+
+			if (passed >= timeout)
 			{
-				const u64 passed = get_system_time() - ppu.start_time;
+				semaphore_lock nw_lock(s_nw_mutex);
 
-				if (passed >= timeout)
+				if (signaled)
 				{
-					semaphore_lock nw_lock(s_nw_mutex);
-
-					if ((nfds - total) + signaled)
-					{
-						timeout = 0;
-						continue;
-					}
-
-					network_clear_queue(ppu);
-					break;
+					timeout = 0;
+					continue;
 				}
 
-				thread_ctrl::wait_for(timeout - passed);
+				network_clear_queue(ppu);
+				break;
 			}
-			else
-			{
-				thread_ctrl::wait();
-			}
+
+			thread_ctrl::wait_for(timeout - passed);
+		}
+		else
+		{
+			thread_ctrl::wait();
 		}
 	}
 
-	return (nfds - total) + signaled;
+	return signaled;
 }
 
 s32 sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set> readfds, vm::ptr<sys_net_fd_set> writefds, vm::ptr<sys_net_fd_set> exceptfds, vm::ptr<sys_net_timeval> _timeout)
@@ -1426,7 +1514,6 @@ s32 sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set> readf
 	sys_net.warning("sys_net_bnet_select(nfds=%d, readfds=*0x%x, writefds=*0x%x, exceptfds=*0x%x, timeout=*0x%x)", nfds, readfds, writefds, exceptfds, _timeout);
 
 	atomic_t<s32> signaled{0};
-	s32 total = 0; // Number of valid sockets
 
 	if (exceptfds)
 	{
@@ -1436,12 +1523,96 @@ s32 sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set> readf
 	sys_net_fd_set rread{};
 	sys_net_fd_set rwrite{};
 	sys_net_fd_set rexcept{};
+	u64 timeout = !_timeout ? 0 : _timeout->tv_sec * 1000000ull + _timeout->tv_usec;
 
 	if (nfds >= 0)
 	{
 		semaphore_lock nw_lock(s_nw_mutex);
 
 		reader_lock lock(id_manager::g_mutex);
+
+#ifndef _WIN32
+		::pollfd _fds[1024]{};
+#endif
+
+		for (s32 i = 0; i < nfds; i++)
+		{
+#ifndef _WIN32
+			_fds[i].fd = -1;
+#endif
+			bs_t<lv2_socket::poll> selected{};
+
+			if (readfds && readfds->bit(i))
+				selected += lv2_socket::poll::read;
+			if (writefds && writefds->bit(i))
+				selected += lv2_socket::poll::write;
+			//if (exceptfds && exceptfds->bit(i))
+			//	selected += lv2_socket::poll::error;
+
+			if (test(selected))
+			{
+				selected += lv2_socket::poll::error;
+			}
+			else
+			{
+				continue;
+			}
+
+			if (auto sock = idm::check_unlocked<lv2_socket>(i))
+			{
+#ifdef _WIN32
+				bool sig = false;
+				if (sock->ev_set & (FD_READ | FD_ACCEPT | FD_CLOSE) && test(selected, lv2_socket::poll::read))
+					sig = true, rread.set(i);
+				if (sock->ev_set & (FD_WRITE | FD_CONNECT) && test(selected, lv2_socket::poll::write))
+					sig = true, rwrite.set(i);
+
+				if (sig)
+				{
+					signaled++;
+				}
+#else
+				_fds[i].fd = sock->socket;
+				if (fds[i].events & SYS_NET_POLLIN)
+					_fds[i].events |= POLLIN;
+				if (fds[i].events & SYS_NET_POLLOUT)
+					_fds[i].events |= POLLOUT;
+#endif
+			}
+			else
+			{
+				return -SYS_NET_EBADF;
+			}
+		}
+
+#ifndef _WIN32
+		::poll(_fds, nfds, 0);
+
+		for (s32 i = 0; i < nfds; i++)
+		{
+			bool sig = false;
+			if (_fds[i].revents & (POLLIN | POLLHUP | POLLERR))
+				sig = true, rread.set(i);
+			if (_fds[i].revents & (POLLOUT | POLLERR))
+				sig = true, rwrite.set(i);
+
+			if (sig)
+			{
+				signaled++;
+			}
+		}
+#endif
+
+		if ((_timeout && !timeout) || signaled)
+		{
+			if (readfds)
+				*readfds = rread;
+			if (writefds)
+				*writefds = rwrite;
+			if (exceptfds)
+				*exceptfds = rexcept;
+			return signaled;
+		}
 
 		for (s32 i = 0; i < nfds; i++)
 		{
@@ -1487,53 +1658,45 @@ s32 sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set> readf
 					sock->events += selected;
 					return false;
 				});
-
-				total++;
 			}
 			else
 			{
 				return -SYS_NET_EBADF;
 			}
 		}
+
+		lv2_obj::sleep(ppu, timeout);
 	}
 	else
 	{
 		return -SYS_NET_EINVAL;
 	}
 	
-	// Hacked timeout (instant poll is not implemented, need to wait for response)
-	u64 timeout = !_timeout ? 0 : _timeout->tv_sec * 1000000 + _timeout->tv_usec + 1;
-
-	if (total)
+	while (!ppu.state.test_and_reset(cpu_flag::signal))
 	{
-		lv2_obj::sleep(ppu, timeout);
-
-		while (!ppu.state.test_and_reset(cpu_flag::signal))
+		if (timeout)
 		{
-			if (timeout)
+			const u64 passed = get_system_time() - ppu.start_time;
+
+			if (passed >= timeout)
 			{
-				const u64 passed = get_system_time() - ppu.start_time;
+				semaphore_lock nw_lock(s_nw_mutex);
 
-				if (passed >= timeout)
+				if (signaled)
 				{
-					semaphore_lock nw_lock(s_nw_mutex);
-
-					if (signaled)
-					{
-						timeout = 0;
-						continue;
-					}
-
-					network_clear_queue(ppu);
-					break;
+					timeout = 0;
+					continue;
 				}
 
-				thread_ctrl::wait_for(timeout - passed);
+				network_clear_queue(ppu);
+				break;
 			}
-			else
-			{
-				thread_ctrl::wait();
-			}
+
+			thread_ctrl::wait_for(timeout - passed);
+		}
+		else
+		{
+			thread_ctrl::wait();
 		}
 	}
 
