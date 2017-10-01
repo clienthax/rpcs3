@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Utilities/bit_set.h"
 #include "Utilities/sema.h"
@@ -85,6 +85,16 @@ enum
 	SYS_NET_SO_USESIGNATURE = 0x2000,
 
 	SYS_NET_SOL_SOCKET      = 0xffff,
+};
+
+// IP Options (prefixed with SYS_NET_)
+enum
+{
+	SYS_NET_IP_TTL			= 0x0004,
+	SYS_NET_IP_MULTICAST_IF = 0x0009,
+	SYS_NET_IP_MULTICAST_TTL= 0x000a,
+	SYS_NET_IP_ADD_MEMBERSHIP=0x000c,
+
 };
 
 // Family (prefixed with SYS_NET_)

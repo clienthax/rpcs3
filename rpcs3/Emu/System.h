@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "VFS.h"
 #include "Utilities/Atomic.h"
@@ -387,7 +387,9 @@ struct cfg_root : cfg::node
 		node_net(cfg::node* _this) : cfg::node(_this, "Net") {}
 
 		cfg::_enum<CellNetCtlState> net_status{this, "Connection status"};
-		cfg::string ip_address{this, "IP address", "192.168.1.1"};
+		cfg::string ip_address{ this, "IP address", "192.168.1.1" };
+		cfg::string netmask{ this, "Netmask", "255.255.255.0" };
+		cfg::string gateway{ this, "Gateway", "192.168.1.1" };
 
 	} net{this};
 

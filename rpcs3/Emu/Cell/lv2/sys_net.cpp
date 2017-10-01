@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
@@ -755,6 +755,19 @@ s32 sys_net_bnet_getsockopt(ppu_thread& ppu, s32 s, s32 level, s32 optname, vm::
 			}
 			}
 		}
+		else if (level == SYS_NET_IPPROTO_IP)
+		{
+			native_level = IPPROTO_IP;
+
+			switch (optname)
+			{
+			default:
+			{
+				sys_net.error("sys_net_bnet_getsockopt(s=%d, SYS_NET_IPPROTO_IP): unknown option (0x%x)", s, optname);
+				return SYS_NET_EINVAL;
+			}
+			}
+		}
 		else
 		{
 			sys_net.error("sys_net_bnet_getsockopt(s=%d): unknown level (0x%x)", s, level);
@@ -1139,6 +1152,13 @@ s32 sys_net_bnet_setsockopt(ppu_thread& ppu, s32 s, s32 level, s32 optname, vm::
 				native_opt = SO_REUSEADDR;
 				break;
 			}
+			case SYS_NET_SO_REUSEPORT:
+			{
+				sys_net.error("sys_net_bnet_setsockopt SYS_NET_SO_REUSEPORT not possible on windows");
+
+//				native_opt = SO_REUSEPORT;
+				return 0;
+			}
 			case SYS_NET_SO_SNDTIMEO:
 			case SYS_NET_SO_RCVTIMEO:
 			{
@@ -1192,6 +1212,39 @@ s32 sys_net_bnet_setsockopt(ppu_thread& ppu, s32 s, s32 level, s32 optname, vm::
 			default:
 			{
 				sys_net.error("sys_net_bnet_setsockopt(s=%d, IPPROTO_TCP): unknown option (0x%x)", s, optname);
+				return SYS_NET_EINVAL;
+			}
+			}
+		}
+		else if (level == SYS_NET_IPPROTO_IP)
+		{
+			native_level = IPPROTO_IP;
+
+			switch (optname)
+			{
+			case SYS_NET_IP_TTL:
+			{
+				native_opt = IP_TTL;
+				break;
+			}
+			case SYS_NET_IP_MULTICAST_IF:
+			{
+				native_opt = IP_MULTICAST_IF;
+				break;
+			}
+			case SYS_NET_IP_MULTICAST_TTL:
+			{
+				native_opt = IP_MULTICAST_TTL;
+				break;
+			}
+			case SYS_NET_IP_ADD_MEMBERSHIP:
+			{
+				native_opt = IP_ADD_MEMBERSHIP;
+				break;
+			}
+			default:
+			{
+				sys_net.error("sys_net_bnet_setsockopt(s=%d, SYS_NET_IPPROTO_IP): unknown option (0x%x)", s, optname);
 				return SYS_NET_EINVAL;
 			}
 			}
@@ -1261,9 +1314,9 @@ s32 sys_net_bnet_socket(ppu_thread& ppu, s32 family, s32 type, s32 protocol)
 {
 	sys_net.warning("sys_net_bnet_socket(family=%d, type=%d, protocol=%d)", family, type, protocol);
 
-	if (family != SYS_NET_AF_INET)
+	if (family != SYS_NET_AF_INET && family != SYS_NET_AF_UNSPEC)
 	{
-		sys_net.error("sys_net_bnet_socket(): unknown family (%d)", family);
+		sys_net.error("sys_net_bnet_socket(): unknown family (%d) type (%d)", family, type);
 	}
 
 	if (type != SYS_NET_SOCK_STREAM && type != SYS_NET_SOCK_DGRAM)
@@ -1272,7 +1325,11 @@ s32 sys_net_bnet_socket(ppu_thread& ppu, s32 family, s32 type, s32 protocol)
 		return -SYS_NET_EPROTONOSUPPORT;
 	}
 
-	const int native_domain = AF_INET;
+	int native_domain = AF_INET;
+	if (type == SYS_NET_AF_UNSPEC)
+	{
+		native_domain = AF_UNSPEC;
+	}
 	const int native_type =
 		type == SYS_NET_SOCK_STREAM ? SOCK_STREAM :
 		type == SYS_NET_SOCK_DGRAM ? SOCK_DGRAM : SOCK_RAW;

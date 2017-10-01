@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/Cell/PPUModule.h"
 
@@ -123,7 +123,6 @@ error_code cellNetCtlDelHandler(s32 hid)
 
 error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 {
-	cellNetCtl.todo("cellNetCtlGetInfo(code=0x%x (%s), info=*0x%x)", code, InfoCodeToName(code), info);
 
 	if (code == CELL_NET_CTL_INFO_MTU)
 	{
@@ -154,7 +153,23 @@ error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 	}
 	else if (code == CELL_NET_CTL_INFO_NETMASK)
 	{
-		strcpy_trunc(info->netmask, "255.255.255.255");
+		strcpy_trunc(info->netmask, g_cfg.net.netmask);
+	}
+	else if (code == CELL_NET_CTL_INFO_DEFAULT_ROUTE)
+	{
+		strcpy_trunc(info->default_route, g_cfg.net.gateway);
+	}
+	else if (code == CELL_NET_CTL_INFO_IP_CONFIG)
+	{
+		info->ip_config = CELL_NET_CTL_IP_STATIC;
+	}
+	else if (code == CELL_NET_CTL_INFO_HTTP_PROXY_CONFIG)
+	{
+		info->http_proxy_config = CELL_NET_CTL_HTTP_PROXY_OFF;
+	}
+	else
+	{
+		cellNetCtl.todo("cellNetCtlGetInfo(code=0x%x (%s), info=*0x%x)", code, InfoCodeToName(code), info);
 	}
 
 	return CELL_OK;
