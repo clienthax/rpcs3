@@ -171,10 +171,6 @@ error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 	{
 		cellNetCtl.todo("cellNetCtlGetInfo(code=0x%x (%s), info=*0x%x)", code, InfoCodeToName(code), info);
 	}
-	else if (code == CELL_NET_CTL_INFO_HTTP_PROXY_CONFIG)
-	{
-		info->http_proxy_config = 0;
-	}
 
 	return CELL_OK;
 }
@@ -200,9 +196,10 @@ error_code cellNetCtlNetStartDialogAbortAsync()
 
 error_code cellNetCtlNetStartDialogUnloadAsync(vm::ptr<CellNetCtlNetStartDialogResult> result)
 {
-	cellNetCtl.warning("cellNetCtlNetStartDialogUnloadAsync(result=*0x%x)", result);
+	cellNetCtl.error("cellNetCtlNetStartDialogUnloadAsync(result=*0x%x)", result);
 
-	result->result = CELL_NET_CTL_ERROR_DIALOG_CANCELED;
+//	result->result = CELL_NET_CTL_ERROR_DIALOG_CANCELED;
+	result->result = 0;
 	sysutil_send_system_cmd(CELL_SYSUTIL_NET_CTL_NETSTART_UNLOADED, 0);
 
 	return CELL_OK;
