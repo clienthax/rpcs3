@@ -171,6 +171,10 @@ error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 	{
 		cellNetCtl.todo("cellNetCtlGetInfo(code=0x%x (%s), info=*0x%x)", code, InfoCodeToName(code), info);
 	}
+	else if (code == CELL_NET_CTL_INFO_HTTP_PROXY_CONFIG)
+	{
+		info->http_proxy_config = 0;
+	}
 
 	return CELL_OK;
 }
