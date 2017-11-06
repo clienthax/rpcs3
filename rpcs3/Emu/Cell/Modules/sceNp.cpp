@@ -9,6 +9,7 @@
 #include "cellRtc.h"
 #include "sceNp.h"
 #include "cellSysutil.h"
+#include <ctime>
 
 logs::channel sceNp("sceNp");
 
@@ -205,8 +206,10 @@ s32 sceNpDrmProcessExitSpawn2(ppu_thread& ppu, vm::cptr<u8> klicensee, vm::cptr<
 	return CELL_OK;
 }
 
-s32 sceNpBasicRegisterHandler()
+s32 sceNpBasicRegisterHandler(vm::ptr<SceNpCommunicationId> id, vm::ptr<SceNpBasicEventHandler> handler, vm::ptr<void> arg)
 {
+	sceNp.todo("sceNpBasicRegisterHandler(id=*0x%x, handler=*0x%x, arg=*0x%x)", id, handler, arg);
+
 	UNIMPLEMENTED_FUNC(sceNp);
 	return CELL_OK;
 }
@@ -911,7 +914,7 @@ s32 sceNpManagerRegisterCallback(vm::ptr<SceNpManagerCallback> callback, vm::ptr
 
 	sysutil_register_cb([=](ppu_thread& ppu)->s32
 	{
-		callback(ppu, SCE_NP_MANAGER_STATUS_OFFLINE, CELL_OK, arg.addr());
+		callback(ppu, g_psn_connection_status, CELL_OK, arg.addr());
 		return CELL_OK;
 	});
 
@@ -945,7 +948,7 @@ s32 sceNpManagerGetStatus(vm::ptr<s32> status)
 
 s32 sceNpManagerGetNetworkTime(vm::ptr<CellRtcTick> pTick)
 {
-	sceNp.todo("sceNpManagerGetNetworkTime(pTick=*0x%x)", pTick);
+	sceNp.todo("sceNpManagerGetNetworkTime(pTick=*0x%x) currently using system time", pTick);
 
 	if (!pTick)
 	{
@@ -961,13 +964,20 @@ s32 sceNpManagerGetNetworkTime(vm::ptr<CellRtcTick> pTick)
 	{
 		return SCE_NP_ERROR_INVALID_STATE;
 	}
+	const u64 rtcMagicOffset = 62135596800000000ULL;//1970 epoch
+	const u64 tickResolution = 1000000ULL;
+
+	std::time_t result = std::time(nullptr);
+	u64 currentEpoch = result;
+
+	pTick->tick = (currentEpoch * tickResolution) + rtcMagicOffset;//TODO off by a few hours.. prob timezone difference?
 
 	return CELL_OK;
 }
 
 s32 sceNpManagerGetOnlineId(vm::ptr<SceNpOnlineId> onlineId)
 {
-	sceNp.todo("sceNpManagerGetOnlineId(onlineId=*0x%x)", onlineId);
+	sceNp.todo("sceNpManagerGetOnlineId(onlineId=*0x%x) returning Clienthax_", onlineId);
 
 	if (!onlineId)
 	{
@@ -984,12 +994,14 @@ s32 sceNpManagerGetOnlineId(vm::ptr<SceNpOnlineId> onlineId)
 		return SCE_NP_ERROR_INVALID_STATE;
 	}
 
+	strcpy(onlineId->data, "Clienthax_");
+
 	return CELL_OK;
 }
 
 s32 sceNpManagerGetNpId(ppu_thread& ppu, vm::ptr<SceNpId> npId)
 {
-	sceNp.todo("sceNpManagerGetNpId(npId=*0x%x)", npId);
+	sceNp.todo("sceNpManagerGetNpId(npId=*0x%x) returning Clienthax_", npId);
 
 	if (!npId)
 	{
@@ -1005,13 +1017,14 @@ s32 sceNpManagerGetNpId(ppu_thread& ppu, vm::ptr<SceNpId> npId)
 	{
 		return SCE_NP_ERROR_INVALID_STATE;
 	}
+	strcpy(npId->handle.data, "Clienthax_");
 
 	return CELL_OK;
 }
 
 s32 sceNpManagerGetOnlineName(vm::ptr<SceNpOnlineName> onlineName)
 {
-	sceNp.todo("sceNpManagerGetOnlineName(onlineName=*0x%x)", onlineName);
+	sceNp.todo("sceNpManagerGetOnlineName(onlineName=*0x%x) returning Clienthax_", onlineName);
 
 	if (!onlineName)
 	{
@@ -1028,12 +1041,15 @@ s32 sceNpManagerGetOnlineName(vm::ptr<SceNpOnlineName> onlineName)
 		return SCE_NP_ERROR_INVALID_STATE;
 	}
 
+	strcpy(onlineName->data, "Clienthax_");
+
+
 	return CELL_OK;
 }
 
 s32 sceNpManagerGetAvatarUrl(vm::ptr<SceNpAvatarUrl> avatarUrl)
 {
-	sceNp.todo("sceNpManagerGetAvatarUrl(avatarUrl=*0x%x)", avatarUrl);
+	sceNp.todo("sceNpManagerGetAvatarUrl(avatarUrl=*0x%x) returning default", avatarUrl);
 
 	if (!avatarUrl)
 	{
@@ -1049,13 +1065,14 @@ s32 sceNpManagerGetAvatarUrl(vm::ptr<SceNpAvatarUrl> avatarUrl)
 	{
 		return SCE_NP_ERROR_INVALID_STATE;
 	}
+	strcpy(avatarUrl->data, "http://static-resource.np.community.playstation.net/avatar/default/DefaultAvatar.png");
 
 	return CELL_OK;
 }
 
 s32 sceNpManagerGetMyLanguages(vm::ptr<SceNpMyLanguages> myLanguages)
 {
-	sceNp.todo("sceNpManagerGetMyLanguages(myLanguages=*0x%x)", myLanguages);
+	sceNp.todo("sceNpManagerGetMyLanguages(myLanguages=*0x%x) returning englishs", myLanguages);
 
 	if (!myLanguages)
 	{
@@ -1072,8 +1089,9 @@ s32 sceNpManagerGetMyLanguages(vm::ptr<SceNpMyLanguages> myLanguages)
 		return SCE_NP_ERROR_INVALID_STATE;
 	}
 	myLanguages->language1 = CELL_SYSUTIL_LANG_ENGLISH_GB;
-	myLanguages->language2 = CELL_SYSUTIL_LANG_ENGLISH_US;
-	sceNp.todo("sceNpManagerGetMyLanguages(myLanguages=*0x%x) returned englishes", myLanguages);
+	myLanguages->language2 = -1;
+	myLanguages->language3 = -1;
+//	sceNp.todo("sceNpManagerGetMyLanguages(myLanguages=*0x%x) returned englishes", myLanguages);
 
 
 	return CELL_OK;
@@ -1081,7 +1099,7 @@ s32 sceNpManagerGetMyLanguages(vm::ptr<SceNpMyLanguages> myLanguages)
 
 s32 sceNpManagerGetAccountRegion(vm::ptr<SceNpCountryCode> countryCode, vm::ptr<s32> language)
 {
-	sceNp.todo("sceNpManagerGetAccountRegion(countryCode=*0x%x, language=*0x%x)", countryCode, language);
+	sceNp.todo("sceNpManagerGetAccountRegion(countryCode=*0x%x, language=*0x%x) returning gb", countryCode, language);
 
 	if (!countryCode || !language)
 	{
@@ -1098,12 +1116,15 @@ s32 sceNpManagerGetAccountRegion(vm::ptr<SceNpCountryCode> countryCode, vm::ptr<
 		return SCE_NP_ERROR_INVALID_STATE;
 	}
 
+	strcpy(countryCode->data, "gb");
+	*language = 1;
+
 	return CELL_OK;
 }
 
 s32 sceNpManagerGetAccountAge(vm::ptr<s32> age)
 {
-	sceNp.todo("sceNpManagerGetAccountAge(age=*0x%x)", age);
+	sceNp.todo("sceNpManagerGetAccountAge(age=*0x%x) returning adultsss", age);
 
 	if (!age)
 	{
@@ -1119,6 +1140,8 @@ s32 sceNpManagerGetAccountAge(vm::ptr<s32> age)
 	{
 		return SCE_NP_ERROR_INVALID_STATE;
 	}
+
+	*age = 24;
 
 	return CELL_OK;
 }
@@ -1151,7 +1174,7 @@ s32 sceNpManagerGetContentRatingFlag(vm::ptr<s32> isRestricted, vm::ptr<s32> age
 
 s32 sceNpManagerGetChatRestrictionFlag(vm::ptr<s32> isRestricted)
 {
-	sceNp.todo("sceNpManagerGetChatRestrictionFlag(isRestricted=*0x%x)", isRestricted);
+	sceNp.todo("sceNpManagerGetChatRestrictionFlag(isRestricted=*0x%x) no restrics here", isRestricted);
 
 	if (!isRestricted)
 	{
@@ -1174,9 +1197,25 @@ s32 sceNpManagerGetChatRestrictionFlag(vm::ptr<s32> isRestricted)
 	return CELL_OK;
 }
 
-s32 sceNpManagerGetCachedInfo()
+s32 sceNpManagerGetCachedInfo(vm::ptr<u32> userId, vm::ptr<SceNpManagerCacheParam> cacheParam)
 {
-	UNIMPLEMENTED_FUNC(sceNp);
+	sceNp.todo("sceNpManagerGetCachedInfo(userId=*0x%x, cacheParam=*0x%x) meh impl", userId, cacheParam);
+	sceNp.todo("meh %d", userId);
+
+	u32 zeoo = 0;
+	if (userId)
+	{//dodgy hack
+		sceNp.todo("meh, not 0");
+		return CELL_ENOENT;
+	}
+
+	strcpy(cacheParam->avatarUrl.data, "http://static-resource.np.community.playstation.net/avatar/default/DefaultAvatar.png");
+	strcpy(cacheParam->npId.handle.data, "Clienthax_");
+	strcpy(cacheParam->onlineId.data, "Clienthax_");
+	strcpy(cacheParam->onlineName.data, "Clienthax_");
+
+
+//	UNIMPLEMENTED_FUNC(sceNp);
 	return CELL_OK;
 }
 
@@ -1754,7 +1793,7 @@ s32 sceNpUtilCanonicalizeNpIdForPsp()
 
 s32 sceNpUtilCmpNpId(vm::ptr<SceNpId> id1, vm::ptr<SceNpId> id2)
 {
-	sceNp.warning("sceNpUtilCmpNpId(id1=*0x%x, id2=*0x%x)", id1, id2);
+	sceNp.error("sceNpUtilCmpNpId(id1=*0x%x, data1=%s, id2=*0x%x, data2=%s)", id1, id1->handle.data, id2, id2->handle.data);
 
 	// TODO: Improve the comparison.
 	if (strcmp(id1->handle.data, id2->handle.data) != 0)

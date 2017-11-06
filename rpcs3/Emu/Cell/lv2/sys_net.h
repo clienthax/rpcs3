@@ -204,6 +204,11 @@ struct sys_net_hostent
 	vm::ps3::bpptr<char> h_addr_list;
 };
 
+struct unknown50bytes
+{
+	char unknownbollocks[50];
+};
+
 // in_addr prefixed with sys_net_
 struct sys_net_in_addr
 {

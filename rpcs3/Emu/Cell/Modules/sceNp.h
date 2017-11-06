@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 namespace vm { using namespace ps3; }
 
@@ -552,9 +552,9 @@ struct SceNpBasicPresenceDetails2
 // Country/region code
 struct SceNpCountryCode
 {
-	s8 data[2];
-	s8 term;
-	s8 padding[1];
+	char data[2];
+	char term;
+	char padding[1];
 };
 
 // Date information

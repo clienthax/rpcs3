@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "sys_mmapper.h"
 
 namespace vm { using namespace ps3; }
@@ -267,13 +267,13 @@ error_code sys_mmapper_map_shared_memory(u32 addr, u32 mem_id, u64 flags)
 
 error_code sys_mmapper_search_and_map(u32 start_addr, u32 mem_id, u64 flags, vm::ptr<u32> alloc_addr)
 {
-	sys_mmapper.warning("sys_mmapper_search_and_map(start_addr=0x%x, mem_id=0x%x, flags=0x%llx, alloc_addr=*0x%x)", start_addr, mem_id, flags, alloc_addr);
+	sys_mmapper.error("sys_mmapper_search_and_map(start_addr=0x%x, mem_id=0x%x, flags=0x%llx, alloc_addr=*0x%x)", start_addr, mem_id, flags, alloc_addr);
 
 	const auto area = vm::get(vm::any, start_addr);
 
 	if (!area || start_addr < 0x50000000 || start_addr >= 0xC0000000)
 	{
-		return CELL_EINVAL;
+//		return CELL_EINVAL;
 	}
 
 	const auto mem = idm::get<lv2_obj, lv2_memory>(mem_id);
@@ -285,7 +285,7 @@ error_code sys_mmapper_search_and_map(u32 start_addr, u32 mem_id, u64 flags, vm:
 
 	if (const u32 old_addr = mem->addr.compare_and_swap(0, -1))
 	{
-		sys_mmapper.warning("sys_mmapper_search_and_map(): Already mapped (mem_id=0x%x, addr=0x%x)", mem_id, old_addr);
+		sys_mmapper.error("sys_mmapper_search_and_map(): Already mapped (mem_id=0x%x, addr=0x%x)", mem_id, old_addr);
 		return CELL_OK;
 	}
 

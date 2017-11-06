@@ -24,6 +24,9 @@
 #include <poll.h>
 #endif
 
+#include "Utilities/StrUtil.h"
+
+
 namespace vm { using namespace ps3; }
 
 logs::channel sys_net("sys_net");
@@ -385,6 +388,7 @@ s32 sys_net_bnet_accept(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> addr, 
 s32 sys_net_bnet_bind(ppu_thread& ppu, s32 s, vm::cptr<sys_net_sockaddr> addr, u32 addrlen)
 {
 	sys_net.warning("sys_net_bnet_bind(s=%d, addr=*0x%x, addrlen=%u)", s, addr, addrlen);
+	sys_net.error("sys_net_bnet_bind(s=%d): %u.%u.%u.%u:%u", s, addr->sa_data[2], addr->sa_data[3], addr->sa_data[4], addr->sa_data[5], *(be_t<u16>*)addr->sa_data);
 
 	if (addr->sa_family != SYS_NET_AF_INET)
 	{
@@ -396,6 +400,13 @@ s32 sys_net_bnet_bind(ppu_thread& ppu, s32 s, vm::cptr<sys_net_sockaddr> addr, u
 	name.sin_family      = AF_INET;
 	name.sin_port        = htons(((sys_net_sockaddr_in*)addr.get_ptr())->sin_port);
 	name.sin_addr.s_addr = htonl(((sys_net_sockaddr_in*)addr.get_ptr())->sin_addr);
+
+	unsigned long ip = inet_addr("192.168.1.211");
+	struct hostent *localhooo = gethostbyaddr((char *)&ip, 4, AF_INET);
+
+	name.sin_addr = *(struct in_addr *) localhooo->h_addr;
+
+
 	::socklen_t namelen  = sizeof(name);
 
 	const auto sock = idm::check<lv2_socket>(s, [&](lv2_socket& sock) -> s32
@@ -429,6 +440,9 @@ s32 sys_net_bnet_connect(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> addr,
 	name.sin_addr.s_addr = htonl(((sys_net_sockaddr_in*)addr.get_ptr())->sin_addr);
 	::socklen_t namelen  = sizeof(name);
 
+	sys_net.error("sys_net_bnet_connect(s=%d): %u.%u.%u.%u:%u", s, addr->sa_data[2], addr->sa_data[3], addr->sa_data[4], addr->sa_data[5], *(be_t<u16>*)addr->sa_data);
+
+
 	const auto sock = idm::check<lv2_socket>(s, [&](lv2_socket& sock)
 	{
 		semaphore_lock lock(sock.mutex);
@@ -443,7 +457,7 @@ s32 sys_net_bnet_connect(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> addr,
 			((sys_net_sockaddr_in*)addr.get_ptr())->sin_family = SYS_NET_AF_INET;
 			((sys_net_sockaddr_in*)addr.get_ptr())->sin_port   = 53;
 			((sys_net_sockaddr_in*)addr.get_ptr())->sin_addr   = 0x08080808;
-			sys_net.warning("sys_net_bnet_connect(s=%d): using DNS 8.8.8.8:53...");
+			sys_net.warning("sys_net_bnet_connect(s=%d): using DNS 8.8.8.8:53...", s);
 		}
 		else if (addr->sa_family != SYS_NET_AF_INET)
 		{
@@ -629,6 +643,8 @@ s32 sys_net_bnet_getsockname(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> a
 			paddr->sin_family = SYS_NET_AF_INET;
 			paddr->sin_port   = ntohs(((::sockaddr_in*)&native_addr)->sin_port);
 			paddr->sin_addr   = ntohl(((::sockaddr_in*)&native_addr)->sin_addr.s_addr);
+			sys_net.warning("sys_net_bnet_getsockname(s=%d ...) port=%d", s, paddr->sin_port);
+
 			paddr->sin_zero   = 0;
 			return 0;
 		}
@@ -991,7 +1007,11 @@ s32 sys_net_bnet_sendmsg(ppu_thread& ppu, s32 s, vm::cptr<sys_net_msghdr> msg, s
 
 s32 sys_net_bnet_sendto(ppu_thread& ppu, s32 s, vm::cptr<void> buf, u32 len, s32 flags, vm::cptr<sys_net_sockaddr> addr, u32 addrlen)
 {
-	sys_net.warning("sys_net_bnet_sendto(s=%d, buf=*0x%x, len=%u, flags=0x%x, addr=*0x%x, addrlen=%u)", s, buf, len, flags, addr, addrlen);
+	sys_net.error("sys_net_bnet_sendto(s=%d, buf=*0x%x, len=%u, flags=0x%x, addr=*0x%x, addrlen=%u)", s, buf, len, flags, addr, addrlen);
+	//sys_net.error("sys_net_bnet_sendto(s=%d): %u.%u.%u.%u:%u", s, addr->sa_data[2], addr->sa_data[3], addr->sa_data[4], addr->sa_data[5], *(be_t<u16>*)addr->sa_data);
+
+//	sys_net.error("sys_net_bnet_sendto(s=%d): %u.%u.%u.%u:%u", s, addr->sa_data[2], addr->sa_data[3], addr->sa_data[4], addr->sa_data[5], *(be_t<u16>*)addr->sa_data);
+	//sys_net.error("blarg %.*x", len, buf.get_ptr());
 
 	if (flags & ~(SYS_NET_MSG_DONTWAIT | SYS_NET_MSG_WAITALL))
 	{
@@ -1016,10 +1036,12 @@ s32 sys_net_bnet_sendto(ppu_thread& ppu, s32 s, vm::cptr<void> buf, u32 len, s32
 
 	if (addr)
 	{
+		sys_net.error("sys_net_bnet_sendto(s=%d): %u.%u.%u.%u:%u", s, addr->sa_data[2], addr->sa_data[3], addr->sa_data[4], addr->sa_data[5], *(be_t<u16>*)addr->sa_data);
 		name.sin_family      = AF_INET;
 		name.sin_port        = htons(((sys_net_sockaddr_in*)addr.get_ptr())->sin_port);
 		name.sin_addr.s_addr = htonl(((sys_net_sockaddr_in*)addr.get_ptr())->sin_addr);
 	}
+
 	
 	::socklen_t namelen = sizeof(name);
 	s32 result = 0;
@@ -1146,6 +1168,8 @@ s32 sys_net_bnet_setsockopt(ppu_thread& ppu, s32 s, s32 level, s32 optname, vm::
 			{
 				// Special
 				sock.so_nbio = native_int;
+				sys_net.warning("SYS_NET_SO_NBIO = %d", native_int);
+
 				return 0;
 			}
 			case SYS_NET_SO_KEEPALIVE:
@@ -1800,6 +1824,14 @@ s32 sys_net_abort(ppu_thread& ppu, s32 type, u64 arg, s32 flags)
 s32 sys_net_infoctl(ppu_thread& ppu, s32 cmd, vm::ptr<void> arg)
 {
 	sys_net.todo("sys_net_infoctl(cmd=%d, arg=*0x%x)", cmd, arg);
+	Emu.Pause();
+
+
+	struct sockaddr_in dns;
+	inet_pton(AF_INET, "20.20.20.20", &(dns.sin_addr));
+	socklen_t addrLen = sizeof(dns);
+
+
 	return 0;
 }
 

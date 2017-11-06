@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Utilities/VirtualMemory.h"
 #include "Utilities/bin_patch.h"
 #include "Crypto/sha1.h"
@@ -1274,9 +1274,7 @@ void ppu_load_exec(const ppu_exec_object& elf)
 			{ "cellPngEnc", "libpngenc.sprx" },
 			{ "cellPngEnc", "libsre.sprx" },
 			{ "cellResc", "libresc.sprx" },
-			{ "cellRtc", "librtc.sprx" },
 			{ "cellSsl", "libssl.sprx" },
-			{ "cellSsl", "librtc.sprx" },
 			{ "cellHttp", "libhttp.sprx" },
 			{ "cellHttp", "cellSsl" },
 			{ "cellHttpUtil", "libhttp.sprx" },

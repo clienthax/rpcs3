@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
@@ -77,6 +77,7 @@ static const std::unordered_map<std::string, int> s_prx_ignore
 	{ "/dev_flash/sys/external/libsysutil_video_player.sprx", 0 },
 	{ "/dev_flash/sys/external/libsysutil_video_upload.sprx", 0 },
 	{ "/dev_flash/sys/external/libusbd.sprx", 0 },
+	{ "/dev_flash/sys/external/librtc.sprx", 0 },
 	{ "/dev_flash/sys/external/libusbpspcm.sprx", 0 },
 	{ "/dev_flash/sys/external/libvdec.sprx", 0 },
 	{ "/dev_flash/sys/external/libvoice.sprx", 0 },

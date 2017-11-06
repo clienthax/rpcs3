@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
 #include "Emu/Cell/PPUModule.h"
@@ -291,6 +291,7 @@ error_code cellGameBootCheck(vm::ptr<u32> type, vm::ptr<u32> attributes, vm::ptr
 		*type = CELL_GAME_GAMETYPE_DISC;
 		*attributes = 0;
 		cellGame.error("cellGameBootCheck(): Unknown CATEGORY: %s", category);
+
 	}
 
 	return CELL_OK;
@@ -378,7 +379,8 @@ error_code cellGameContentPermit(vm::ptr<char[CELL_GAME_PATH_MAX]> contentInfoPa
 	
 	if (!prm)
 	{
-		return CELL_GAME_ERROR_FAILURE;
+//		return CELL_GAME_ERROR_FAILURE;
+		return CELL_OK;
 	}
 
 	const std::string dir = prm->dir.empty() ? "/dev_bdvd/PS3_GAME"s : "/dev_hdd0/game/" + prm->dir;

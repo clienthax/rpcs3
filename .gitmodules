@@ -44,3 +44,6 @@
 	path = 3rdparty/hidapi
 	url = https://github.com/RPCS3/hidapi
 	branch = master
+[submodule "3rdparty/date"]
+	path = 3rdparty/date
+	url = https://github.com/HowardHinnant/date.git

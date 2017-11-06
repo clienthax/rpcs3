@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
 #include "Emu/Cell/PPUModule.h"
@@ -766,8 +766,8 @@ error_code cellAudioSetNotifyEventQueueEx(u64 key, u32 iFlags)
 	cellAudio.todo("cellAudioSetNotifyEventQueueEx(key=0x%llx, iFlags=0x%x)", key, iFlags);
 
 	// TODO
-
-	return CELL_OK;
+	return cellAudioSetNotifyEventQueue(key);
+//	return CELL_OK;
 }
 
 error_code cellAudioRemoveNotifyEventQueue(u64 key)

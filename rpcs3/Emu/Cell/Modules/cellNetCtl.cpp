@@ -123,6 +123,7 @@ error_code cellNetCtlDelHandler(s32 hid)
 
 error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 {
+	cellNetCtl.todo("cellNetCtlGetInfo(code=0x%x (%s), info=*0x%x)", code, InfoCodeToName(code), info);
 
 	if (code == CELL_NET_CTL_INFO_MTU)
 	{
@@ -167,9 +168,26 @@ error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 	{
 		info->http_proxy_config = CELL_NET_CTL_HTTP_PROXY_OFF;
 	}
+	else if (code == CELL_NET_CTL_INFO_PRIMARY_DNS)
+	{
+		strcpy_trunc(info->primary_dns, "8.8.8.8");
+	}
+	else if (code == CELL_NET_CTL_INFO_SECONDARY_DNS)
+	{
+		strcpy_trunc(info->secondary_dns, "8.8.4.4");
+	}
+	else if (code == CELL_NET_CTL_INFO_DEVICE)
+	{
+		info->device = CELL_NET_CTL_DEVICE_WIRED;
+	}
+	else if (code == CELL_NET_CTL_INFO_ETHER_ADDR)
+	{
+		uint8_t bleh[6] = { 0, 0, 0, 0, 208, 1 };
+		std::memcpy(info->ether_addr.data, &bleh, 6);
+	}
 	else
 	{
-		cellNetCtl.todo("cellNetCtlGetInfo(code=0x%x (%s), info=*0x%x)", code, InfoCodeToName(code), info);
+//		cellNetCtl.todo("cellNetCtlGetInfo(code=0x%x (%s), info=*0x%x)", code, InfoCodeToName(code), info);
 	}
 
 	return CELL_OK;
@@ -177,7 +195,8 @@ error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 
 error_code cellNetCtlNetStartDialogLoadAsync(vm::ptr<CellNetCtlNetStartDialogParam> param)
 {
-	cellNetCtl.error("cellNetCtlNetStartDialogLoadAsync(param=*0x%x)", param);
+	cellNetCtl.error("cellNetCtlNetStartDialogLoadAsync(param=*0x%x, type=%d)", param, param->type);
+	//0 for net, 1 for psn, 2 for max?
 
 	// TODO: Actually sign into PSN or an emulated network similar to PSN (ESN)
 	// TODO: Properly open the dialog prompt for sign in
