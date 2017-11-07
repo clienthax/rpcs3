@@ -1,10 +1,25 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Cell/PPUModule.h"
+#include "Emu/IdManager.h"
+#include "Emu/Cell/PPUCallback.h"
 
 #include "sceNp.h"
 #include "sceNp2.h"
+#include "cellSysutil.h"
+
 
 logs::channel sceNp2("sceNp2");
+
+struct np2_context_t
+{
+	static const u32 id_base = 1;
+	static const u32 id_step = 1;
+	static const u32 id_count = 1023;
+
+	SceNpMatching2RequestOptParam optParam;
+
+	std::string name;
+};
 
 s32 sceNp2Init(u32 poolsize, vm::ptr<void> poolptr)
 {
@@ -67,9 +82,16 @@ s32 sceNpMatching2Term2()
 	return CELL_OK;
 }
 
-s32 sceNpMatching2DestroyContext()
+s32 sceNpMatching2DestroyContext(ppu_thread& ppu, u16 contextId)
 {
-	UNIMPLEMENTED_FUNC(sceNp2);
+	sceNp2.warning("sceNpMatching2DestroyContext(%d)", contextId);
+	const auto ctxt = idm::get<np2_context_t>(contextId);
+	if (!ctxt)
+	{
+		sceNp2.warning("sceNpMatching2DestroyContext(%d) oh noes", contextId);
+	}
+	idm::remove<np2_context_t>(contextId);
+
 	return CELL_OK;
 }
 
@@ -193,9 +215,23 @@ s32 sceNpMatching2AbortRequest()
 	return CELL_OK;
 }
 
-s32 sceNpMatching2GetServerInfo()
+s32 sceNpMatching2GetServerInfo(u16 contextId, vm::cptr<SceNpMatching2GetServerInfoRequest> reqParam, vm::cptr<SceNpMatching2RequestOptParam> optParam, u32 assignedReqId)
 {
-	UNIMPLEMENTED_FUNC(sceNp2);
+	sceNp2.error("sceNpMatching2GetServerInfo(contextId=0x%x, reqParam=*0x%x, optParam=*0x%x, assignedReqId=%d)", contextId, reqParam, optParam, assignedReqId);
+	sceNp2.error("sceNpMatching2GetServerInfo serverID = %d", reqParam->serverId);
+	assignedReqId = 1338;
+
+	const auto ctxt = idm::get<np2_context_t>(contextId);
+
+	sceNp2.error("sceNpMatching2GetServerInfo appReqId=%d, cbFuncArg=*0x%x, timeout=%d", ctxt->optParam.appReqId, ctxt->optParam.cbFuncArg, ctxt->optParam.timeout);
+///TODO
+//	ctxt->optParam.cbFunc(contextId, assignedReqId, 0, 0, 0, 1, ctxt->optParam.cbFuncArg);
+	ctxt->optParam.cbFunc(contextId, assignedReqId, SCE_NP_MATCHING2_REQUEST_EVENT_GetServerInfo, 0, 0, SCE_NP_MATCHING2_EVENT_DATA_MAX_SIZE_GetServerInfo, ctxt->optParam.cbFuncArg);
+
+	
+	sysutil_send_system_cmd(SCE_NP_MATCHING2_REQUEST_EVENT_GetServerInfo, 1);
+
+
 	return CELL_OK;
 }
 
@@ -295,10 +331,14 @@ s32 sceNpMatching2SignalingGetPingInfo()
 	return CELL_OK;
 }
 
-s32 sceNpMatching2GetServerIdListLocal()
-{
-	UNIMPLEMENTED_FUNC(sceNp2);
-	return CELL_OK;
+s32 sceNpMatching2GetServerIdListLocal(vm::ptr<SceNpMatching2ContextId> contextId, vm::ptr<SceNpMatching2ServerId> serverId, u32 maxServers)
+{//Return num of servers
+//	UNIMPLEMENTED_FUNC(sceNp2);
+	sceNp2.error("sceNpMatching2GetServerIdListLocal(contextId=0x%x, serverId=*0x%x, maxServers=%d)", contextId, serverId, maxServers);
+
+	*serverId = 1337;
+	return 1;
+//	return CELL_OK;
 }
 
 s32 sceNpUtilBuildCdnUrl()
@@ -313,9 +353,47 @@ s32 sceNpMatching2GrantRoomOwner()
 	return CELL_OK;
 }
 
-s32 sceNpMatching2CreateContext()
+void deleteTerminateChar2(char* myStr, char _char) {
+
+	char *del = &myStr[strlen(myStr)];
+
+	while (del > myStr && *del != _char)
+		del--;
+
+	if (*del == _char)
+		*del = '\0';
+
+	return;
+}
+
+s32 sceNpMatching2CreateContext(vm::cptr<SceNpId> npId, vm::cptr<SceNpCommunicationId> commId, vm::cptr<SceNpCommunicationPassphrase> passphrase, vm::ptr<SceNpMatching2ContextId> contextId, u32 option)
 {
-	UNIMPLEMENTED_FUNC(sceNp2);
+	sceNp2.error("sceNpMatching2CreateContext(npId=%s, commId=%s, passphrase=%s, contextId=%d, option=%d)", npId->handle.data, commId->data, passphrase->data, contextId, option);
+	sceNp2.error("todo sceNpMatching2CreateContext(npId=%s, commId=%d, passphrase=%s, contextId=%d, option=%d)", npId->handle.data, commId->num, passphrase->data, contextId, option);
+
+	if (!contextId)
+	{
+		return SCE_NP_ERROR_INVALID_ARGUMENT;//might be wrong
+	}
+
+	std::string name;
+	if (commId->term)
+	{
+		char trimchar[10] = { 0 };
+		memcpy(trimchar, commId->data, sizeof(trimchar) - 1);
+		deleteTerminateChar2(trimchar, commId->term);
+		name = fmt::format("%s_%02d", trimchar, commId->num);
+	}
+	else
+	{
+		name = fmt::format("%s_%02d", commId->data, commId->num);
+	}
+	sceNp2.error("name: %s", name);
+
+	const auto ctxt = idm::make_ptr<np2_context_t>();
+
+	*contextId = idm::last_id();
+
 	return CELL_OK;
 }
 
@@ -373,9 +451,15 @@ s32 sceNpMatching2DeleteServerContext()
 	return CELL_OK;
 }
 
-s32 sceNpMatching2SetDefaultRequestOptParam()
+s32 sceNpMatching2SetDefaultRequestOptParam(ppu_thread& ppu, u16 contextId, vm::cptr<SceNpMatching2RequestOptParam> optParam)
 {
-	UNIMPLEMENTED_FUNC(sceNp2);
+	sceNp2.error("sceNpMatching2SetDefaultRequestOptParam(contextId=0x%x, optParam=*0x%x)", contextId, optParam);
+	sceNp2.error("sceNpMatching2SetDefaultRequestOptParam appReqId=%d, cbFuncArg=*0x%x, timeout=%d", optParam->appReqId, optParam->cbFuncArg, optParam->timeout);
+	
+	const auto ctxt = idm::get<np2_context_t>(contextId);
+	ctxt->optParam = *optParam;
+
+
 	return CELL_OK;
 }
 
