@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 namespace vm { using namespace ps3; }
 
@@ -400,6 +400,12 @@ struct SceNpCommunicationId
 	char dummy;
 };
 
+struct SceNpTicketVersion
+{
+	u16 major;
+	u16 minor;
+};
+
 // OnlineId structure
 struct SceNpOnlineId
 {
@@ -572,7 +578,7 @@ struct SceNpEntitlementId
 };
 
 // Callback for getting the connection status
-using SceNpManagerCallback = void(s32 event, s32 result, u32 arg_addr);
+using SceNpManagerCallback = void(s32 event, s32 result, vm::ptr<void> arg);
 
 // Score data unique to the application
 struct SceNpScoreGameInfo

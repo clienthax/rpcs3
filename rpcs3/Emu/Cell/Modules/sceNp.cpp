@@ -12,6 +12,10 @@
 
 logs::channel sceNp("sceNp");
 
+
+vm::ptr<SceNpManagerCallback> managerCallback;
+vm::ptr<void> managerCallbackArg;
+
 s32 g_psn_connection_status = SCE_NP_MANAGER_STATUS_ONLINE;
 
 s32 sceNpInit(u32 poolsize, vm::ptr<void> poolptr)
@@ -50,6 +54,7 @@ s32 npDrmIsAvailable(vm::cptr<u8> k_licensee_addr, vm::cptr<char> drm_path)
 	{
 		std::copy_n(k_licensee_addr.get_ptr(), k_licensee.size(), k_licensee.begin());
 		sceNp.notice("npDrmIsAvailable(): KLicense key %s", *reinterpret_cast<be_t<v128, 1>*>(k_licensee.data()));
+		return CELL_OK;
 	}
 
 	const std::string enc_drm_path = drm_path.get_ptr();
@@ -95,7 +100,6 @@ s32 npDrmIsAvailable(vm::cptr<u8> k_licensee_addr, vm::cptr<char> drm_path)
 	else if (magic == "NPD\0"_u32)
 	{
 		// edata / sdata files
-
 		std::string contentID;
 
 		if (VerifyEDATHeaderWithKLicense(enc_file, enc_drm_path_local, k_licensee, &contentID))
@@ -900,14 +904,19 @@ s32 sceNpLookupTitleSmallStorageAsync()
 	return CELL_OK;
 }
 
-s32 sceNpManagerRegisterCallback(vm::ptr<SceNpManagerCallback> callback, vm::ptr<void> arg)
+s32 sceNpManagerRegisterCallback(ppu_thread& ppu, vm::ptr<SceNpManagerCallback> callback2, vm::ptr<void> arg)
 {
-	sceNp.warning("sceNpManagerRegisterCallback(callback=*0x%x, arg=*0x%x)", callback, arg);
+	sceNp.error("sceNpManagerRegisterCallback(callback=*0x%x, arg=*0x%x)", callback2, arg);
 
-	if (!callback)
+	if (!callback2)
 	{
 		return SCE_NP_ERROR_INVALID_ARGUMENT;
 	}
+
+	managerCallback = callback2;
+	managerCallbackArg = arg;
+
+	//callback2(ppu, SCE_NP_MANAGER_STATUS_ONLINE, 0, arg);
 
 	return CELL_OK;
 }
@@ -979,7 +988,7 @@ s32 sceNpManagerGetOnlineId(vm::ptr<SceNpOnlineId> onlineId)
 
 s32 sceNpManagerGetNpId(ppu_thread& ppu, vm::ptr<SceNpId> npId)
 {
-	sceNp.todo("sceNpManagerGetNpId(npId=*0x%x)", npId);
+	sceNp.warning("sceNpManagerGetNpId(npId=*0x%x)", npId);
 
 	if (!npId)
 	{
@@ -995,6 +1004,8 @@ s32 sceNpManagerGetNpId(ppu_thread& ppu, vm::ptr<SceNpId> npId)
 	{
 		return SCE_NP_ERROR_INVALID_STATE;
 	}
+
+	strcpy(npId->handle.data, "Clienthax_");
 
 	return CELL_OK;
 }
@@ -1160,11 +1171,28 @@ s32 sceNpManagerGetChatRestrictionFlag(vm::ptr<s32> isRestricted)
 	return CELL_OK;
 }
 
-s32 sceNpManagerGetCachedInfo()
+s32 sceNpManagerGetCachedInfo(vm::ptr<u32> userId, vm::ptr<SceNpManagerCacheParam> cacheParam)
 {
-	UNIMPLEMENTED_FUNC(sceNp);
+	sceNp.todo("sceNpManagerGetCachedInfo(userId=*0x%x, cacheParam=*0x%x) meh impl", userId, cacheParam);
+	sceNp.todo("meh %d", userId);
+
+	u32 zeoo = 0;
+	if (userId)
+	{//dodgy hack
+		sceNp.todo("meh, not 0");
+		return CELL_ENOENT;
+	}
+
+	strcpy(cacheParam->avatarUrl.data, "http://static-resource.np.community.playstation.net/avatar/default/DefaultAvatar.png");
+	strcpy(cacheParam->npId.handle.data, "Clienthax_");
+	strcpy(cacheParam->onlineId.data, "Clienthax_");
+	strcpy(cacheParam->onlineName.data, "Clienthax_");
+
+
+	//	UNIMPLEMENTED_FUNC(sceNp);
 	return CELL_OK;
 }
+
 
 s32 sceNpManagerGetPsHandle()
 {
@@ -1178,8 +1206,11 @@ s32 sceNpManagerRequestTicket()
 	return CELL_OK;
 }
 
-s32 sceNpManagerRequestTicket2()
+s32 sceNpManagerRequestTicket2(ppu_thread& ppu, vm::cptr<SceNpId> npId, vm::cptr<SceNpTicketVersion> ticketVersion, vm::cptr<char> serviceId, vm::cptr<void> cookie, vm::ptr<u32> cookieSize, vm::cptr<char> entitlementId, vm::ptr<u32> consumed)
 {
+
+	managerCallback(ppu, 255, 0, managerCallbackArg);//GodTicket callback event == 255
+
 	UNIMPLEMENTED_FUNC(sceNp);
 	return CELL_OK;
 }
@@ -1837,7 +1868,7 @@ DECLARE(ppu_module_manager::sceNp)("sceNp", []()
 {
 	REG_FUNC(sceNp, sceNpInit);
 	REG_FUNC(sceNp, sceNpTerm);
-	REG_FUNC(sceNp, sceNpDrmIsAvailable);
+	REG_FUNC(sceNp, sceNpDrmIsAvailable);// .flag(MFF_FORCED_HLE);
 	REG_FUNC(sceNp, sceNpDrmIsAvailable2);
 	REG_FUNC(sceNp, sceNpDrmVerifyUpgradeLicense);
 	REG_FUNC(sceNp, sceNpDrmVerifyUpgradeLicense2);
@@ -1845,7 +1876,7 @@ DECLARE(ppu_module_manager::sceNp)("sceNp", []()
 	REG_FUNC(sceNp, sceNpDrmGetTimelimit);
 	REG_FUNC(sceNp, sceNpDrmProcessExitSpawn);
 	REG_FUNC(sceNp, sceNpDrmProcessExitSpawn2);
-	REG_FUNC(sceNp, sceNpBasicRegisterHandler);
+	REG_FUNC(sceNp, sceNpBasicRegisterHandler);//nop
 	REG_FUNC(sceNp, sceNpBasicRegisterContextSensitiveHandler);
 	REG_FUNC(sceNp, sceNpBasicUnregisterHandler);
 	REG_FUNC(sceNp, sceNpBasicSetPresence);
@@ -1948,20 +1979,20 @@ DECLARE(ppu_module_manager::sceNp)("sceNp", []()
 	REG_FUNC(sceNp, sceNpLookupTitleStorageAsync);
 	REG_FUNC(sceNp, sceNpLookupTitleSmallStorage);
 	REG_FUNC(sceNp, sceNpLookupTitleSmallStorageAsync);
-	REG_FUNC(sceNp, sceNpManagerRegisterCallback);
+	REG_FUNC(sceNp, sceNpManagerRegisterCallback);//nop
 	REG_FUNC(sceNp, sceNpManagerUnregisterCallback);
 	REG_FUNC(sceNp, sceNpManagerGetStatus);
 	REG_FUNC(sceNp, sceNpManagerGetNetworkTime);
-	REG_FUNC(sceNp, sceNpManagerGetOnlineId);
-	REG_FUNC(sceNp, sceNpManagerGetNpId);
-	REG_FUNC(sceNp, sceNpManagerGetOnlineName);
-	REG_FUNC(sceNp, sceNpManagerGetAvatarUrl);
-	REG_FUNC(sceNp, sceNpManagerGetMyLanguages);
-	REG_FUNC(sceNp, sceNpManagerGetAccountRegion);
-	REG_FUNC(sceNp, sceNpManagerGetAccountAge);
-	REG_FUNC(sceNp, sceNpManagerGetContentRatingFlag);
-	REG_FUNC(sceNp, sceNpManagerGetChatRestrictionFlag);
-	REG_FUNC(sceNp, sceNpManagerGetCachedInfo);
+	REG_FUNC(sceNp, sceNpManagerGetOnlineId).flag(MFF_FORCED_HLE);
+	REG_FUNC(sceNp, sceNpManagerGetNpId).flag(MFF_FORCED_HLE);
+	REG_FUNC(sceNp, sceNpManagerGetOnlineName).flag(MFF_FORCED_HLE);
+	REG_FUNC(sceNp, sceNpManagerGetAvatarUrl).flag(MFF_FORCED_HLE);
+	REG_FUNC(sceNp, sceNpManagerGetMyLanguages).flag(MFF_FORCED_HLE);
+	REG_FUNC(sceNp, sceNpManagerGetAccountRegion).flag(MFF_FORCED_HLE);
+	REG_FUNC(sceNp, sceNpManagerGetAccountAge).flag(MFF_FORCED_HLE);
+	REG_FUNC(sceNp, sceNpManagerGetContentRatingFlag).flag(MFF_FORCED_HLE);
+	REG_FUNC(sceNp, sceNpManagerGetChatRestrictionFlag).flag(MFF_FORCED_HLE);
+	REG_FUNC(sceNp, sceNpManagerGetCachedInfo).flag(MFF_FORCED_HLE);
 	REG_FUNC(sceNp, sceNpManagerGetPsHandle);
 	REG_FUNC(sceNp, sceNpManagerRequestTicket);
 	REG_FUNC(sceNp, sceNpManagerRequestTicket2);

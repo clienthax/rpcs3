@@ -107,9 +107,16 @@ s32 sceNpMatching2RegisterLobbyMessageCallback()
 	return CELL_OK;
 }
 
-s32 sceNpMatching2GetWorldInfoList()
+s32 sceNpMatching2GetWorldInfoList(ppu_thread& ppu, u16 contextId, vm::cptr<SceNpMatching2GetWorldInfoListRequest> request, vm::cptr<SceNpMatching2RequestOptParam> optParam, u32 assignedReqId)
 {
-	UNIMPLEMENTED_FUNC(sceNp2);
+	sceNp2.error("sceNpMatching2GetWorldInfoList(contextId=0x%x, reqParam=*0x%x, optParam=*0x%x, assignedReqId=%d)", contextId, request, optParam, assignedReqId);
+
+	const auto ctxt = idm::get<np2_context_t>(contextId);
+	assignedReqId = 4000;
+	ctxt->optParam.cbFunc(ppu, contextId, assignedReqId, SCE_NP_MATCHING2_REQUEST_EVENT_GetWorldInfoList, 0, 0, SCE_NP_MATCHING2_EVENT_DATA_MAX_SIZE_GetWorldInfoList, ctxt->optParam.cbFuncArg);
+
+
+
 	return CELL_OK;
 }
 
@@ -215,29 +222,32 @@ s32 sceNpMatching2AbortRequest()
 	return CELL_OK;
 }
 
-s32 sceNpMatching2GetServerInfo(u16 contextId, vm::cptr<SceNpMatching2GetServerInfoRequest> reqParam, vm::cptr<SceNpMatching2RequestOptParam> optParam, u32 assignedReqId)
+s32 sceNpMatching2GetServerInfo(ppu_thread& ppu, u16 contextId, vm::cptr<SceNpMatching2GetServerInfoRequest> reqParam, vm::cptr<SceNpMatching2RequestOptParam> optParam, u32 assignedReqId)
 {
 	sceNp2.error("sceNpMatching2GetServerInfo(contextId=0x%x, reqParam=*0x%x, optParam=*0x%x, assignedReqId=%d)", contextId, reqParam, optParam, assignedReqId);
 	sceNp2.error("sceNpMatching2GetServerInfo serverID = %d", reqParam->serverId);
 	assignedReqId = 1338;
 
 	const auto ctxt = idm::get<np2_context_t>(contextId);
-
-	sceNp2.error("sceNpMatching2GetServerInfo appReqId=%d, cbFuncArg=*0x%x, timeout=%d", ctxt->optParam.appReqId, ctxt->optParam.cbFuncArg, ctxt->optParam.timeout);
-///TODO
-//	ctxt->optParam.cbFunc(contextId, assignedReqId, 0, 0, 0, 1, ctxt->optParam.cbFuncArg);
-	ctxt->optParam.cbFunc(contextId, assignedReqId, SCE_NP_MATCHING2_REQUEST_EVENT_GetServerInfo, 0, 0, SCE_NP_MATCHING2_EVENT_DATA_MAX_SIZE_GetServerInfo, ctxt->optParam.cbFuncArg);
+	ctxt->optParam.cbFunc(ppu, contextId, assignedReqId, SCE_NP_MATCHING2_REQUEST_EVENT_GetServerInfo, 0, 0, SCE_NP_MATCHING2_EVENT_DATA_MAX_SIZE_GetServerInfo, ctxt->optParam.cbFuncArg);
 
 	
-	sysutil_send_system_cmd(SCE_NP_MATCHING2_REQUEST_EVENT_GetServerInfo, 1);
+//	sysutil_send_system_cmd(SCE_NP_MATCHING2_REQUEST_EVENT_GetServerInfo, 1);
 
 
 	return CELL_OK;
 }
 
-s32 sceNpMatching2GetEventData()
+s32 sceNpMatching2GetEventData(ppu_thread& ppu, vm::ptr<SceNpMatching2ContextId> contextId, vm::ptr<SceNpMatching2EventKey> eventKey, vm::ptr<SceNpMatching2GetServerInfoResponse> buf, u32 bufLen)
 {
-	UNIMPLEMENTED_FUNC(sceNp2);
+	sceNp2.error("sceNpMatching2GetEventData contextId=%d, eventKey=*0x%x, buf=*0x%x, bufLen=%d", contextId, eventKey, buf, bufLen);
+
+	//buf is a multitype
+
+	buf->server.serverId = 1337;
+	buf->server.status = SCE_NP_MATCHING2_SERVER_STATUS_AVAILABLE;
+
+
 	return CELL_OK;
 }
 

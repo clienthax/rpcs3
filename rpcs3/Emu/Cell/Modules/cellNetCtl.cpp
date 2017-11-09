@@ -148,16 +148,33 @@ error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 		}
 		else
 		{
-			strcpy_trunc(info->ip_address, g_cfg.net.ip_address);
+			strcpy_trunc(info->ip_address, "192.168.1.211");
 		}
 	}
 	else if (code == CELL_NET_CTL_INFO_NETMASK)
 	{
-		strcpy_trunc(info->netmask, "255.255.255.255");
+		strcpy_trunc(info->netmask, "255.255.255.0");
 	}
 	else if (code == CELL_NET_CTL_INFO_HTTP_PROXY_CONFIG)
 	{
 		info->http_proxy_config = 0;
+	}
+	else if (code == CELL_NET_CTL_INFO_PRIMARY_DNS)
+	{
+		strcpy_trunc(info->primary_dns, "8.8.8.8");
+	}
+	else if (code == CELL_NET_CTL_INFO_SECONDARY_DNS)
+	{
+		strcpy_trunc(info->secondary_dns, "8.8.4.4");
+	}
+	else if (code == CELL_NET_CTL_INFO_DEVICE)
+	{
+		info->device = CELL_NET_CTL_DEVICE_WIRED;
+	}
+	else if (code == CELL_NET_CTL_INFO_ETHER_ADDR)
+	{
+		uint8_t bleh[6] = { 0, 0, 0, 0, 208, 1 };
+		std::memcpy(info->ether_addr.data, &bleh, 6);
 	}
 
 	return CELL_OK;

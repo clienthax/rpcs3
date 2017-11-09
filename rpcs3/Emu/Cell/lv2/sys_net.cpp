@@ -1578,13 +1578,14 @@ s32 sys_net_bnet_poll(ppu_thread& ppu, vm::ptr<sys_net_pollfd> fds, s32 nfds, s3
 
 s32 sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set> readfds, vm::ptr<sys_net_fd_set> writefds, vm::ptr<sys_net_fd_set> exceptfds, vm::ptr<sys_net_timeval> _timeout)
 {
+
 	sys_net.warning("sys_net_bnet_select(nfds=%d, readfds=*0x%x, writefds=*0x%x, exceptfds=*0x%x, timeout=*0x%x)", nfds, readfds, writefds, exceptfds, _timeout);
 
 	atomic_t<s32> signaled{0};
 
 	if (exceptfds)
 	{
-		sys_net.error("sys_net_bnet_select(): exceptfds not implemented");
+		sys_net.warning("sys_net_bnet_select(): exceptfds not implemented");
 	}
 
 	sys_net_fd_set rread{};
