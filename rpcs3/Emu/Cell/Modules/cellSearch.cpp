@@ -11,6 +11,9 @@ s32 cellSearchInitialize(CellSearchMode mode, u32 container, vm::ptr<CellSearchS
 	cellSearch.warning("cellSearchInitialize()");
 
 	// TODO: Store the arguments somewhere so we can use them later.
+	
+	//inform callback that search is alive
+	func(ppu, CELL_SEARCH_EVENT_INITIALIZE_RESULT, CELL_OK, vm::null, userData);
 
 	return CELL_OK;
 }
