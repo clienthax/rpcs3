@@ -1,8 +1,6 @@
 #include "stdafx.h"
 #include "sys_tty.h"
 
-namespace vm { using namespace ps3; }
-
 logs::channel sys_rsxaudio("sys_rsxaudio");
 
 error_code sys_rsxaudio_initialize(vm::ptr<u32> handle)

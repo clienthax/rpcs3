@@ -49,7 +49,7 @@ error_code cellStorageDataImportMove(u32 version, vm::ptr<char> srcMediaFile, vm
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -62,7 +62,7 @@ error_code cellStorageDataImport(u32 version, vm::ptr<char> srcMediaFile, vm::pt
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -75,7 +75,7 @@ error_code cellStorageDataExport(u32 version, vm::ptr<char> srcHddFile, vm::ptr<
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }

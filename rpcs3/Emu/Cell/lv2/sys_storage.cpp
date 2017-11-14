@@ -5,8 +5,6 @@
 #include "Emu/Cell/ErrorCodes.h"
 #include "sys_usbd.h"
 
-namespace vm { using namespace ps3; }
-
 logs::channel sys_storage("sys_storage");
 
 s32 sys_storage_open(u64 device, u32 b, vm::ptr<u32> fd, u32 d)

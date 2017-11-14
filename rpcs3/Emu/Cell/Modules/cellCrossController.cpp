@@ -40,7 +40,7 @@ s32 cellCrossControllerInitialize(vm::cptr<CellCrossControllerParam> pParam, vm:
 		cb(ppu, CELL_CROSS_CONTROLLER_STATUS_FINALIZED, CELL_OK, vm::null, userdata);
 
 		return CELL_OK;
-	});
+	}, cb.addr());
 
 	return CELL_OK;
 }

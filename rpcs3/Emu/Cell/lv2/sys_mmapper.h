@@ -91,4 +91,4 @@ struct struct_339
 	be_t<u32> e;
 	be_t<u32> f;
 };
-error_code sys_mmapper_339(u64 a, s32 b, u32 flags, vm::ps3::ptr<struct_339> src, s32 count, vm::ps3::ptr<u32> mem_id);
+error_code sys_mmapper_339(u64 a, s32 b, u32 flags, vm::ptr<struct_339> src, s32 count, vm::ptr<u32> mem_id);

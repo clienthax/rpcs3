@@ -75,7 +75,7 @@ error_code cellUserInfoSelectUser_ListType(vm::ptr<CellUserInfoTypeSet> listType
 		vm::var<CellUserInfoUserStat> selectUser;
 		funcSelect(ppu, CELL_OK, selectUser, userdata);
 		return CELL_OK;
-	});
+	}, funcSelect.addr());
 
 	return CELL_OK;
 }
@@ -89,7 +89,7 @@ error_code cellUserInfoSelectUser_SetList(vm::ptr<CellUserInfoListSet> setList, 
 		vm::var<CellUserInfoUserStat> selectUser;
 		funcSelect(ppu, CELL_OK, selectUser, userdata);
 		return CELL_OK;
-	});
+	}, funcSelect.addr());
 
 	return CELL_OK;
 }

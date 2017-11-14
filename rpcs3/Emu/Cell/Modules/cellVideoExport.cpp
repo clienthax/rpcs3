@@ -26,7 +26,7 @@ error_code cellVideoExportProgress(vm::ptr<CellVideoExportUtilFinishCallback> fu
 	{
 		funcFinish(ppu, 0xFFFF, userdata); // 0-0xFFFF where 0xFFFF = 100%
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -39,7 +39,7 @@ error_code cellVideoExportInitialize2(u32 version, vm::ptr<CellVideoExportUtilFi
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -52,7 +52,7 @@ error_code cellVideoExportInitialize(u32 version, u32 container, vm::ptr<CellVid
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -65,7 +65,7 @@ error_code cellVideoExportFromFileWithCopy(vm::cptr<char> srcHddDir, vm::cptr<ch
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -78,7 +78,7 @@ error_code cellVideoExportFromFile(vm::cptr<char> srcHddDir, vm::cptr<char> srcH
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -91,7 +91,7 @@ error_code cellVideoExportFinalize(vm::ptr<CellVideoExportUtilFinishCallback> fu
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }

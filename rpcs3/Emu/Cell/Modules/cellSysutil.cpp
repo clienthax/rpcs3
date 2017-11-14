@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
 #include "Emu/Cell/PPUModule.h"
@@ -2021,11 +2021,6 @@ DECLARE(ppu_module_manager::cellSysutil)("cellSysutil", []()
 	REG_FUNC(cellSysutil, _ZN16sysutil_cxmlutil11FixedMemory8AllocateEN4cxml14AllocationTypeEPvS3_jPS3_Pj);
 	REG_FUNC(cellSysutil, _ZN16sysutil_cxmlutil12PacketWriter5WriteEPKvjPv);
 	REG_FUNC(cellSysutil, _ZN16sysutil_cxmlutil12PacketWriterC1EiiRN4cxml8DocumentE);
-
-	REG_FNID(cellSysutil, 0xE1EC7B6A, cellSysutil_E1EC7B6A);
-	REG_FNID(cellSysutil, 0x75AA7373, cellSysutil_75AA7373);
-	REG_FNID(cellSysutil, 0x35F7ED00, cellSysutil_35F7ED00);
-	REG_FNID(cellSysutil, 0xD3CDD694, cellSysutil_D3CDD694);
 
 	// Special
 	REG_FUNC(cellSysutil, sceVshSysutilService).flags = MFF_HIDDEN;

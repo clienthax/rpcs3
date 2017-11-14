@@ -18,7 +18,7 @@ error_code cellVideoUploadInitialize(vm::cptr<CellVideoUploadParam> pParam, vm::
 		cb(ppu, CELL_VIDEO_UPLOAD_STATUS_FINALIZED, CELL_OK, pResultURL, userdata);
 
 		return CELL_OK;
-	});
+	}, cb.addr());
 
 	return CELL_OK;
 }

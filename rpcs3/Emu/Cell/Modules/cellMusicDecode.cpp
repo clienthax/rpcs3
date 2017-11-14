@@ -81,7 +81,7 @@ s32 cellMusicDecodeInitialize(s32 mode, u32 container, s32 spuPriority, vm::ptr<
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE_EVENT_INITIALIZE_RESULT, vm::addr_t(CELL_OK), userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }
@@ -98,7 +98,7 @@ s32 cellMusicDecodeInitializeSystemWorkload(s32 mode, u32 container, vm::ptr<Cel
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE_EVENT_INITIALIZE_RESULT, vm::addr_t(CELL_OK), userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }
@@ -115,7 +115,7 @@ s32 cellMusicDecodeFinalize()
 		{
 			musicDecode->func(ppu, CELL_MUSIC_DECODE_EVENT_FINALIZE_RESULT, vm::addr_t(CELL_OK), musicDecode->userData);
 			return CELL_OK;
-		});
+		}, musicDecode->func.addr());
 	}
 
 	return CELL_OK;
@@ -134,7 +134,7 @@ s32 cellMusicDecodeSelectContents()
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE_EVENT_SELECT_CONTENTS_RESULT, vm::addr_t(CELL_OK), musicDecode->userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }
@@ -152,7 +152,7 @@ s32 cellMusicDecodeSetDecodeCommand(s32 command)
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE_EVENT_SET_DECODE_COMMAND_RESULT, vm::addr_t(CELL_OK), musicDecode->userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }
@@ -188,7 +188,7 @@ s32 cellMusicDecodeSetSelectionContext(vm::ptr<CellMusicSelectionContext> contex
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE_EVENT_SET_SELECTION_CONTEXT_RESULT, vm::addr_t(CELL_OK), musicDecode->userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }
@@ -211,7 +211,7 @@ s32 cellMusicDecodeInitialize2(s32 mode, u32 container, s32 spuPriority, vm::ptr
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE2_EVENT_INITIALIZE_RESULT, vm::addr_t(CELL_OK), userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }
@@ -228,7 +228,7 @@ s32 cellMusicDecodeInitialize2SystemWorkload(s32 mode, u32 container, vm::ptr<Ce
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE2_EVENT_INITIALIZE_RESULT, vm::addr_t(CELL_OK), userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }
@@ -245,7 +245,7 @@ s32 cellMusicDecodeFinalize2()
 		{
 			musicDecode->func(ppu, CELL_MUSIC_DECODE2_EVENT_FINALIZE_RESULT, vm::addr_t(CELL_OK), musicDecode->userData);
 			return CELL_OK;
-		});
+		}, musicDecode->func.addr());
 	}
 
 	return CELL_OK;
@@ -264,7 +264,7 @@ s32 cellMusicDecodeSelectContents2()
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE2_EVENT_SELECT_CONTENTS_RESULT, vm::addr_t(CELL_OK), musicDecode->userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }
@@ -282,7 +282,7 @@ s32 cellMusicDecodeSetDecodeCommand2(s32 command)
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE2_EVENT_SET_DECODE_COMMAND_RESULT, vm::addr_t(CELL_OK), musicDecode->userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }
@@ -318,7 +318,7 @@ s32 cellMusicDecodeSetSelectionContext2(vm::ptr<CellMusicSelectionContext> conte
 	{
 		musicDecode->func(ppu, CELL_MUSIC_DECODE2_EVENT_SET_SELECTION_CONTEXT_RESULT, vm::addr_t(CELL_OK), musicDecode->userData);
 		return CELL_OK;
-	});
+	}, musicDecode->func.addr());
 
 	return CELL_OK;
 }

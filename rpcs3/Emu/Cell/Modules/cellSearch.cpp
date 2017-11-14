@@ -69,7 +69,7 @@ error_code cellSearchInitialize(CellSearchMode mode, u32 container, vm::ptr<Cell
 	{
 		func(ppu, CELL_SEARCH_EVENT_INITIALIZE_RESULT, CELL_OK, vm::null, userData);
 		return CELL_OK;
-	});
+	}, func.addr());
 
 	return CELL_OK;
 }
@@ -77,14 +77,14 @@ error_code cellSearchInitialize(CellSearchMode mode, u32 container, vm::ptr<Cell
 error_code cellSearchFinalize()
 {
 	cellSearch.warning("cellSearchFinalize()");
+	const auto search = fxm::get_always<search_t>();
 
 	sysutil_register_cb([=](ppu_thread& ppu) -> s32
 	{
-		const auto search = fxm::get_always<search_t>();
 
 		search->func(ppu, CELL_SEARCH_EVENT_FINALIZE_RESULT, CELL_OK, vm::null, search->userData);
 		return CELL_OK;
-	});
+	}, search->func.addr());
 
 	return CELL_OK;
 }
@@ -99,10 +99,10 @@ error_code cellSearchStartListSearch(CellSearchListSearchType type, CellSearchSo
 	}
 
 	*outSearchId = idm::make<search_object_t>();
+	const auto search = fxm::get_always<search_t>();
 
 	sysutil_register_cb([=](ppu_thread& ppu) -> s32
 	{
-		const auto search = fxm::get_always<search_t>();
 
 		vm::var<CellSearchResultParam> resultParam;
 		resultParam->searchId = *outSearchId;
@@ -110,7 +110,7 @@ error_code cellSearchStartListSearch(CellSearchListSearchType type, CellSearchSo
 
 		search->func(ppu, CELL_SEARCH_EVENT_LISTSEARCH_RESULT, CELL_OK, vm::cast(resultParam.addr()), search->userData);
 		return CELL_OK;
-	});
+	}, search->func.addr());
 
 	return CELL_OK;
 }
@@ -125,10 +125,10 @@ error_code cellSearchStartContentSearchInList(vm::cptr<CellSearchContentId> list
 	}
 
 	*outSearchId = idm::make<search_object_t>();
+	const auto search = fxm::get_always<search_t>();
 
 	sysutil_register_cb([=](ppu_thread& ppu) -> s32
 	{
-		const auto search = fxm::get_always<search_t>();
 
 		vm::var<CellSearchResultParam> resultParam;
 		resultParam->searchId = *outSearchId;
@@ -136,7 +136,7 @@ error_code cellSearchStartContentSearchInList(vm::cptr<CellSearchContentId> list
 
 		search->func(ppu, CELL_SEARCH_EVENT_CONTENTSEARCH_INLIST_RESULT, CELL_OK, vm::cast(resultParam.addr()), search->userData);
 		return CELL_OK;
-	});
+	}, search->func.addr());
 
 	return CELL_OK;
 }
@@ -151,10 +151,10 @@ error_code cellSearchStartContentSearch(CellSearchContentSearchType type, CellSe
 	}
 
 	*outSearchId = idm::make<search_object_t>();
+	const auto search = fxm::get_always<search_t>();
 
 	sysutil_register_cb([=](ppu_thread& ppu) -> s32
 	{
-		const auto search = fxm::get_always<search_t>();
 
 		vm::var<CellSearchResultParam> resultParam;
 		resultParam->searchId = *outSearchId;
@@ -162,7 +162,7 @@ error_code cellSearchStartContentSearch(CellSearchContentSearchType type, CellSe
 
 		search->func(ppu, CELL_SEARCH_EVENT_CONTENTSEARCH_RESULT, CELL_OK, vm::cast(resultParam.addr()), search->userData);
 		return CELL_OK;
-	});
+	}, search->func.addr());
 
 	return CELL_OK;
 }
@@ -178,9 +178,9 @@ error_code cellSearchStartSceneSearchInVideo(vm::cptr<CellSearchContentId> video
 
 	*outSearchId = idm::make<search_object_t>();
 
+	const auto search = fxm::get_always<search_t>();
 	sysutil_register_cb([=](ppu_thread& ppu) -> s32
 	{
-		const auto search = fxm::get_always<search_t>();
 
 		vm::var<CellSearchResultParam> resultParam;
 		resultParam->searchId = *outSearchId;
@@ -188,7 +188,7 @@ error_code cellSearchStartSceneSearchInVideo(vm::cptr<CellSearchContentId> video
 
 		search->func(ppu, CELL_SEARCH_EVENT_SCENESEARCH_INVIDEO_RESULT, CELL_OK, vm::cast(resultParam.addr()), search->userData);
 		return CELL_OK;
-	});
+	}, search->func.addr());
 
 	return CELL_OK;
 }
@@ -204,9 +204,9 @@ error_code cellSearchStartSceneSearch(CellSearchSceneSearchType searchType, vm::
 
 	*outSearchId = idm::make<search_object_t>();
 
+	const auto search = fxm::get_always<search_t>();
 	sysutil_register_cb([=](ppu_thread& ppu) -> s32
 	{
-		const auto search = fxm::get_always<search_t>();
 
 		vm::var<CellSearchResultParam> resultParam;
 		resultParam->searchId = *outSearchId;
@@ -214,7 +214,7 @@ error_code cellSearchStartSceneSearch(CellSearchSceneSearchType searchType, vm::
 
 		search->func(ppu, CELL_SEARCH_EVENT_SCENESEARCH_RESULT, CELL_OK, vm::cast(resultParam.addr()), search->userData);
 		return CELL_OK;
-	});
+	}, search->func.addr());
 
 	return CELL_OK;
 }

@@ -83,7 +83,7 @@ error_code cellPhotoImport(u32 version, vm::cptr<char> dstHddPath, vm::ptr<CellP
 		filedata->data_sub = vm::var<CellPhotoImportFileDataSub>();
 		funcFinish(ppu, CELL_OK, filedata, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -98,7 +98,7 @@ error_code cellPhotoImport2(u32 version, vm::cptr<char> dstHddPath, vm::ptr<Cell
 		filedata->data_sub = vm::var<CellPhotoImportFileDataSub>();
 		funcFinish(ppu, CELL_OK, filedata, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }

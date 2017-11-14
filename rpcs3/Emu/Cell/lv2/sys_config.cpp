@@ -5,8 +5,6 @@
 #include "Emu/Cell/ErrorCodes.h"
 #include "sys_config.h"
 
-namespace vm { using namespace ps3; }
-
 logs::channel sys_config("sys_config");
 
 error_code sys_config_open(u32 equeue_id, vm::ptr<u32> config_id)

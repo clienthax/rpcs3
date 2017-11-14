@@ -57,7 +57,7 @@ error_code cellPhotoExportInitialize(u32 version, u32 container, vm::ptr<CellPho
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -70,7 +70,7 @@ error_code cellPhotoExportInitialize2(u32 version, vm::ptr<CellPhotoExportUtilFi
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -83,7 +83,7 @@ error_code cellPhotoExportFinalize(vm::ptr<CellPhotoExportUtilFinishCallback> fu
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -96,7 +96,7 @@ error_code cellPhotoExportFromFile(vm::cptr<char> srcHddDir, vm::cptr<char> srcH
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -109,7 +109,7 @@ error_code cellPhotoExportFromFileWithCopy(vm::cptr<char> srcHddDir, vm::cptr<ch
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -122,7 +122,7 @@ error_code cellPhotoExportProgress(vm::ptr<CellPhotoExportUtilFinishCallback> fu
 	{
 		funcFinish(ppu, 0xFFFF, userdata); // 0-0xFFFF where 0xFFFF = 100%
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }

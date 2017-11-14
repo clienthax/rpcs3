@@ -42,7 +42,7 @@ error_code cellMusicExportInitialize(u32 version, u32 container, vm::ptr<CellMus
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -55,7 +55,7 @@ error_code cellMusicExportInitialize2(u32 version, vm::ptr<CellMusicExportUtilFi
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -68,7 +68,7 @@ error_code cellMusicExportFinalize(vm::ptr<CellMusicExportUtilFinishCallback> fu
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -81,7 +81,7 @@ error_code cellMusicExportFromFile(vm::cptr<char> srcHddDir, vm::cptr<char> srcH
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -94,7 +94,7 @@ error_code cellMusicExportProgress(vm::ptr<CellMusicExportUtilFinishCallback> fu
 	{
 		funcFinish(ppu, 0xFFFF, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }

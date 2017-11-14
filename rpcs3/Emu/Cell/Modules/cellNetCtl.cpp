@@ -278,7 +278,7 @@ error_code cellGameUpdateCheckStartAsync(vm::cptr<CellGameUpdateParam> param, vm
 	{
 		cb_func(ppu, CELL_GAMEUPDATE_RESULT_STATUS_NO_UPDATE, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, cb_func.addr());
 	return CELL_OK;
 }
 
@@ -289,7 +289,7 @@ error_code cellGameUpdateCheckFinishAsync(vm::ptr<CellGameUpdateCallback> cb_fun
 	{
 		cb_func(ppu, CELL_GAMEUPDATE_RESULT_STATUS_FINISHED, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, cb_func.addr());
 	return CELL_OK;
 }
 
@@ -300,7 +300,7 @@ error_code cellGameUpdateCheckStartWithoutDialogAsync(vm::ptr<CellGameUpdateCall
 	{
 		cb_func(ppu, CELL_GAMEUPDATE_RESULT_STATUS_NO_UPDATE, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, cb_func.addr());
 	return CELL_OK;
 }
 
@@ -317,7 +317,7 @@ error_code cellGameUpdateCheckStartAsyncEx(vm::cptr<CellGameUpdateParam> param, 
 	{
 		cb_func(ppu, vm::make_var(CellGameUpdateResult{ CELL_GAMEUPDATE_RESULT_STATUS_NO_UPDATE, CELL_OK, 0x0, 0x0}), userdata);
 		return CELL_OK;
-	});
+	}, cb_func.addr());
 	return CELL_OK;
 }
 
@@ -329,7 +329,7 @@ error_code cellGameUpdateCheckFinishAsyncEx(vm::ptr<CellGameUpdateCallbackEx> cb
 	{
 		cb_func(ppu, vm::make_var(CellGameUpdateResult{ CELL_GAMEUPDATE_RESULT_STATUS_FINISHED, CELL_OK, 0x0, 0x0}), userdata);
 		return CELL_OK;
-	});
+	}, cb_func.addr());
 	return CELL_OK;
 }
 
@@ -340,7 +340,7 @@ error_code cellGameUpdateCheckStartWithoutDialogAsyncEx(vm::ptr<CellGameUpdateCa
 	{
 		cb_func(ppu, vm::make_var(CellGameUpdateResult{ CELL_GAMEUPDATE_RESULT_STATUS_NO_UPDATE, CELL_OK, 0x0, 0x0}), userdata);
 		return CELL_OK;
-	});
+	}, cb_func.addr());
 	return CELL_OK;
 }
 

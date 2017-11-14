@@ -44,7 +44,7 @@ error_code cellPhotoDecodeInitialize(u32 version, u32 container1, u32 container2
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -57,7 +57,7 @@ error_code cellPhotoDecodeInitialize2(u32 version, u32 container2, vm::ptr<CellP
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }
@@ -70,7 +70,7 @@ error_code cellPhotoDecodeFinalize(vm::ptr<CellPhotoDecodeFinishCallback> funcFi
 	{
 		funcFinish(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, funcFinish.addr());
 
 	return CELL_OK;
 }

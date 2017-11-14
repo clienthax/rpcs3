@@ -38,7 +38,7 @@ s32 cellMusicSetSelectionContext2(vm::ptr<CellMusicSelectionContext> context)
 	{
 		music->func(ppu, CELL_MUSIC2_EVENT_SET_SELECTION_CONTEXT_RESULT, vm::addr_t(CELL_OK), music->userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -56,7 +56,7 @@ s32 cellMusicSetVolume2(f32 level)
 	{
 		music->func(ppu, CELL_MUSIC2_EVENT_SET_VOLUME_RESULT, vm::addr_t(CELL_OK), music->userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -80,7 +80,7 @@ s32 cellMusicSetSelectionContext(vm::ptr<CellMusicSelectionContext> context)
 	{
 		music->func(ppu, CELL_MUSIC_EVENT_SET_SELECTION_CONTEXT_RESULT, vm::addr_t(CELL_OK), music->userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -97,7 +97,7 @@ s32 cellMusicInitialize2SystemWorkload(s32 mode, vm::ptr<CellMusic2Callback> fun
 	{
 		music->func(ppu, CELL_MUSIC2_EVENT_INITIALIZE_RESULT, vm::addr_t(CELL_OK), userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -126,7 +126,7 @@ s32 cellMusicFinalize()
 		{
 			music->func(ppu, CELL_MUSIC_EVENT_FINALIZE_RESULT, vm::addr_t(CELL_OK), music->userData);
 			return CELL_OK;
-		});
+		}, music->func.addr());
 	}
 
 	return CELL_OK;
@@ -150,7 +150,7 @@ s32 cellMusicInitializeSystemWorkload(s32 mode, u32 container, vm::ptr<CellMusic
 	{
 		music->func(ppu, CELL_MUSIC_EVENT_INITIALIZE_RESULT, vm::addr_t(CELL_OK), userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -173,7 +173,7 @@ s32 cellMusicInitialize(s32 mode, u32 container, s32 spuPriority, vm::ptr<CellMu
 	{
 		music->func(ppu, CELL_MUSIC_EVENT_INITIALIZE_RESULT, vm::addr_t(CELL_OK), userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -190,7 +190,7 @@ s32 cellMusicFinalize2()
 		{
 			music->func(ppu, CELL_MUSIC2_EVENT_FINALIZE_RESULT, vm::addr_t(CELL_OK), music->userData);
 			return CELL_OK;
-		});
+		}, music->func.addr());
 	}
 
 	return CELL_OK;
@@ -227,7 +227,7 @@ s32 cellMusicSetPlaybackCommand2(s32 command, vm::ptr<void> param)
 	{
 		music->func(ppu, CELL_MUSIC2_EVENT_SET_PLAYBACK_COMMAND_RESULT, vm::addr_t(CELL_OK), music->userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -245,7 +245,7 @@ s32 cellMusicSetPlaybackCommand(s32 command, vm::ptr<void> param)
 	{
 		music->func(ppu, CELL_MUSIC_EVENT_SET_PLAYBACK_COMMAND_RESULT, vm::addr_t(CELL_OK), music->userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -263,7 +263,7 @@ s32 cellMusicSelectContents2()
 	{
 		music->func(ppu, CELL_MUSIC2_EVENT_SELECT_CONTENTS_RESULT, vm::addr_t(CELL_OK), music->userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -281,7 +281,7 @@ s32 cellMusicSelectContents(u32 container)
 	{
 		music->func(ppu, CELL_MUSIC_EVENT_SELECT_CONTENTS_RESULT, vm::addr_t(CELL_OK), music->userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }
@@ -322,7 +322,7 @@ s32 cellMusicSetVolume(f32 level)
 	{
 		music->func(ppu, CELL_MUSIC_EVENT_SET_VOLUME_RESULT, vm::addr_t(CELL_OK), music->userData);
 		return CELL_OK;
-	});
+	}, music->func.addr());
 
 	return CELL_OK;
 }

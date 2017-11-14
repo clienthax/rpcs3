@@ -20,7 +20,7 @@ s32 cellSysconfOpen(u32 type, vm::ptr<CellSysconfCallback> func, vm::ptr<void> u
 	{
 		func(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, func.addr());
 
 	return CELL_OK;
 }

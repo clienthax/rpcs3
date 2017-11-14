@@ -4,8 +4,6 @@
 #include "sys_uart.h"
 #include "sys_ppu_thread.h"
 
-namespace vm { using namespace ps3; }
-
 logs::channel sys_uart("sys_uart");
 
 error_code sys_uart_initialize()

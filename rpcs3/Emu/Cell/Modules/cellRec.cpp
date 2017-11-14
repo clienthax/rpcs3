@@ -76,7 +76,7 @@ error_code cellRecOpen(vm::cptr<char> pDirName, vm::cptr<char> pFileName, vm::cp
 	{
 		cb(ppu, CELL_REC_STATUS_OPEN, CELL_OK, cbUserData);
 		return CELL_OK;
-	});
+	}, cb.addr());
 
 	return CELL_OK;
 }
@@ -85,12 +85,12 @@ error_code cellRecClose(s32 isDiscard)
 {
 	cellRec.todo("cellRecClose(isDiscard=0x%x)", isDiscard);
 
+	const auto rec = fxm::get_always<rec_t>();
 	sysutil_register_cb([=](ppu_thread& ppu) -> s32
 	{
-		const auto rec = fxm::get_always<rec_t>();
 		rec->cb(ppu, CELL_REC_STATUS_CLOSE, CELL_OK, rec->cbUserData);
 		return CELL_OK;
-	});
+	}, rec->cb.addr());
 
 	return CELL_OK;
 }
@@ -104,12 +104,12 @@ error_code cellRecStop()
 {
 	cellRec.todo("cellRecStop()");
 
+	const auto rec = fxm::get_always<rec_t>();
 	sysutil_register_cb([=](ppu_thread& ppu) -> s32
 	{
-		const auto rec = fxm::get_always<rec_t>();
 		rec->cb(ppu, CELL_REC_STATUS_STOP, CELL_OK, rec->cbUserData);
 		return CELL_OK;
-	});
+	}, rec->cb.addr());
 
 	return CELL_OK;
 }
@@ -118,12 +118,12 @@ error_code cellRecStart()
 {
 	cellRec.todo("cellRecStart()");
 
+	const auto rec = fxm::get_always<rec_t>();
 	sysutil_register_cb([=](ppu_thread& ppu) -> s32
 	{
-		const auto rec = fxm::get_always<rec_t>();
 		rec->cb(ppu, CELL_REC_STATUS_START, CELL_OK, rec->cbUserData);
 		return CELL_OK;
-	});
+	}, rec->cb.addr());
 
 	return CELL_OK;
 }

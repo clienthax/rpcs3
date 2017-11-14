@@ -55,7 +55,7 @@ error_code cellPrintLoadAsync(vm::ptr<CellPrintCallback> function, vm::ptr<void>
 	{
 		function(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, function.addr());
 
 	return CELL_OK;
 }
@@ -68,7 +68,7 @@ error_code cellPrintLoadAsync2(vm::ptr<CellPrintCallback> function, vm::ptr<void
 	{
 		function(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, function.addr());
 
 	return CELL_OK;
 }
@@ -81,7 +81,7 @@ error_code cellPrintUnloadAsync(vm::ptr<CellPrintCallback> function, vm::ptr<voi
 	{
 		function(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, function.addr());
 
 	return CELL_OK;
 }
@@ -100,7 +100,7 @@ error_code cellPrintOpenConfig(vm::ptr<CellPrintCallback> function, vm::ptr<void
 	{
 		function(ppu, CELL_OK, userdata);
 		return CELL_OK;
-	});
+	}, function.addr());
 
 	return CELL_OK;
 }
