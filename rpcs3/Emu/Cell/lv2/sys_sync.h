@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Utilities/mutex.h"
 #include "Utilities/sema.h"
@@ -175,6 +175,9 @@ struct lv2_obj
 
 				if (!result)
 				{
+//					ipc_manager<T, u64>::add(ipc_key, [&] { if (!idm::import_existing<lv2_obj, T>(result)) result.reset(); return result; }, &result);
+//					return CELL_OK;//HACK
+
 					fmt::format("Failed finding object with IPC key: 0x%llx", ipc_key);
 					return CELL_ESRCH;
 				}

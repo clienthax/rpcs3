@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 
@@ -22,9 +22,10 @@ s32 sys_storage_close(u32 fd)
 	return CELL_OK;
 }
 
-s32 sys_storage_read()
+s32 sys_storage_read(vm::ptr<u32> fd, u32 mode, u32 start_sector, u32 sectors, vm::ptr<u8> bounce, vm::ptr<u32> sectors_read, u64 flags)
 {
-	sys_storage.todo("sys_storage_read()");
+	sys_storage.todo("sys_storage_read(%d %d %d %d %d %d)", fd, mode, start_sector, sectors, bounce, sectors_read, flags);
+	*sectors_read = sectors;
 	return CELL_OK;
 }
 

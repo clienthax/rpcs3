@@ -1,8 +1,9 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "sys_tty.h"
 
 #include "sys_uart.h"
 #include "sys_ppu_thread.h"
+#include "Emu/System.h"
 
 namespace vm { using namespace ps3; }
 
@@ -74,9 +75,10 @@ error_code sys_sm_get_ext_event2(vm::ptr<u32> stack1, vm::ptr<u32> stack2, vm::p
 error_code sys_sm_get_params(vm::ptr<u64> a, vm::ptr<u64> b, vm::ptr<u64> c, vm::ptr<u64> d)
 {
 	sys_sm.todo("sys_sm_get_params(0x%x, 0x%x, 0x%x, 0x%x)", a, b, c, d);
+	//From decr in debug mode, sys_sm_get_params(0 0 1 400000000000010)
 	*a = 0;
 	*b = 0;
-	*c = 0;
-	*d = 0;
+	*c = 1;
+	*d = 400000000000010;
 	return CELL_OK;
 }

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/Cell/PPUModule.h"
 
@@ -253,6 +253,7 @@ error_code sys_prx_get_module_id_by_address(u32 addr)
 error_code sys_prx_exitspawn_with_level()
 {
 	sysPrxForUser.todo("sys_prx_exitspawn_with_level()");
+	Emu.Pause();
 	return CELL_OK;
 }
 

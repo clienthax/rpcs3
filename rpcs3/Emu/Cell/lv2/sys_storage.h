@@ -1,9 +1,9 @@
-#pragma once
+﻿#pragma once
 
 // SysCalls
 s32 sys_storage_open(u64 device, u32 b, vm::ps3::ptr<u32> fd, u32 d);
 s32 sys_storage_close(u32 fd);
-s32 sys_storage_read();
+s32 sys_storage_read(vm::ps3::ptr<u32> fd, u32 mode, u32 start_sector, u32 sectors, vm::ps3::ptr<u8> bounce, vm::ps3::ptr<u32> sectors_read, u64 flags);
 s32 sys_storage_write();
 s32 sys_storage_send_device_command();
 s32 sys_storage_async_configure();

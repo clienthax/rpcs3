@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
 #include "Emu/Cell/PPUModule.h"
@@ -224,7 +224,8 @@ error_code sceNpTrophyDestroyContext(u32 context)
 
 	if (!ctxt)
 	{
-		return SCE_NP_TROPHY_ERROR_UNKNOWN_CONTEXT;
+		return CELL_OK;//HACK
+//		return SCE_NP_TROPHY_ERROR_UNKNOWN_CONTEXT;
 	}
 
 	idm::remove<trophy_context_t>(context);

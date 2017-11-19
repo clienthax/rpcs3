@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "sys_memory.h"
 
 namespace vm { using namespace ps3; }
@@ -8,6 +8,9 @@ logs::channel sys_memory("sys_memory");
 error_code sys_memory_allocate(u32 size, u64 flags, vm::ptr<u32> alloc_addr)
 {
 	sys_memory.warning("sys_memory_allocate(size=0x%x, flags=0x%llx, alloc_addr=*0x%x)", size, flags, alloc_addr);
+
+	if (size == 0)
+		size = 65536;
 
 	// Check allocation size
 	switch (flags)

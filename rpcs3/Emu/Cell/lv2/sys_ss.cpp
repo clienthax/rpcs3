@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Cell/PPUThread.h"
 
 #include "sys_ss.h"
@@ -83,19 +83,27 @@ s32 sys_ss_get_open_psid(vm::ps3::ptr<CellSsOpenPSID> psid)
 	return CELL_OK;
 }
 
-s32 sys_ss_363(u32 code, vm::ptr<u8> buffer)
+s32 sys_ss_867(u32 code, vm::ptr<u8> buffer)//AIM Manager
 {
 	switch (code)
 	{
-	case 0x19004:
+	case 0x19002://Get device type
 	{
-		sys_ss.warning("sys_ss_363(code=0x%x (PSCODE), buffer=*0x%x)", code, buffer);
+		sys_ss.warning("sys_ss_867(code=0x%x (DeviceType), buffer=*0x%x)", code, buffer);
+		u8 pscode[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+						0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x85 };//europe
+		memcpy(buffer.get_ptr(), pscode, 16);
+		break;
+	}
+	case 0x19004://get PS Code
+	{
+		sys_ss.warning("sys_ss_867(code=0x%x (PSCODE), buffer=*0x%x)", code, buffer);
 		u8 pscode[] = { 0x00, 0x01, 0x00, 0x85, 0x00, 0x07, 0x00, 0x04 };
 		memcpy(buffer.get_ptr(), pscode, 8);
 		break;
 	}
 	default:
-		sys_ss.todo("sys_ss_363(code=0x%x, buffer=*0x%x)", code, buffer);
+		sys_ss.error("sys_ss_867(code=0x%x, buffer=*0x%x)", code, buffer);
 	}
 	return CELL_OK;
 }
@@ -120,7 +128,8 @@ s32 sys_ss_get_cache_of_product_mode(vm::ptr<u32/*vm::ptr<char>*/> ptr)
 	{
 		return 0x80010002;
 	}
-	*ptr = -1; // Happens when hypervisor call returns an error
+	*ptr = 0xff000000;
+//	*ptr = -1; // Happens when hypervisor call returns an error
 
 	return CELL_OK;
 }

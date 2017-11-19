@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "sys_fs.h"
 
 #include <mutex>
@@ -458,6 +458,7 @@ error_code sys_fs_opendir(vm::cptr<char> path, vm::ptr<u32> fd)
 	if (const u32 id = idm::make<lv2_fs_object, lv2_dir>(path.get_ptr(), std::move(dir)))
 	{
 		*fd = id;
+		sys_fs.error("sys_fs_opendir(): fd = %d", id);
 		return CELL_OK;
 	}
 
@@ -564,8 +565,9 @@ error_code sys_fs_fstat(u32 fd, vm::ptr<CellFsStat> sb)
 	}
 
 	std::lock_guard<std::mutex> lock(file->mp->mutex);
+	
+	fs::stat_t& info = file->file.stat();
 
-	const fs::stat_t& info = file->file.stat();
 
 	sb->mode = info.is_directory ? CELL_FS_S_IFDIR | 0777 : CELL_FS_S_IFREG | 0666;
 	sb->uid = 0; // Always zero
@@ -1111,7 +1113,7 @@ error_code sys_fs_fcntl(u32 fd, u32 op, vm::ptr<void> _arg, u32 _size)
 
 error_code sys_fs_lseek(u32 fd, s64 offset, s32 whence, vm::ptr<u64> pos)
 {
-	sys_fs.trace("sys_fs_lseek(fd=%d, offset=0x%llx, whence=0x%x, pos=*0x%x)", fd, offset, whence, pos);
+	sys_fs.todo("sys_fs_lseek(fd=%d, offset=0x%llx, whence=0x%x, pos=*0x%x)", fd, offset, whence, pos);
 
 	if (whence >= 3)
 	{

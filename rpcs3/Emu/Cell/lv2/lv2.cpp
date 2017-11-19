@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 
 #include "Emu/Cell/PPUFunction.h"
@@ -36,6 +36,7 @@
 #include "sys_gamepad.h"
 #include "sys_ss.h"
 #include "sys_storage.h"
+#include "sys_hid.h"
 
 extern std::string ppu_get_syscall_name(u64 code);
 
@@ -376,8 +377,8 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_game_watchdog_start)          //372 (0x174)
 	null_func,//BIND_FUNC(sys_game_watchdog_stop)           //373 (0x175)
 	null_func,//BIND_FUNC(sys_game_watchdog_clear)          //374 (0x176)
-	null_func,//BIND_FUNC(sys_game_set_system_sw_version)   //375 (0x177)  ROOT
-	null_func,//BIND_FUNC(sys_game_get_system_sw_version)   //376 (0x178)  ROOT
+	BIND_FUNC(sys_game_set_system_sw_version),   //375 (0x177)  ROOT
+	BIND_FUNC(sys_game_get_system_sw_version),   //376 (0x178)  ROOT
 	null_func,//BIND_FUNC(sys_sm_set_shop_mode)             //377 (0x179)  ROOT
 	null_func,//BIND_FUNC(sys_sm_get_ext_event2)            //378 (0x17A)  ROOT
 	null_func,//BIND_FUNC(sys_sm_shutdown)                  //379 (0x17B)  ROOT
@@ -486,11 +487,11 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_hid_manager_remove_hot_key_observer) //507 (0x1FB)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_grab_focus)       //508 (0x1FC)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_release_focus)    //509 (0x1FD)  ROOT
-	null_func,//BIND_FUNC(sys_hid_manager_...)              //510 (0x1FE)
+	BIND_FUNC(sys_hid_510),//BIND_FUNC(sys_hid_manager_...)              //510 (0x1FE)
 	null_func,//BIND_FUNC(sys_hid_manager_set_...)          //511 (0x1FF)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_...)              //512 (0x200)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_...)              //513 (0x201)
-	null_func,//BIND_FUNC(sys_hid_manager_...)              //514 (0x202)
+	BIND_FUNC(sys_hid_514),//BIND_FUNC(sys_hid_manager_...)              //514 (0x202)
 	null_func,                                              //515 (0x203)  UNS
 	BIND_FUNC(sys_config_open),			                    //516 (0x204)
 	BIND_FUNC(sys_config_close),					        //517 (0x205)
@@ -772,7 +773,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(syscall_...)                      //864  DBG
 	BIND_FUNC(sys_ss_random_number_generator),              //865 (0x361)
 	null_func,//BIND_FUNC(sys_...)                          //866  ROOT
-	BIND_FUNC(sys_ss_363),		                            //867  ROOT
+	BIND_FUNC(sys_ss_867),		                            //867  ROOT
 	null_func,//BIND_FUNC(sys_...)                          //868  ROOT / DBG  AUTHID
 	null_func,//BIND_FUNC(sys_...)                          //869  ROOT
 	BIND_FUNC(sys_ss_get_console_id),                       //870 (0x366)
@@ -780,7 +781,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	BIND_FUNC(sys_ss_get_open_psid),                        //872 (0x368)
 	BIND_FUNC(sys_ss_get_cache_of_product_mode),		    //873 (0x369)
 	null_func,//BIND_FUNC(sys_ss_get_cache_of_flash_ext_flag), //874 (0x36A)
-	null_func,//BIND_FUNC(sys_ss_get_boot_device)           //875 (0x36B)
+	BIND_FUNC(sys_ss_get_boot_device),           //875 (0x36B)
 	null_func,//BIND_FUNC(sys_ss_disc_access_control)       //876 (0x36C)
 	null_func,//BIND_FUNC(sys_ss_~utoken_if)                //877 (0x36D)  ROOT
 	null_func,//BIND_FUNC(sys_ss_ad_sign)                   //878 (0x36E)
