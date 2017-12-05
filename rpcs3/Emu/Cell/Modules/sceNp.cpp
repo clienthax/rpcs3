@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/Cell/PPUModule.h"
 
@@ -12,7 +12,7 @@
 
 logs::channel sceNp("sceNp");
 
-s32 g_psn_connection_status = SCE_NP_MANAGER_STATUS_OFFLINE;
+s32 g_psn_connection_status = SCE_NP_MANAGER_STATUS_ONLINE;
 
 s32 sceNpInit(u32 poolsize, vm::ptr<void> poolptr)
 {
@@ -1184,15 +1184,35 @@ s32 sceNpManagerRequestTicket2()
 	return CELL_OK;
 }
 
-s32 sceNpManagerGetTicket()
+s32 sceNpManagerGetTicket(vm::ptr<void> buffer, vm::ptr<u32> bufferSize)
 {
-	UNIMPLEMENTED_FUNC(sceNp);
+	sceNp.todo("sceNpManagerGetTicket(buffer=*0x%x, bufferSize=%d)", buffer, bufferSize);
+
+	*bufferSize = 100;
+	buffer.set(vm::alloc(100, vm::main));
+
+//	UNIMPLEMENTED_FUNC(sceNp);
 	return CELL_OK;
 }
 
-s32 sceNpManagerGetTicketParam()
+s32 sceNpManagerGetTicketParam(u32 paramId, vm::ptr<SceNpTicketParam> ticketParam)
 {
-	UNIMPLEMENTED_FUNC(sceNp);
+	sceNp.todo("sceNpManagerGetTicketParam(paramId=%d, ticketParam=0x%x)", paramId, ticketParam);
+
+
+	if (paramId == 3) {//SCE_NP_TICKET_PARAM_SUBJECT_ACCOUNT_ID
+		ticketParam->date.day = 1;
+		ticketParam->date.month = 1;
+		ticketParam->date.year = 2050;
+	}
+	else
+	{
+		sceNp.error("unimpl sceNpManagerGetTicketParam(paramId=%d, ticketParam=0x%x)", paramId, ticketParam);
+
+
+	}
+
+
 	return CELL_OK;
 }
 

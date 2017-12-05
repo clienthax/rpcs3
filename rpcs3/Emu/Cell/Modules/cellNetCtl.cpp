@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/Cell/PPUModule.h"
 
@@ -154,11 +154,20 @@ error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 	}
 	else if (code == CELL_NET_CTL_INFO_NETMASK)
 	{
-		strcpy_trunc(info->netmask, "255.255.255.255");
+		strcpy_trunc(info->netmask, "255.255.255.0");
 	}
 	else if (code == CELL_NET_CTL_INFO_HTTP_PROXY_CONFIG)
 	{
 		info->http_proxy_config = 0;
+	}
+	else if (code == CELL_NET_CTL_INFO_PRIMARY_DNS)
+	{
+		strcpy_trunc(info->primary_dns, "8.8.8.8");
+	}
+	else
+	{
+		cellNetCtl.error("not impl cellNetCtlGetInfo(code=0x%x (%s), info=*0x%x)", code, InfoCodeToName(code), info);
+
 	}
 
 	return CELL_OK;
@@ -187,7 +196,8 @@ error_code cellNetCtlNetStartDialogUnloadAsync(vm::ptr<CellNetCtlNetStartDialogR
 {
 	cellNetCtl.warning("cellNetCtlNetStartDialogUnloadAsync(result=*0x%x)", result);
 
-	result->result = CELL_NET_CTL_ERROR_DIALOG_CANCELED;
+	//	result->result = CELL_NET_CTL_ERROR_DIALOG_CANCELED;
+		result->result = 0;
 	sysutil_send_system_cmd(CELL_SYSUTIL_NET_CTL_NETSTART_UNLOADED, 0);
 
 	return CELL_OK;

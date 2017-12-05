@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
@@ -399,6 +399,10 @@ s32 sys_net_bnet_bind(ppu_thread& ppu, s32 s, vm::cptr<sys_net_sockaddr> addr, u
 	name.sin_addr.s_addr = htonl(((sys_net_sockaddr_in*)addr.get_ptr())->sin_addr);
 	::socklen_t namelen  = sizeof(name);
 
+	char *ip = inet_ntoa(name.sin_addr);
+	sys_net.warning("sys_net_bnet_bind: %s:%d", ip, name.sin_port);
+
+
 	const auto sock = idm::check<lv2_socket>(s, [&](lv2_socket& sock) -> s32
 	{
 		semaphore_lock lock(sock.mutex);
@@ -429,6 +433,9 @@ s32 sys_net_bnet_connect(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> addr,
 	name.sin_port        = htons(((sys_net_sockaddr_in*)addr.get_ptr())->sin_port);
 	name.sin_addr.s_addr = htonl(((sys_net_sockaddr_in*)addr.get_ptr())->sin_addr);
 	::socklen_t namelen  = sizeof(name);
+
+	char *ip = inet_ntoa(name.sin_addr);
+	sys_net.warning("sys_net_bnet_connect: %s:%d", ip, name.sin_port);
 
 	const auto sock = idm::check<lv2_socket>(s, [&](lv2_socket& sock)
 	{
@@ -647,7 +654,7 @@ s32 sys_net_bnet_getsockname(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> a
 
 s32 sys_net_bnet_getsockopt(ppu_thread& ppu, s32 s, s32 level, s32 optname, vm::ptr<void> optval, vm::ptr<u32> optlen)
 {
-	sys_net.warning("sys_net_bnet_getsockopt(s=%d, level=0x%x, optname=0x%x, optval=*0x%x, optlen=*0x%x)", s, level, optname, optval, optlen);
+	sys_net.warning("sys_net_bnet_getsockopt(s=%d, level=0x%x, optname=%s, optval=*0x%x, optlen=*0x%x)", s, level, SockOptCodeToName(optname), optval, optlen);
 
 	int native_level = -1;
 	int native_opt = -1;
@@ -1119,7 +1126,7 @@ s32 sys_net_bnet_sendto(ppu_thread& ppu, s32 s, vm::cptr<void> buf, u32 len, s32
 
 s32 sys_net_bnet_setsockopt(ppu_thread& ppu, s32 s, s32 level, s32 optname, vm::cptr<void> optval, u32 optlen)
 {
-	sys_net.warning("sys_net_bnet_setsockopt(s=%d, level=0x%x, optname=0x%x, optval=*0x%x, optlen=%u)", s, level, optname, optval, optlen);
+	sys_net.warning("sys_net_bnet_setsockopt(s=%d, level=0x%x, optname=%s, optval=*0x%x, optlen=%u)", s, level, SockOptCodeToName(optname), optval, optlen);
 
 	int native_int = 0;
 	int native_level = -1;

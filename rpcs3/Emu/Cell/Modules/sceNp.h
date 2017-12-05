@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 namespace vm { using namespace ps3; }
 
@@ -668,6 +668,17 @@ struct SceNpScoreClanIdRankData
 	be_t<s32> hasData;
 	u8 pad0[4];
 	SceNpScoreClanRankData rankData;
+};
+
+//Union for Ticket params
+union SceNpTicketParam {
+	be_t<s32> i32;
+	be_t<s64> i64;
+	be_t<u32> u32;
+	be_t<u64> u64;
+	SceNpDate date;
+	u8 data[256];
+
 };
 
 // Union for connection information
