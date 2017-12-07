@@ -257,7 +257,7 @@ error_code cellGameBootCheck(vm::ptr<u32> type, vm::ptr<u32> attributes, vm::ptr
 
 	if (!type)
 	{
-		return CELL_OK;
+//		return CELL_OK;
 	}
 	if (category == "DG")
 	{
