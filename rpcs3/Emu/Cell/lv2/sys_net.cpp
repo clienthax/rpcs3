@@ -654,7 +654,7 @@ s32 sys_net_bnet_getsockname(ppu_thread& ppu, s32 s, vm::ptr<sys_net_sockaddr> a
 
 s32 sys_net_bnet_getsockopt(ppu_thread& ppu, s32 s, s32 level, s32 optname, vm::ptr<void> optval, vm::ptr<u32> optlen)
 {
-	sys_net.warning("sys_net_bnet_getsockopt(s=%d, level=0x%x, optname=%s, optval=*0x%x, optlen=*0x%x)", s, level, SockOptCodeToName(optname), optval, optlen);
+	sys_net.warning("sys_net_bnet_getsockopt(s=%d, level=0x%x, optname=%s, optval=*0x%x, optlen=*0x%x)", s, level, SockOptCodeToName(level, optname), optval, optlen);
 
 	int native_level = -1;
 	int native_opt = -1;
@@ -1126,7 +1126,7 @@ s32 sys_net_bnet_sendto(ppu_thread& ppu, s32 s, vm::cptr<void> buf, u32 len, s32
 
 s32 sys_net_bnet_setsockopt(ppu_thread& ppu, s32 s, s32 level, s32 optname, vm::cptr<void> optval, u32 optlen)
 {
-	sys_net.warning("sys_net_bnet_setsockopt(s=%d, level=0x%x, optname=%s, optval=*0x%x, optlen=%u)", s, level, SockOptCodeToName(optname), optval, optlen);
+	sys_net.warning("sys_net_bnet_setsockopt(s=%d, level=0x%x, optname(s)=%s, optname=0x%x optval=*0x%x, optlen=%u)", s, level, SockOptCodeToName(level, optname), optname, optval, optlen);
 
 	int native_int = 0;
 	int native_level = -1;

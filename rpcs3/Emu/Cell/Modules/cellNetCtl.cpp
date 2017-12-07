@@ -101,7 +101,7 @@ error_code cellNetCtlTerm()
 
 error_code cellNetCtlGetState(vm::ptr<u32> state)
 {
-	cellNetCtl.trace("cellNetCtlGetState(state=*0x%x)", state);
+	cellNetCtl.warning("cellNetCtlGetState(state=*0x%x)", state);
 
 	*state = g_cfg.net.net_status;
 	return CELL_OK;
@@ -181,6 +181,8 @@ error_code cellNetCtlNetStartDialogLoadAsync(vm::ptr<CellNetCtlNetStartDialogPar
 	// TODO: Properly open the dialog prompt for sign in
 	sysutil_send_system_cmd(CELL_SYSUTIL_NET_CTL_NETSTART_LOADED, 0);
 	sysutil_send_system_cmd(CELL_SYSUTIL_NET_CTL_NETSTART_FINISHED, 0);
+
+
 
 	return CELL_OK;
 }

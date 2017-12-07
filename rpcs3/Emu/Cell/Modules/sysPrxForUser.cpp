@@ -151,7 +151,9 @@ s32 sys_lv2coredump_D725F320()
 
 s32 sys_crash_dump_get_user_log_area()
 {
-	fmt::raw_error(__func__);
+	UNIMPLEMENTED_FUNC(logs::HLE);
+	return CELL_OK;
+//	fmt::raw_error(__func__);
 }
 
 s32 sys_crash_dump_set_user_log_area()

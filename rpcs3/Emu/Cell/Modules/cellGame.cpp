@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/IdManager.h"
 #include "Emu/Cell/PPUModule.h"
@@ -247,10 +247,18 @@ error_code cellGameBootCheck(vm::ptr<u32> type, vm::ptr<u32> attributes, vm::ptr
 	}
 
 	// According to testing (in debug mode) cellGameBootCheck doesn't return an error code, when PARAM.SFO doesn't exist.
-	psf::registry sfo = psf::load_object(fs::file(vfs::get("/app_home/../PARAM.SFO")));
+	psf::registry sfo;
+	if(fs::exists(vfs::get("/app_home/../PARAM.SFO")))
+		sfo = psf::load_object(fs::file(vfs::get("/app_home/../PARAM.SFO")));
+	else
+		sfo = psf::load_object(fs::file(vfs::get("/app_home/../../PARAM.SFO")));
 
 	const std::string& category = psf::get_string(sfo, "CATEGORY");
 
+	if (!type)
+	{
+		return CELL_OK;
+	}
 	if (category == "DG")
 	{
 		*type = CELL_GAME_GAMETYPE_DISC;

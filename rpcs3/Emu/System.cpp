@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Utilities/event.h"
 #include "Utilities/bin_patch.h"
 #include "Emu/Memory/Memory.h"
@@ -368,6 +368,8 @@ void Emulator::Load(bool add_only)
 			{
 				return fs::file{Emu.disc + "/PS3_GAME/PARAM.SFO"};
 			}
+			if(!fs::exists(elf_dir + "/../PARAM.SFO"))
+				return fs::file(elf_dir + "/../../PARAM.SFO");
 
 			return fs::file(elf_dir + "/../PARAM.SFO");
 		}());

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/Cell/PPUModule.h"
 
 #include "sceNp.h"
@@ -241,6 +241,8 @@ error_code cellSysutilAvc2InitParam(u16 version, vm::ptr<CellSysutilAvc2InitPara
 
 		option->avc_init_param_version = version;
 
+		//Nein!
+		/*
 		if (option->media_type == CELL_SYSUTIL_AVC2_VOICE_CHAT)
 		{
 			option->max_players = 16;
@@ -263,7 +265,7 @@ error_code cellSysutilAvc2InitParam(u16 version, vm::ptr<CellSysutilAvc2InitPara
 		else
 		{
 			cellSysutilAvc2.error("Unknown media type 0x%x", option->media_type);
-		}
+		}*/
 	}
 	else
 	{

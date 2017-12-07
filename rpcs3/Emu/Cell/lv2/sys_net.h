@@ -359,25 +359,39 @@ struct lv2_socket final
 class ppu_thread;
 
 
-static const char* SockOptCodeToName(s32 code)
+static const char* SockOptCodeToName(s32 level, s32 code)
 {
-	switch (code)
+	switch (level)
 	{
-	case SYS_NET_SO_NBIO:                      return "SYS_NET_SO_NBIO";
-	case SYS_NET_SO_ERROR:                     return "SYS_NET_SO_ERROR";
-	case SYS_NET_SO_KEEPALIVE:                 return "SYS_NET_SO_KEEPALIVE";
-	case SYS_NET_SO_SNDBUF:                    return "SYS_NET_SO_SNDBUF";
-	case SYS_NET_SO_RCVBUF:                    return "SYS_NET_SO_RCVBUF";
-	case SYS_NET_SO_SNDLOWAT:                  return "SYS_NET_SO_SNDLOWAT";
-	case SYS_NET_SO_RCVLOWAT:                  return "SYS_NET_SO_RCVLOWAT";
-	case SYS_NET_SO_BROADCAST:                 return "SYS_NET_SO_BROADCAST";
-	case SYS_NET_SO_REUSEADDR:                 return "SYS_NET_SO_REUSEADDR";
-	case SYS_NET_SO_REUSEPORT:                 return "SYS_NET_SO_REUSEPORT";
-	case SYS_NET_SO_SNDTIMEO:                  return "SYS_NET_SO_SNDTIMEO";
-	case SYS_NET_SO_RCVTIMEO:                  return "SYS_NET_SO_RCVTIMEO";
-	case SYS_NET_SO_LINGER:                    return "SYS_NET_SO_LINGER";
-	default: return "???";
+	case SYS_NET_SOL_SOCKET:
+		switch (code)
+		{
+		case SYS_NET_SO_NBIO:                      return "SYS_NET_SO_NBIO";
+		case SYS_NET_SO_ERROR:                     return "SYS_NET_SO_ERROR";
+		case SYS_NET_SO_KEEPALIVE:                 return "SYS_NET_SO_KEEPALIVE";
+		case SYS_NET_SO_SNDBUF:                    return "SYS_NET_SO_SNDBUF";
+		case SYS_NET_SO_RCVBUF:                    return "SYS_NET_SO_RCVBUF";
+		case SYS_NET_SO_SNDLOWAT:                  return "SYS_NET_SO_SNDLOWAT";
+		case SYS_NET_SO_RCVLOWAT:                  return "SYS_NET_SO_RCVLOWAT";
+		case SYS_NET_SO_BROADCAST:                 return "SYS_NET_SO_BROADCAST";
+		case SYS_NET_SO_REUSEADDR:                 return "SYS_NET_SO_REUSEADDR";
+		case SYS_NET_SO_REUSEPORT:                 return "SYS_NET_SO_REUSEPORT";
+		case SYS_NET_SO_SNDTIMEO:                  return "SYS_NET_SO_SNDTIMEO";
+		case SYS_NET_SO_RCVTIMEO:                  return "SYS_NET_SO_RCVTIMEO";
+		case SYS_NET_SO_LINGER:                    return "SYS_NET_SO_LINGER";
+		}
+		break;
+
+	case SYS_NET_IPPROTO_TCP:
+		switch (code)
+		{
+		case SYS_NET_TCP_NODELAY:                  return "SYS_NET_TCP_NODELAY";
+		case SYS_NET_TCP_MAXSEG:                   return "SYS_NET_TCP_MAXSEG";
+		case SYS_NET_TCP_MSS_TO_ADVERTISE:         return "SYS_NET_TCP_MSS_TO_ADVERTISE";
+		}
+
 	}
+	return "???";
 }
 
 
