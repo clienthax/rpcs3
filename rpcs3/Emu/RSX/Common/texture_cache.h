@@ -17,28 +17,10 @@ namespace rsx
 		swapped_native_component_order = 2,
 	};
 
-	enum texture_upload_context
-	{
-		shader_read = 0,
-		blit_engine_src = 1,
-		blit_engine_dst = 2,
-		framebuffer_storage = 3
-	};
-
 	enum texture_sampler_status
 	{
 		status_uninitialized = 0,
 		status_ready = 1
-	};
-
-	//Sampled image descriptor
-	struct sampled_image_descriptor_base
-	{
-		texture_upload_context upload_context = texture_upload_context::shader_read;
-		rsx::texture_dimension_extended image_type = texture_dimension_extended::texture_dimension_2d;
-		bool is_depth_texture = false;
-		f32 scale_x = 1.f;
-		f32 scale_y = 1.f;
 	};
 
 	struct cached_texture_section : public rsx::buffered_section
@@ -60,12 +42,12 @@ namespace rsx
 		rsx::texture_dimension_extended image_type = rsx::texture_dimension_extended::texture_dimension_2d;
 		rsx::texture_sampler_status sampler_status = rsx::texture_sampler_status::status_uninitialized;
 
-		bool matches(const u32 rsx_address, const u32 rsx_size)
+		bool matches(u32 rsx_address, u32 rsx_size)
 		{
 			return rsx::buffered_section::matches(rsx_address, rsx_size);
 		}
 
-		bool matches(const u32 rsx_address, const u32 width, const u32 height, const u32 depth, const u32 mipmaps)
+		bool matches(u32 rsx_address, u32 width, u32 height, u32 depth, u32 mipmaps)
 		{
 			if (rsx_address == cpu_address_base)
 			{
@@ -90,22 +72,22 @@ namespace rsx
 			return false;
 		}
 
-		void set_view_flags(const rsx::texture_create_flags flags)
+		void set_view_flags(rsx::texture_create_flags flags)
 		{
 			view_flags = flags;
 		}
 
-		void set_context(const rsx::texture_upload_context upload_context)
+		void set_context(rsx::texture_upload_context upload_context)
 		{
 			context = upload_context;
 		}
 
-		void set_image_type(const rsx::texture_dimension_extended type)
+		void set_image_type(rsx::texture_dimension_extended type)
 		{
 			image_type = type;
 		}
 
-		void set_sampler_status(const rsx::texture_sampler_status status)
+		void set_sampler_status(rsx::texture_sampler_status status)
 		{
 			sampler_status = status;
 		}
@@ -241,7 +223,7 @@ namespace rsx
 			sampled_image_descriptor()
 			{}
 
-			sampled_image_descriptor(image_view_type handle, const texture_upload_context ctx, const bool is_depth, const f32 x_scale, const f32 y_scale, const rsx::texture_dimension_extended type)
+			sampled_image_descriptor(image_view_type handle, texture_upload_context ctx, bool is_depth, f32 x_scale, f32 y_scale, rsx::texture_dimension_extended type)
 			{
 				image_handle = handle;
 				upload_context = ctx;
@@ -252,7 +234,7 @@ namespace rsx
 			}
 
 			sampled_image_descriptor(image_resource_type external_handle, u32 base_address, u32 gcm_format, u16 x_offset, u16 y_offset, u16 width, u16 height,
-				const texture_upload_context ctx, const bool is_depth, const f32 x_scale, const f32 y_scale, const rsx::texture_dimension_extended type)
+				texture_upload_context ctx, bool is_depth, f32 x_scale, f32 y_scale, rsx::texture_dimension_extended type)
 			{
 				external_subresource_desc = { external_handle, base_address, gcm_format, x_offset, y_offset, width, height };
 
@@ -301,14 +283,14 @@ namespace rsx
 		virtual void free_texture_section(section_storage_type&) = 0;
 		virtual image_view_type create_temporary_subresource_view(commandbuffer_type&, image_resource_type* src, u32 gcm_format, u16 x, u16 y, u16 w, u16 h) = 0;
 		virtual image_view_type create_temporary_subresource_view(commandbuffer_type&, image_storage_type* src, u32 gcm_format, u16 x, u16 y, u16 w, u16 h) = 0;
-		virtual section_storage_type* create_new_texture(commandbuffer_type&, u32 rsx_address, u32 rsx_size, u16 width, u16 height, u16 depth, u16 mipmaps, const u32 gcm_format,
-				const rsx::texture_upload_context context, const rsx::texture_dimension_extended type, const texture_create_flags flags, const std::pair<std::array<u8, 4>, std::array<u8, 4>>& remap_vector) = 0;
-		virtual section_storage_type* upload_image_from_cpu(commandbuffer_type&, u32 rsx_address, u16 width, u16 height, u16 depth, u16 mipmaps, u16 pitch, const u32 gcm_format, const texture_upload_context context,
-				std::vector<rsx_subresource_layout>& subresource_layout, const rsx::texture_dimension_extended type, const bool swizzled, const std::pair<std::array<u8, 4>, std::array<u8, 4>>& remap_vector) = 0;
-		virtual void enforce_surface_creation_type(section_storage_type& section, const u32 gcm_format, const texture_create_flags expected) = 0;
+		virtual section_storage_type* create_new_texture(commandbuffer_type&, u32 rsx_address, u32 rsx_size, u16 width, u16 height, u16 depth, u16 mipmaps, u32 gcm_format,
+				rsx::texture_upload_context context, rsx::texture_dimension_extended type, texture_create_flags flags, const std::pair<std::array<u8, 4>, std::array<u8, 4>>& remap_vector) = 0;
+		virtual section_storage_type* upload_image_from_cpu(commandbuffer_type&, u32 rsx_address, u16 width, u16 height, u16 depth, u16 mipmaps, u16 pitch, u32 gcm_format, texture_upload_context context,
+				const std::vector<rsx_subresource_layout>& subresource_layout, rsx::texture_dimension_extended type, bool swizzled, const std::pair<std::array<u8, 4>, std::array<u8, 4>>& remap_vector) = 0;
+		virtual void enforce_surface_creation_type(section_storage_type& section, u32 gcm_format, texture_create_flags expected) = 0;
 		virtual void set_up_remap_vector(section_storage_type& section, const std::pair<std::array<u8, 4>, std::array<u8, 4>>& remap_vector) = 0;
 		virtual void insert_texture_barrier() = 0;
-		virtual image_view_type generate_cubemap_from_images(commandbuffer_type&, const u32 gcm_format, u16 size, std::array<image_resource_type, 6>& sources) = 0;
+		virtual image_view_type generate_cubemap_from_images(commandbuffer_type&, u32 gcm_format, u16 size, const std::array<image_resource_type, 6>& sources) = 0;
 
 		constexpr u32 get_block_size() const { return 0x1000000; }
 		inline u32 get_block_address(u32 address) const { return (address & ~0xFFFFFF); }
@@ -557,7 +539,7 @@ namespace rsx
 			return {};
 		}
 
-		inline bool is_hw_blit_engine_compatible(const u32 format) const
+		inline bool is_hw_blit_engine_compatible(u32 format) const
 		{
 			switch (format)
 			{
@@ -651,7 +633,7 @@ namespace rsx
 		~texture_cache() {}
 
 		virtual void destroy() = 0;
-		virtual bool is_depth_texture(const u32, const u32) = 0;
+		virtual bool is_depth_texture(u32, u32) = 0;
 		virtual void on_frame_end() = 0;
 
 		std::vector<section_storage_type*> find_texture_from_range(u32 rsx_address, u32 range)
@@ -770,7 +752,7 @@ namespace rsx
 			return m_cache[block_address].data.back();
 		}
 
-		section_storage_type* find_flushable_section(const u32 address, const u32 range)
+		section_storage_type* find_flushable_section(u32 address, u32 range)
 		{
 			auto found = m_cache.find(get_block_address(address));
 			if (found != m_cache.end())
@@ -790,7 +772,7 @@ namespace rsx
 		}
 
 		template <typename ...Args>
-		void lock_memory_region(image_storage_type* image, const u32 memory_address, const u32 memory_size, const u32 width, const u32 height, const u32 pitch, Args&&... extras)
+		void lock_memory_region(image_storage_type* image, u32 memory_address, u32 memory_size, u32 width, u32 height, u32 pitch, Args&&... extras)
 		{
 			writer_lock lock(m_cache_mutex);
 			section_storage_type& region = find_cached_texture(memory_address, memory_size, false);
@@ -820,7 +802,7 @@ namespace rsx
 		}
 
 		template <typename ...Args>
-		bool flush_memory_to_cache(const u32 memory_address, const u32 memory_size, bool skip_synchronized, Args&&... extra)
+		bool flush_memory_to_cache(u32 memory_address, u32 memory_size, bool skip_synchronized, Args&&... extra)
 		{
 			writer_lock lock(m_cache_mutex);
 			section_storage_type* region = find_flushable_section(memory_address, memory_size);
@@ -840,7 +822,7 @@ namespace rsx
 		}
 
 		template <typename ...Args>
-		bool load_memory_from_cache(const u32 memory_address, const u32 memory_size, Args&&... extras)
+		bool load_memory_from_cache(u32 memory_address, u32 memory_size, Args&&... extras)
 		{
 			reader_lock lock(m_cache_mutex);
 			section_storage_type *region = find_flushable_section(memory_address, memory_size);
@@ -1030,7 +1012,7 @@ namespace rsx
 		}
 
 		template <typename ...Args>
-		void flush_if_cache_miss_likely(const texture_format fmt, const u32 memory_address, const u32 memory_size, Args&&... extras)
+		void flush_if_cache_miss_likely(texture_format fmt, u32 memory_address, u32 memory_size, Args&&... extras)
 		{
 			auto It = m_cache_miss_statistics_table.find(memory_address);
 			if (It == m_cache_miss_statistics_table.end())
@@ -1134,8 +1116,8 @@ namespace rsx
 		}
 
 		template <typename render_target_type, typename surface_store_type>
-		sampled_image_descriptor process_framebuffer_resource(render_target_type texptr, const u32 texaddr, const u32 gcm_format, surface_store_type& m_rtts,
-				const u16 tex_width, const u16 tex_height, const rsx::texture_dimension_extended extended_dimension, const bool is_depth)
+		sampled_image_descriptor process_framebuffer_resource(render_target_type texptr, u32 texaddr, u32 gcm_format, surface_store_type& m_rtts,
+				u16 tex_width, u16 tex_height, rsx::texture_dimension_extended extended_dimension, bool is_depth)
 		{
 			const u32 format = gcm_format & ~(CELL_GCM_TEXTURE_UN | CELL_GCM_TEXTURE_LN);
 			const auto surface_width = texptr->get_surface_width();
@@ -1297,7 +1279,7 @@ namespace rsx
 		sampled_image_descriptor upload_texture(commandbuffer_type& cmd, RsxTextureType& tex, surface_store_type& m_rtts, Args&&... extras)
 		{
 			const u32 texaddr = rsx::get_address(tex.offset(), tex.location());
-			const u32 tex_size = (u32)get_texture_size(tex);
+			const u32 tex_size = (u32)get_placed_texture_storage_size(tex, 256, 512);
 			const u32 format = tex.format() & ~(CELL_GCM_TEXTURE_LN | CELL_GCM_TEXTURE_UN);
 			const bool is_compressed_format = (format == CELL_GCM_TEXTURE_COMPRESSED_DXT1 || format == CELL_GCM_TEXTURE_COMPRESSED_DXT23 || format == CELL_GCM_TEXTURE_COMPRESSED_DXT45);
 
@@ -1361,7 +1343,7 @@ namespace rsx
 				}
 			}
 
-			tex_pitch = is_compressed_format? (tex_size / tex_height) : tex_pitch; //NOTE: Compressed textures dont have a real pitch (tex_size = (w*h)/6)
+			tex_pitch = is_compressed_format? (u16)(get_texture_size(tex) / tex_height) : tex_pitch; //NOTE: Compressed textures dont have a real pitch (tex_size = (w*h)/6)
 			if (tex_pitch == 0) tex_pitch = tex_width * get_format_block_size_in_bytes(format);
 
 			const bool unnormalized = (tex.format() & CELL_GCM_TEXTURE_UN) != 0;
@@ -1871,11 +1853,15 @@ namespace rsx
 			{
 				lock.upgrade();
 
+				//render target data is already in correct swizzle layout
+				auto channel_order = src_is_render_target ? rsx::texture_create_flags::native_component_order :
+					dst_is_argb8 ? rsx::texture_create_flags::default_component_order :
+					rsx::texture_create_flags::swapped_native_component_order;
+
 				dest_texture = create_new_texture(cmd, dst.rsx_address, dst.pitch * dst_dimensions.height,
 					dst_dimensions.width, dst_dimensions.height, 1, 1,
 					gcm_format, rsx::texture_upload_context::blit_engine_dst, rsx::texture_dimension_extended::texture_dimension_2d,
-					dst_is_argb8? rsx::texture_create_flags::default_component_order : rsx::texture_create_flags::swapped_native_component_order,
-					default_remap_vector)->get_raw_texture();
+					channel_order, default_remap_vector)->get_raw_texture();
 
 				m_texture_memory_in_use += dst.pitch * dst_dimensions.height;
 			}

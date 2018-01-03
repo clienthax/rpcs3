@@ -63,6 +63,9 @@ namespace rsx
 		void semaphore_acquire(thread* rsx, u32 _reg, u32 arg)
 		{
 			const u32 addr = get_address(method_registers.semaphore_offset_406e(), method_registers.semaphore_context_dma_406e());
+			if (vm::ps3::read32(addr) == arg) return;
+
+			u64 start = get_system_time();
 			while (vm::ps3::read32(addr) != arg)
 			{
 				// todo: LLE: why does this one keep hanging? is it vsh system semaphore? whats actually pushing this to the command buffer?!
@@ -72,7 +75,35 @@ namespace rsx
 				if (Emu.IsStopped())
 					break;
 
-				std::this_thread::yield();
+				const auto tdr = (s64)g_cfg.video.driver_recovery_timeout;
+				if (tdr == 0)
+				{
+					//No timeout
+					std::this_thread::yield();
+					continue;
+				}
+
+				if (Emu.IsPaused())
+				{
+					while (Emu.IsPaused())
+					{
+						std::this_thread::yield();
+					}
+
+					//Reset
+					start = get_system_time();
+				}
+				else
+				{
+					if ((get_system_time() - start) > tdr)
+					{
+						//If longer than driver timeout force exit
+						LOG_ERROR(RSX, "nv406e::semaphore_acquire has timed out. semaphore_address=0x%X", addr);
+						break;
+					}
+
+					std::this_thread::yield();
+				}
 			}
 		}
 
@@ -837,21 +868,25 @@ namespace rsx
 				u8* linear_pixels = pixels_src;
 				u8* swizzled_pixels = temp2.get();
 
+				// restrict output to size of swizzle
+				const u16 sw_in_w = std::min(out_w, sw_width);
+				const u16 sw_in_h = std::min(out_h, sw_height);
+
 				// Check and pad texture out if we are given non square texture for swizzle to be correct
-				if (sw_width != out_w || sw_height != out_h)
+				if (sw_width != sw_in_w || sw_height != sw_in_h)
 				{
 					sw_temp.reset(new u8[out_bpp * sw_width * sw_height]);
 
 					switch (out_bpp)
 					{
 					case 1:
-						pad_texture<u8>(linear_pixels, sw_temp.get(), out_w, out_h, sw_width, sw_height);
+						pad_texture<u8>(linear_pixels, sw_temp.get(), sw_in_w, sw_in_h, sw_width, sw_height);
 						break;
 					case 2:
-						pad_texture<u16>(linear_pixels, sw_temp.get(), out_w, out_h, sw_width, sw_height);
+						pad_texture<u16>(linear_pixels, sw_temp.get(), sw_in_w, sw_in_h, sw_width, sw_height);
 						break;
 					case 4:
-						pad_texture<u32>(linear_pixels, sw_temp.get(), out_w, out_h, sw_width, sw_height);
+						pad_texture<u32>(linear_pixels, sw_temp.get(), sw_in_w, sw_in_h, sw_width, sw_height);
 						break;
 					}
 
@@ -1617,6 +1652,7 @@ namespace rsx
 		bind<NV4097_SET_ZPASS_PIXEL_COUNT_ENABLE, nv4097::set_zcull_pixel_count_enable>();
 		bind<NV4097_CLEAR_ZCULL_SURFACE, nv4097::clear_zcull>();
 		bind<NV4097_SET_DEPTH_TEST_ENABLE, nv4097::set_surface_options_dirty_bit>();
+		bind<NV4097_SET_STENCIL_TEST_ENABLE, nv4097::set_surface_options_dirty_bit>();
 		bind<NV4097_SET_DEPTH_MASK, nv4097::set_surface_options_dirty_bit>();
 		bind<NV4097_SET_COLOR_MASK, nv4097::set_surface_options_dirty_bit>();
 
