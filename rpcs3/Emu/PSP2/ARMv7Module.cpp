@@ -208,24 +208,24 @@ struct psv_libent_t
 	le_t<u32> unk2;
 	le_t<u32> module_nid;
 	le_t<u32> module_name;	/* Pointer to name of this module */
-	le_t<u32> nid_table;		/* Pointer to array of 32-bit NIDs to export */
+	le_t<u32> nid_table;	/* Pointer to array of 32-bit NIDs to export */
 	le_t<u32> entry_table;	/* Pointer to array of data pointers for each NID */
 };
 
 struct psv_libstub_t
 {
-	le_t<u16> size; // 0x2C, 0x34
-	le_t<u16> version; // (usually 1, 5 for sceLibKernel)
-	le_t<u16> flags; // (usually 0)
+	le_t<u16> size;		// 0x2C, 0x34
+	le_t<u16> version;	// (usually 1, 5 for sceLibKernel)
+	le_t<u16> flags;	// (usually 0)
 	le_t<u16> fcount;
 	le_t<u16> vcount;
 	le_t<u16> unk2;
 	le_t<u32> unk3;
-	le_t<u32> module_nid;			/* NID of module to import */
+	le_t<u32> module_nid;	/* NID of module to import */
 	le_t<u32> module_name;	/* Pointer to name of imported module, for debugging */
 	le_t<u32> reserved2;
 	le_t<u32> func_nid_table;	/* Pointer to array of function NIDs to import */
-	le_t<u32> func_entry_table;/* Pointer to array of stub functions to fill */
+	le_t<u32> func_entry_table;	/* Pointer to array of stub functions to fill */
 	le_t<u32> var_nid_table;	/* Pointer to array of variable NIDs to import */
 	le_t<u32> var_entry_table;	/* Pointer to array of data pointers to write to */
 	le_t<u32> unk_nid_table;
@@ -277,8 +277,8 @@ struct psv_reloc
 /** \name Macros to get SCE reloc values
 *  @{
 */
-#define SCE_RELOC_SHORT_OFFSET(x) (((x).r_opt1 >> 20) | ((x).r_opt2 & 0xFFFFF) << 12)
-#define SCE_RELOC_SHORT_ADDEND(x) ((x).r_opt2 >> 20)
+#define SCE_RELOC_SHORT_OFFSET(x) (((x).r_opt1 >> 20) | ((x).r_opt2 & 0x3FF) << 12)
+#define SCE_RELOC_SHORT_ADDEND(x) ((x).r_opt2 >> 10)
 #define SCE_RELOC_LONG_OFFSET(x) ((x).r_offset)
 #define SCE_RELOC_LONG_ADDEND(x) ((x).r_addend)
 #define SCE_RELOC_LONG_CODE2(x) (((x).r_type >> 20) & 0xFF)
@@ -432,7 +432,7 @@ void arm_load_exec(const arm_exec_object& elf)
 				{
 					r_offset = SCE_RELOC_SHORT_OFFSET(rel.r_short);
 					r_addend = SCE_RELOC_SHORT_ADDEND(rel.r_short);
-					LOG_NOTICE(LOADER, "SHORT RELOC offset=0x%X addend=0x%X type=%d", r_offset, r_addend, SCE_RELOC_CODE(rel));
+					LOG_NOTICE(LOADER, "SHORT RELOC %X %X %X", r_offset, r_addend, SCE_RELOC_CODE(rel));
 					i += 8;
 				}
 				else
@@ -652,15 +652,15 @@ void arm_load_exec(const arm_exec_object& elf)
 		else
 		{
 			LOG_NOTICE(LOADER, "Loading libent at *0x%x", libent);
-			LOG_NOTICE(LOADER, "** 0x%x, 0x%x", libent->version, libent->flags);
+			LOG_NOTICE(LOADER, "** Version: 0x%x, Flags: 0x%x", libent->version, libent->flags);
 			LOG_NOTICE(LOADER, "** Functions: %u", libent->fcount);
 			LOG_NOTICE(LOADER, "** Variables: %u", libent->vcount);
-			LOG_NOTICE(LOADER, "** 0x%x, 0x%08x", libent->unk2, libent->module_nid);
+			LOG_NOTICE(LOADER, "** 0x%x, Module NID: 0x%08x", libent->unk2, libent->module_nid);
 
 			const auto export_nids = vm::cptr<u32>::make(libent->nid_table);
 			const auto export_data = vm::cptr<u32>::make(libent->entry_table);
 
-			LOG_NOTICE(LOADER, "** 0x%x, 0x%08x", export_data, export_nids);
+			LOG_NOTICE(LOADER, "** Export Data: 0x%x, Export NIDs: 0x%08x", export_data, export_nids);
 			
 			for (u32 i = 0, count = export_data - export_nids; i < count; i++)
 			{
@@ -670,28 +670,28 @@ void arm_load_exec(const arm_exec_object& elf)
 				// Known exports
 				switch (nid)
 				{
-				case 0x935cd196: // set entry point
-				{
-					entry_point = addr;
-					break;
-				}
+					case 0x935cd196: // set entry point
+					{
+						entry_point = addr;
+						break;
+					}
 
-				case 0x6c2224ba: // __sce_moduleinfo
-				{
-					verify(HERE), addr == module_info.addr();
-					break;
-				}
+					case 0x6c2224ba: // __sce_moduleinfo
+					{
+						verify(HERE), addr == module_info.addr();
+						break;
+					}
 
-				case 0x70fba1e7: // __sce_process_param
-				{
-					proc_param.set(addr);
-					break;
-				}
+					case 0x70fba1e7: // __sce_process_param
+					{
+						proc_param.set(addr);
+						break;
+					}
 
-				default:
-				{
-					LOG_ERROR(LOADER, "** Unknown export '0x%08X' (*0x%x)", nid, addr);
-				}
+					default:
+					{
+						LOG_ERROR(LOADER, "** Unknown export '0x%08X' (*0x%x)", nid, addr);
+					}
 				}
 			}
 		}
@@ -738,7 +738,7 @@ void arm_load_exec(const arm_exec_object& elf)
 				}
 			}
 
-			LOG_NOTICE(LOADER, "** 0x%x, 0x%x", libstub->version, libstub->flags);
+			LOG_NOTICE(LOADER, "** Version: 0x%x, Flags: 0x%x", libstub->version, libstub->flags);
 			LOG_NOTICE(LOADER, "** Functions: %u", libstub->fcount);
 			LOG_NOTICE(LOADER, "** Variables: %u", libstub->vcount);
 			LOG_NOTICE(LOADER, "** 0x%x, 0x%08x", libstub->unk2, libstub->unk3);
@@ -829,18 +829,19 @@ void arm_load_exec(const arm_exec_object& elf)
 
 	const auto libc_param = proc_param->sce_libcparam;
 
-	if (libc_param) {
+	if (libc_param) 
+	{
 
-	LOG_NOTICE(LOADER, "__sce_libcparam(*0x%x) analysis...", libc_param);
+		LOG_NOTICE(LOADER, "__sce_libcparam(*0x%x) analysis...", libc_param);
 
-	verify(HERE), libc_param->size >= 0x1c;
+		verify(HERE), libc_param->size >= 0x1c;
 
-	LOG_NOTICE(LOADER, "*** size=0x%x; 0x%x, 0x%x, 0x%x", libc_param->size, libc_param->unk0, libc_param->unk1, libc_param->unk2);
+		LOG_NOTICE(LOADER, "*** size=0x%x; 0x%x, 0x%x, 0x%x", libc_param->size, libc_param->unk0, libc_param->unk1, libc_param->unk2);
 
-	LOG_NOTICE(LOADER, "*** &sceLibcHeapSize                  = 0x%x", libc_param->sceLibcHeapSize);
-	LOG_NOTICE(LOADER, "*** &sceLibcHeapSizeDefault           = 0x%x", libc_param->sceLibcHeapSizeDefault);
-	LOG_NOTICE(LOADER, "*** &sceLibcHeapExtendedAlloc         = 0x%x", libc_param->sceLibcHeapExtendedAlloc);
-	LOG_NOTICE(LOADER, "*** &sceLibcHeapDelayedAlloc          = 0x%x", libc_param->sceLibcHeapDelayedAlloc);
+		LOG_NOTICE(LOADER, "*** &sceLibcHeapSize                  = 0x%x", libc_param->sceLibcHeapSize);
+		LOG_NOTICE(LOADER, "*** &sceLibcHeapSizeDefault           = 0x%x", libc_param->sceLibcHeapSizeDefault);
+		LOG_NOTICE(LOADER, "*** &sceLibcHeapExtendedAlloc         = 0x%x", libc_param->sceLibcHeapExtendedAlloc);
+		LOG_NOTICE(LOADER, "*** &sceLibcHeapDelayedAlloc          = 0x%x", libc_param->sceLibcHeapDelayedAlloc);
 
 	}
 
