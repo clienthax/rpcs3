@@ -94,7 +94,17 @@ struct ControlInfo
 			u64 unknown2;
 			u64 unknown3;
 
+			u8 unk[0x80];
+
+
 		} npdrm;
+
+		// type 4 0x50 bytes
+		struct
+		{
+			u32 pad;
+			u8 unk[0x50];
+		} type4;
 
 		// type 5 0x110 bytes
 		struct

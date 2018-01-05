@@ -407,9 +407,25 @@ void ControlInfo::LoadLE(const fs::file& f)
 		npdrm.unknown2 = Read64LE(f);
 		npdrm.unknown3 = Read64LE(f);
 	}
-	else if (type == 5)
+	else if (type == 4)
 	{
-		f.read(type5.unk, 0x100);
+		f.read(type4.unk, 0x40);
+	}
+	else if (type == 5)//vita drm
+	{
+		//f.read(type5.unk, 0x100);
+		npdrm.magic = Read32(f);
+		npdrm.unknown1 = Read32(f);
+		npdrm.license = Read32(f);
+		npdrm.type = Read32(f);
+		f.read(npdrm.content_id, 48);
+		f.read(npdrm.digest, 16);
+		f.read(npdrm.invdigest, 16);
+		f.read(npdrm.xordigest, 16);
+		npdrm.unknown2 = Read64(f);
+		npdrm.unknown3 = Read64(f);
+		f.read(npdrm.unk, 0x80);
+
 	}
 	else if (type == 6)
 	{
@@ -419,6 +435,10 @@ void ControlInfo::LoadLE(const fs::file& f)
 	else if (type == 7)
 	{
 		f.read(type7.unk, 0x40);
+	}
+	else
+	{
+		LOG_ERROR(LOADER, "Unknown control info type : %d", );
 	}
 }
 
@@ -1281,7 +1301,9 @@ bool SELFDecrypter::DecryptNPDRM(u8 *metadata, u32 metadata_size)
 	// Parse the control info structures to find the NPDRM control info.
 	for(unsigned int i = 0; i < ctrlinfo_arr.size(); i++)
 	{
-		if (ctrlinfo_arr[i].type == 3)
+		LOG_NOTICE(LOADER, "SELF: control info type = %d", ctrlinfo_arr[i].type);
+
+		if (ctrlinfo_arr[i].type == 3 || ctrlinfo_arr[i].type == 5)
 		{
 			ctrl = &ctrlinfo_arr[i];
 			break;
@@ -1320,7 +1342,7 @@ bool SELFDecrypter::DecryptNPDRM(u8 *metadata, u32 metadata_size)
 	}
 	else
 	{
-		LOG_ERROR(LOADER, "SELF: Invalid NPDRM license type!");
+		LOG_ERROR(LOADER, "SELF: Invalid NPDRM license type!, type=%d", ctrl->npdrm.license);
 		return false;
 	}
 
@@ -1370,6 +1392,10 @@ bool SELFDecrypter::LoadMetadata(u8* klic_key)
 	// Check DEBUG flag.
 	if (sce_hdr.se_flags == 0x00c0)
 		return true;
+
+
+	LOG_NOTICE(LOADER, "SELF: se_flags 0x%x 0x%x", sce_hdr.se_flags, (sce_hdr.se_flags & 0x8000));
+
 	if ((sce_hdr.se_flags & 0x8000) != 0x8000)
 	{
 		// Decrypt the NPDRM layer.

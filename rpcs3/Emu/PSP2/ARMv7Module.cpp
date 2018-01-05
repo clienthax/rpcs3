@@ -13,6 +13,8 @@
 extern std::string arm_get_function_name(const std::string& module, u32 fnid);
 extern std::string arm_get_variable_name(const std::string& module, u32 vnid);
 
+extern u32 g_vita_sdk_version;
+
 // Function lookup table. Not supposed to grow after emulation start.
 std::vector<arm_function_t> g_arm_function_cache;
 
@@ -396,7 +398,7 @@ void arm_load_exec(const arm_exec_object& elf)
 
 			std::memcpy(vm::base(p_vaddr[i]), prog.bin.data(), prog.p_filesz);
 		}
-		else if (prog.p_type == 0x60000000) {
+		else if (prog.p_type == 0x60000000) {//SHT_SCE_RELA
 			// Relocation code taken from
 			// https://github.com/yifanlu/UVLoader/blob/master/relocate.c
 			// Relocation information of the SCE_PPURELA segment
@@ -441,7 +443,7 @@ void arm_load_exec(const arm_exec_object& elf)
 					r_addend = SCE_RELOC_LONG_ADDEND(rel.r_long);
 					if (SCE_RELOC_LONG_CODE2(rel.r_long))
 					{
-						LOG_NOTICE(LOADER, "Code2 ignored for relocation at %X.", i);
+						LOG_ERROR(LOADER, "Code2 ignored for relocation at %X.", i);
 					}
 					LOG_NOTICE(LOADER, "LONG RELOC %X %X %X", r_offset, r_addend, SCE_RELOC_CODE(rel));
 					i += 12;
@@ -590,7 +592,7 @@ void arm_load_exec(const arm_exec_object& elf)
 				
 				default:
 				{
-					LOG_NOTICE(LOADER, "Unknown relocation code %u at %x", SCE_RELOC_CODE(rel), i);
+					LOG_ERROR(LOADER, "Unknown relocation code %u at %x", SCE_RELOC_CODE(rel), i);
 					continue;
 				}
 			}
@@ -598,7 +600,7 @@ void arm_load_exec(const arm_exec_object& elf)
 				LOG_NOTICE(LOADER, "Writing at  %X[%d], %X, %X, %d", p_vaddr[r_datseg], r_datseg, r_offset, value, sizeof(value));
 				if ((r_offset + sizeof(value)) > elf.progs[r_datseg].p_filesz)
 				{
-					LOG_NOTICE(LOADER, "Relocation overflows segment");
+					LOG_ERROR(LOADER, "Relocation overflows segment");
 					continue;
 				}
 				vm::_ref<u32>(p_vaddr[r_datseg]+r_offset) = value;
@@ -674,6 +676,11 @@ void arm_load_exec(const arm_exec_object& elf)
 					{
 						entry_point = addr;
 						break;
+					}
+
+					case 0x936C8A78: //set sdk version
+					{
+						LOG_ERROR(LOADER, "** set sdk version unhandled '0x%08X' (*0x%x)", nid, addr);
 					}
 
 					case 0x6c2224ba: // __sce_moduleinfo
