@@ -214,6 +214,11 @@ s32 sys_usbd_receive_event(ppu_thread& ppu, u32 handle, vm::ptr<u64> arg1, vm::p
 	{
 		_sys_ppu_thread_exit(ppu, CELL_OK);
 	}*/
+	
+	//From farseers branch
+	//s32 sys_usbd_receive_event(u32 unk1, vm::ptr<u64> unk2, vm::ptr<void> unk3, vm::ptr<void> unk4)
+	//*unk2 = 4; // Causes the looping thread to close
+
 	return CELL_OK;
 }
 
