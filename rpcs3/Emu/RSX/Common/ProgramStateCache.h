@@ -78,6 +78,7 @@ namespace program_hash_util
 * - static void recompile_fragment_program(RSXFragmentProgram *RSXFP, FragmentProgramData& fragmentProgramData, size_t ID);
 * - static void recompile_vertex_program(RSXVertexProgram *RSXVP, VertexProgramData& vertexProgramData, size_t ID);
 * - static PipelineData build_program(VertexProgramData &vertexProgramData, FragmentProgramData &fragmentProgramData, const PipelineProperties &pipelineProperties, const ExtraData& extraData);
+* - static void validate_pipeline_properties(const VertexProgramData &vertexProgramData, const FragmentProgramData &fragmentProgramData, PipelineProperties& props);
 */
 template<typename backend_traits>
 class program_state_cache
@@ -261,7 +262,7 @@ public:
 	pipeline_storage_type& getGraphicPipelineState(
 		const RSXVertexProgram& vertexShader,
 		const RSXFragmentProgram& fragmentShader,
-		const pipeline_properties& pipelineProperties,
+		pipeline_properties& pipelineProperties,
 		Args&& ...args
 		)
 	{
@@ -273,6 +274,7 @@ public:
 		bool already_existing_fragment_program = std::get<1>(fp_search);
 		bool already_existing_vertex_program = std::get<1>(vp_search);
 
+		backend_traits::validate_pipeline_properties(vertex_program, fragment_program, pipelineProperties);
 		pipeline_key key = { vertex_program.id, fragment_program.id, pipelineProperties };
 
 		if (already_existing_fragment_program && already_existing_vertex_program)
@@ -305,7 +307,7 @@ public:
 		return 0;
 	}
 
-	void fill_fragment_constants_buffer(gsl::span<f32, gsl::dynamic_range> dst_buffer, const RSXFragmentProgram &fragment_program) const
+	void fill_fragment_constants_buffer(gsl::span<f32, gsl::dynamic_range> dst_buffer, const RSXFragmentProgram &fragment_program, bool sanitize = false) const
 	{
 		const auto I = m_fragment_shader_cache.find(fragment_program);
 		if (I == m_fragment_shader_cache.end())
@@ -344,6 +346,14 @@ public:
 						dst[i] = tmp[i];
 					}
 				}
+			}
+			else if (sanitize)
+			{
+				//Convert NaNs and Infs to 0
+				const auto masked = _mm_and_si128((__m128i&)shuffled_vector, _mm_set1_epi32(0x7fffffff));
+				const auto valid = _mm_cmplt_epi32(masked, _mm_set1_epi32(0x7f800000));
+				const auto result = _mm_and_si128((__m128i&)shuffled_vector, valid);
+				_mm_stream_si128((__m128i*)dst, (__m128i&)result);
 			}
 			else
 			{

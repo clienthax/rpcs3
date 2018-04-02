@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "VKHelpers.h"
 
-#include <mutex>
+#include "Utilities/mutex.h"
 
 namespace vk
 {
@@ -14,14 +14,18 @@ namespace vk
 	VkSampler g_null_sampler = nullptr;
 
 	atomic_t<bool> g_cb_no_interrupt_flag { false };
-	atomic_t<bool> g_drv_no_primitive_restart_flag { false };
-	atomic_t<bool> g_drv_force_32bit_indices{ false };
+
+	//Driver compatibility workarounds
+	bool g_drv_no_primitive_restart_flag = false;
+	bool g_drv_force_32bit_indices = false;
+	bool g_drv_sanitize_fp_values = false;
+	bool g_drv_disable_fence_reset = false;
 
 	u64 g_num_processed_frames = 0;
 	u64 g_num_total_frames = 0;
 
 	//global submit guard to prevent race condition on queue submit
-	std::mutex g_submit_mutex;
+	shared_mutex g_submit_mutex;
 
 	VKAPI_ATTR void* VKAPI_CALL mem_realloc(void* pUserData, void* pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope)
 	{
@@ -118,10 +122,10 @@ namespace vk
 		case CELL_GCM_TEXTURE_COMPRESSED_DXT45: return VK_FORMAT_BC3_UNORM_BLOCK;
 		case CELL_GCM_TEXTURE_G8B8: return VK_FORMAT_R8G8_UNORM;
 		case CELL_GCM_TEXTURE_R6G5B5: return VK_FORMAT_R5G6B5_UNORM_PACK16; // Expand, discard high bit?
-		case CELL_GCM_TEXTURE_DEPTH24_D8: return VK_FORMAT_R32_UINT;
-		case CELL_GCM_TEXTURE_DEPTH24_D8_FLOAT:	return VK_FORMAT_R32_SFLOAT;
-		case CELL_GCM_TEXTURE_DEPTH16: return VK_FORMAT_R16_UINT;
-		case CELL_GCM_TEXTURE_DEPTH16_FLOAT: return VK_FORMAT_R16_SFLOAT;
+		case CELL_GCM_TEXTURE_DEPTH24_D8: return VK_FORMAT_D24_UNORM_S8_UINT; //TODO
+		case CELL_GCM_TEXTURE_DEPTH24_D8_FLOAT:	return VK_FORMAT_D24_UNORM_S8_UINT; //TODO
+		case CELL_GCM_TEXTURE_DEPTH16: return VK_FORMAT_D16_UNORM;
+		case CELL_GCM_TEXTURE_DEPTH16_FLOAT: return VK_FORMAT_D16_UNORM;
 		case CELL_GCM_TEXTURE_X16: return VK_FORMAT_R16_UNORM;
 		case CELL_GCM_TEXTURE_Y16_X16: return VK_FORMAT_R16G16_UNORM;
 		case CELL_GCM_TEXTURE_Y16_X16_FLOAT: return VK_FORMAT_R16G16_SFLOAT;
@@ -139,6 +143,23 @@ namespace vk
 		case ~(CELL_GCM_TEXTURE_LN | CELL_GCM_TEXTURE_UN) & CELL_GCM_TEXTURE_COMPRESSED_R8B8_R8G8: return VK_FORMAT_R8G8_UNORM; // Not right
 		}
 		fmt::throw_exception("Invalid or unsupported sampler format for texture format (0x%x)" HERE, format);
+	}
+
+	VkFormat get_compatible_srgb_format(VkFormat rgb_format)
+	{
+		switch (rgb_format)
+		{
+		case VK_FORMAT_B8G8R8A8_UNORM:
+			return VK_FORMAT_B8G8R8A8_SRGB;
+		case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+			return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
+		case VK_FORMAT_BC2_UNORM_BLOCK:
+			return VK_FORMAT_BC2_SRGB_BLOCK;
+		case VK_FORMAT_BC3_UNORM_BLOCK:
+			return VK_FORMAT_BC3_SRGB_BLOCK;
+		default:
+			return rgb_format;
+		}
 	}
 
 	u8 get_format_texel_width(const VkFormat format)
@@ -164,9 +185,13 @@ namespace vk
 		case VK_FORMAT_A8B8G8R8_UNORM_PACK32:
 		case VK_FORMAT_R8G8B8A8_UNORM:
 		case VK_FORMAT_B8G8R8A8_UNORM:
+		case VK_FORMAT_B8G8R8A8_SRGB:
 		case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
 		case VK_FORMAT_BC2_UNORM_BLOCK:
 		case VK_FORMAT_BC3_UNORM_BLOCK:
+		case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+		case VK_FORMAT_BC2_SRGB_BLOCK:
+		case VK_FORMAT_BC3_SRGB_BLOCK:
 			return 4;
 		case VK_FORMAT_R16G16B16A16_SFLOAT:
 			return 8;
@@ -283,7 +308,7 @@ namespace vk
 		g_current_renderer = device;
 		const auto gpu_name = g_current_renderer.gpu().name();
 
-#ifdef _WIN32
+		bool gcn4_proprietary = false;
 		const std::array<std::string, 8> black_listed =
 		{
 			// Black list all polaris unless its proven they dont have a problem with primitive restart
@@ -302,16 +327,24 @@ namespace vk
 			if (gpu_name.find(test) != std::string::npos)
 			{
 				g_drv_no_primitive_restart_flag = !g_cfg.video.vk.force_primitive_restart;
+				gcn4_proprietary = true;
 				break;
 			}
 		}
 
 		//Older cards back to GCN1 break primitive restart on 16-bit indices
-		if (gpu_name.find("Radeon") != std::string::npos)
+		if (!gcn4_proprietary && gpu_name.find("Radeon") != std::string::npos)
 		{
+			//gcn1 - gcn3 workarounds
 			g_drv_force_32bit_indices = true;
+			g_drv_disable_fence_reset = true;
 		}
-#endif
+
+		//Nvidia cards are easily susceptible to NaN poisoning
+		if (gpu_name.find("NVIDIA") != std::string::npos || gpu_name.find("GeForce") != std::string::npos)
+		{
+			g_drv_sanitize_fp_values = true;
+		}
 	}
 
 	bool emulate_primitive_restart()
@@ -322,6 +355,16 @@ namespace vk
 	bool force_32bit_index_buffer()
 	{
 		return g_drv_force_32bit_indices;
+	}
+
+	bool sanitize_fp_values()
+	{
+		return g_drv_sanitize_fp_values;
+	}
+
+	bool fence_reset_disabled()
+	{
+		return g_drv_disable_fence_reset;
 	}
 
 	void change_image_layout(VkCommandBuffer cmd, VkImage image, VkImageLayout current_layout, VkImageLayout new_layout, VkImageSubresourceRange range)
@@ -497,6 +540,22 @@ namespace vk
 	const u64 get_last_completed_frame_id()
 	{
 		return (g_num_processed_frames > 0)? g_num_processed_frames - 1: 0;
+	}
+
+	void reset_fence(VkFence *pFence)
+	{
+		if (g_drv_disable_fence_reset)
+		{
+			vkDestroyFence(g_current_renderer, *pFence, nullptr);
+
+			VkFenceCreateInfo info = {};
+			info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+			CHECK_RESULT(vkCreateFence(g_current_renderer, &info, nullptr, pFence));
+		}
+		else
+		{
+			CHECK_RESULT(vkResetFences(g_current_renderer, 1, pFence));
+		}
 	}
 
 	void die_with_error(const char* faulting_addr, VkResult error_code)
