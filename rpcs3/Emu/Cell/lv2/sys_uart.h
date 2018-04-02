@@ -13,8 +13,8 @@ struct uart_packet
 
 // SysCalls
 error_code sys_uart_initialize();
-error_code sys_uart_receive(ppu_thread& ppu, vm::ptr<char> buffer, u64 size, u32 unk);
-error_code sys_uart_send(ppu_thread& ppu, vm::cptr<u8> buffer, u64 size, u64 flags);
+s32 sys_uart_receive(ppu_thread& ppu, vm::ptr<char> buffer, u64 size, u32 unk);
+s32 sys_uart_send(ppu_thread& ppu, vm::cptr<u8> buffer, u64 size, u64 flags);
 error_code sys_uart_get_params(vm::ptr<char> buffer);
 
 error_code sys_sm_get_ext_event2(vm::ptr<u32> stack1, vm::ptr<u32> stack2, vm::ptr<u32> stack3, u32 maybe_bool);

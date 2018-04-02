@@ -12,7 +12,7 @@ error_code sys_uart_initialize()
 	return CELL_OK;
 }
 
-error_code sys_uart_receive(ppu_thread& ppu, vm::ptr<char> buffer, u64 size, u32 unk)
+s32 sys_uart_receive(ppu_thread& ppu, vm::ptr<char> buffer, u64 size, u32 unk)
 {
 	if (size != 0x800) return 0; // HACK: Unimplemented - we only send the 'stop waiting' packet, or whatever
 
@@ -45,7 +45,7 @@ error_code sys_uart_receive(ppu_thread& ppu, vm::ptr<char> buffer, u64 size, u32
 	return sizeof(uart_required_packet) * sizeof(types) / sizeof(types[0]);
 }
 
-error_code sys_uart_send(ppu_thread& ppu, vm::cptr<u8> buffer, u64 size, u64 flags)
+s32 sys_uart_send(ppu_thread& ppu, vm::cptr<u8> buffer, u64 size, u64 flags)
 {
 	sys_uart.todo("sys_uart_send(buffer=0x%x, size=0x%llx, flags=0x%x)", buffer, size, flags);
 	return size;
@@ -74,7 +74,7 @@ error_code sys_sm_get_params(vm::ptr<u64> a, vm::ptr<u64> b, vm::ptr<u64> c, vm:
 	sys_sm.todo("sys_sm_get_params(0x%x, 0x%x, 0x%x, 0x%x)", a, b, c, d);
 	*a = 0;
 	*b = 0;
-	*c = 0;
-	*d = 0;
+	*c = 1;
+	*d = 400000000000010;
 	return CELL_OK;
 }

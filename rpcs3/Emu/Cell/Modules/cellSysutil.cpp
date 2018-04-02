@@ -2022,6 +2022,8 @@ DECLARE(ppu_module_manager::cellSysutil)("cellSysutil", []()
 	REG_FUNC(cellSysutil, _ZN16sysutil_cxmlutil12PacketWriter5WriteEPKvjPv);
 	REG_FUNC(cellSysutil, _ZN16sysutil_cxmlutil12PacketWriterC1EiiRN4cxml8DocumentE);
 
+	REG_FNID(cellSysutil, 0xE1EC7B6A, cellSysutil_E1EC7B6A);//maybe?
+
 	// Special
 	REG_FUNC(cellSysutil, sceVshSysutilService).flags = MFF_HIDDEN;
 });

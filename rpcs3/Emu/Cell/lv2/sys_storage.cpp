@@ -67,9 +67,11 @@ s32 sys_storage_get_device_info(u64 device, vm::ptr<u8> buffer)
 	sys_storage.todo("sys_storage_get_device_info(device=0x%x, config=0x%x)", device, buffer);
 
 	*reinterpret_cast<u64*>(buffer.get_ptr() + 0x28) = 1;
-	buffer[0x3f] = 1;
-	buffer[0x39] = 1;
-	buffer[0x3a] = 1;
+	buffer[0x3f] = 20;//1
+	buffer[0x39] = 20;//1
+	buffer[0x3a] = 20;//1
+
+
 	return CELL_OK;
 }
 
