@@ -25,7 +25,7 @@ bool user_asked_for_frame_capture = false;
 rsx::frame_capture_data frame_debug;
 
 
-extern CellGcmOffsetTable offsetTable;
+//extern CellGcmOffsetTable offsetTable;
 extern u32 rsx_ctxaddr;
 
 namespace rsx

@@ -12,7 +12,7 @@
 
 logs::channel sys_rsx("sys_rsx");
 
-bool g_vsh = false; // TODO 
+bool g_vsh = true; // TODO 
 
 extern u64 get_timebased_time();
 
@@ -92,8 +92,8 @@ s32 sys_rsx_context_allocate(vm::ptr<u32> context_id, vm::ptr<u64> lpar_dma_cont
 		fmt::throw_exception("sys_rsx_context_allocate called twice.");
 
 
-	if (vm::falloc(rsx_ctxaddr, 0x400000) != rsx_ctxaddr)
-		fmt::throw_exception("Failed to alloc rsx context.");
+//	if (vm::falloc(rsx_ctxaddr, 0x400000) != rsx_ctxaddr)
+//		fmt::throw_exception("Failed to alloc rsx context.");
 
 	*context_id = 0x55555555;
 
@@ -428,11 +428,17 @@ s32 sys_rsx_device_map(vm::ptr<u64> addr, vm::ptr<u64> a2, u32 dev_id)
 	*a2 = 0;
 
 	rsx_ctxaddr = 0;
-	for (u32 addr = 0x40000000; addr < 0xC0000000; addr += 0x10000000)
+	for (u32 addr = /*0x40000000*/ 0x60000000; addr < 0xC0000000; addr += 0x10000000)
 	{
 		if (vm::map(addr, 0x10000000, 0x400))
 		{
 			rsx_ctxaddr = addr;
+			sys_rsx.warning("sys_rsx_device_map mapped %x", addr);
+
+			if (vm::falloc(rsx_ctxaddr, 0x400000) != rsx_ctxaddr)
+				fmt::throw_exception("Failed to alloc rsx context.");
+
+
 			break;
 		}
 	}
