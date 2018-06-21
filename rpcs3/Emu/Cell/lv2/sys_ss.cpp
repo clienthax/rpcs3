@@ -82,3 +82,19 @@ s32 sys_ss_get_open_psid(vm::ptr<CellSsOpenPSID> psid)
 
 	return CELL_OK;
 }
+
+s32 sys_ss_appliance_info_manager(u32 code, vm::ptr<u8> buffer)
+{
+	switch (code)
+	{
+	case 0x19004:
+	{
+		sys_ss.warning("sys_ss_363(code=0x%x (PSCODE), buffer=*0x%x)", code, buffer);
+		u8 pscode[] = {0x00, 0x01, 0x00, 0x85, 0x00, 0x07, 0x00, 0x04};
+		memcpy(buffer.get_ptr(), pscode, 8);
+		break;
+	}
+	default: sys_ss.todo("sys_ss_363(code=0x%x, buffer=*0x%x)", code, buffer);
+	}
+	return CELL_OK;
+}

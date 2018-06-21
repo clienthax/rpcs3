@@ -32,7 +32,7 @@ u32 g_ps3_sdk_version;
 s32 process_getpid()
 {
 	// TODO: get current process id
-	return 1;
+	return 0;
 }
 
 s32 sys_process_getpid()

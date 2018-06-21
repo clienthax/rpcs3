@@ -2,6 +2,7 @@
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 
+#include "Emu/Cell/PPUThread.h"
 #include "Emu/Cell/ErrorCodes.h"
 #include "sys_usbd.h"
 #include "sys_ppu_thread.h"
@@ -192,8 +193,10 @@ s32 sys_usbd_close_pipe()
 s32 sys_usbd_receive_event(ppu_thread& ppu, u32 handle, vm::ptr<u64> arg1, vm::ptr<u64> arg2, vm::ptr<u64> arg3)
 {
 	sys_usbd.todo("sys_usbd_receive_event(handle=%u, arg1=0x%x, arg2=0x%x, arg3=0x%x)", handle, arg1, arg2, arg3);
+	lv2_obj::sleep(ppu);
+	thread_ctrl::wait();
 
-	_sys_ppu_thread_exit(ppu, CELL_OK);
+	//_sys_ppu_thread_exit(ppu, CELL_OK);
 
 	// TODO
 	/*if (receive_event_called_count == 0)
