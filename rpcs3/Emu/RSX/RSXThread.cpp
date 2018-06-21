@@ -25,6 +25,8 @@ bool user_asked_for_frame_capture = false;
 rsx::frame_capture_data frame_debug;
 
 
+extern CellGcmOffsetTable offsetTable;
+extern u32 rsx_ctxaddr;
 
 namespace rsx
 {
@@ -56,7 +58,7 @@ namespace rsx
 		}
 
 		case CELL_GCM_CONTEXT_DMA_REPORT_LOCATION_LOCAL:
-			return 0x40301400 + offset;
+			return rsx_ctxaddr + 0x301400 + offset;
 
 		case CELL_GCM_CONTEXT_DMA_REPORT_LOCATION_MAIN:
 		{
@@ -76,13 +78,13 @@ namespace rsx
 
 		case CELL_GCM_CONTEXT_DMA_SEMAPHORE_RW:
 		case CELL_GCM_CONTEXT_DMA_SEMAPHORE_R:
-			return 0x40300000 + offset;
+			return rsx_ctxaddr + 0x300000 + offset;
 
 		case CELL_GCM_CONTEXT_DMA_DEVICE_RW:
-			return 0x40000000 + offset;
+			return rsx_ctxaddr + offset;
 
 		case CELL_GCM_CONTEXT_DMA_DEVICE_R:
-			return 0x40000000 + offset;
+			return rsx_ctxaddr + offset;
 
 		default:
 			fmt::throw_exception("Invalid location (offset=0x%x, location=0x%x)" HERE, offset, location);

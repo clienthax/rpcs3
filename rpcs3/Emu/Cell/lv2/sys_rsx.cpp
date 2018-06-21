@@ -21,6 +21,9 @@ struct SysRsxConfig {
 	u32 driverInfo{ 0 };
 };
 
+// RSX context base address
+u32 rsx_ctxaddr{ 0 };
+
 u64 rsxTimeStamp() {
 	return get_timebased_time();
 }
@@ -88,15 +91,15 @@ s32 sys_rsx_context_allocate(vm::ptr<u32> context_id, vm::ptr<u64> lpar_dma_cont
 	if (!m_sysrsx)
 		fmt::throw_exception("sys_rsx_context_allocate called twice.");
 
-	u32 addr = vm::falloc(0x40000000, 0x400000);
-	if (addr == 0 || addr != 0x40000000)
-		fmt::throw_exception("Failed to alloc 0x40000000.");
+
+	if (vm::falloc(rsx_ctxaddr, 0x400000) != rsx_ctxaddr)
+		fmt::throw_exception("Failed to alloc rsx context.");
 
 	*context_id = 0x55555555;
 
-	*lpar_dma_control = addr + 0x100000;
-	*lpar_driver_info = addr + 0x200000;
-	*lpar_reports = addr + 0x300000;
+	*lpar_dma_control = rsx_ctxaddr + 0x100000;
+	*lpar_driver_info = rsx_ctxaddr + 0x200000;
+	*lpar_reports = rsx_ctxaddr + 0x300000;
 
 	auto &reports = vm::_ref<RsxReports>(*lpar_reports);
 	std::memset(&reports, 0, sizeof(RsxReports));
@@ -263,7 +266,7 @@ s32 sys_rsx_context_attribute(s32 context_id, u32 package_id, u64 a3, u64 a4, u6
 		// lets give this a shot for giving bufferid back to gcm
 		driverInfo.head[a3].flipBufferId = driverInfo.head[a3].queuedBufferId;
 		// seems gcmSysWaitLabel uses this offset, so lets set it to 0 every flip
-		vm::_ref<u32>(0x40300010) = 0;
+		vm::_ref<u32>(render->label_addr + 0x10) = 0;
 		if (a3 == 0)
 			sys_event_port_send(m_sysrsx->rsx_event_port, 0, (1 << 3), 0);
 		if (a3 == 1)
@@ -408,7 +411,7 @@ s32 sys_rsx_context_attribute(s32 context_id, u32 package_id, u64 a3, u64 a4, u6
 
 /*
  * lv2 SysCall 675 (0x2A3): sys_rsx_device_map
- * @param a1 (OUT): For example: In vsh.self it is 0x60000000, global semaphore. For a game it is 0x40000000.
+ * @param a1 (OUT): For example: In vsh.self it is 0x60000000, global semaphore. For a game it is 0x40000000 and up.
  * @param a2 (OUT): Unused?
  * @param dev_id (IN): An immediate value and always 8. (cellGcmInitPerfMon uses 11, 10, 9, 7, 12 successively).
  */
@@ -424,7 +427,19 @@ s32 sys_rsx_device_map(vm::ptr<u64> addr, vm::ptr<u64> a2, u32 dev_id)
 	// a2 seems to not be referenced in cellGcmSys
 	*a2 = 0;
 
-	*addr = g_vsh ? 0x60000000 : 0x40000000;
+	rsx_ctxaddr = 0;
+	for (u32 addr = 0x40000000; addr < 0xC0000000; addr += 0x10000000)
+	{
+		if (vm::map(addr, 0x10000000, 0x400))
+		{
+			rsx_ctxaddr = addr;
+			break;
+		}
+	}
+
+	verify(HERE), (rsx_ctxaddr);
+
+	*addr = rsx_ctxaddr;
 
 	return CELL_OK;
 }

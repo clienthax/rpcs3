@@ -13,6 +13,8 @@
 
 #include <thread>
 
+extern u32 rsx_ctxaddr;
+
 template <>
 void fmt_class_string<frame_limit_type>::format(std::string& out, u64 arg)
 {
@@ -71,7 +73,7 @@ namespace rsx
 			while (vm::read32(addr) != arg)
 			{
 				// todo: LLE: why does this one keep hanging? is it vsh system semaphore? whats actually pushing this to the command buffer?!
-				if (addr == 0x40000030)
+				if (addr == rsx_ctxaddr + 0x30)
 					return;
 
 				if (Emu.IsStopped())
