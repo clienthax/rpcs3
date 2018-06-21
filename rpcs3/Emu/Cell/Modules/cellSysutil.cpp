@@ -931,8 +931,8 @@ s32 cellSysutilPacketBegin(ppu_thread& ppu, u32 slot, u32 evnt)
 		return CELL_SYSUTIL_ERROR_INVALID_PACKET_SLOT;
 
 	// too lazy to deal with multiple slots for now, slot 0 only looks to be used by the actual sysutil.lib anyway
-	if (slot == 0)
-		fmt::throw_exception("unimplemented slot... deal with slot 0");
+//	if (slot == 0)
+//		fmt::throw_exception("unimplemented slot... deal with slot 0");
 
 	const auto m = getSysutilServiceManager();
 
@@ -967,13 +967,13 @@ s32 cellSysutilPacketBegin(ppu_thread& ppu, u32 slot, u32 evnt)
 u32 _ZN16sysutil_cxmlutil11FixedMemory5BeginEi(u32 slot)
 {
 	cellSysutil.warning("cellSysutil_B47470E1(slot=0x%x)", slot);
-
+/*
 	if (slot != 1)
 	{
 		// There is no check whether slot is larger then 1, but if it is, it corrupt
 		// memory or cause an AV. 0 is valid and unimplemented yet, though
 		fmt::throw_exception("Unimplemented");
-	}
+	}*/
 
 	const auto m = getSysutilServiceManager();
 

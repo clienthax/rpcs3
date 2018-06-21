@@ -12,7 +12,7 @@
 
 logs::channel sys_rsx("sys_rsx");
 
-bool g_vsh = true; // TODO 
+bool g_vsh = false; // TODO 
 
 extern u64 get_timebased_time();
 
