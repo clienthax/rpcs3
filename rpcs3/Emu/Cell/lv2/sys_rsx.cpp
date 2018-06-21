@@ -428,7 +428,7 @@ s32 sys_rsx_device_map(vm::ptr<u64> addr, vm::ptr<u64> a2, u32 dev_id)
 	*a2 = 0;
 
 	rsx_ctxaddr = 0;
-	for (u32 addr = /*0x40000000*/ 0x60000000; addr < 0xC0000000; addr += 0x10000000)
+	for (u32 addr = 0x40000000; addr < 0xC0000000; addr += 0x10000000)
 	{
 		if (vm::map(addr, 0x10000000, 0x400))
 		{
