@@ -221,7 +221,8 @@ error_code sys_ppu_thread_set_priority(ppu_thread& ppu, u32 thread_id, s32 prio)
 
 	if (!thread)
 	{
-		return CELL_ESRCH;
+		return CELL_OK;
+//		return CELL_ESRCH;
 	}
 
 	return CELL_OK;

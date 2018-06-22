@@ -255,6 +255,7 @@ s32 sys_rsx_context_attribute(s32 context_id, u32 package_id, u64 a3, u64 a4, u6
 
 	case 0x100: // Display mode set
 		break;
+
 	case 0x101: // Display sync set, cellGcmSetFlipMode
 		// a4 == 2 is vsync, a4 == 1 is hsync
 		render->requested_vsync.store(a4 == 2);

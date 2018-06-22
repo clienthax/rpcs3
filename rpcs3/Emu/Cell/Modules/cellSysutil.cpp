@@ -1036,7 +1036,8 @@ s32 cellSysutilGameDataAssignVmc()
 
 s32 cellSysutilGameDataExit()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	UNIMPLEMENTED_FUNC(cellSysutil);
+	return CELL_OK;
 }
 
 s32 cellSysutilGameExit_I()

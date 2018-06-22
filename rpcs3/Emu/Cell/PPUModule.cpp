@@ -566,7 +566,7 @@ static auto ppu_load_exports(const std::shared_ptr<ppu_linkage_info>& link, u32 
 					for (const u32 addr : flink.imports)
 					{
 						vm::write32(addr, faddr);
-						//LOG_WARNING(LOADER, "Exported function '%s' in module '%s'", ppu_get_function_name(module_name, fnid), module_name);
+						LOG_WARNING(LOADER, "Exported function '%s' in module '%s'", ppu_get_function_name(module_name, fnid), module_name);
 					}
 
 					for (const u32 fref : flink.frefss)
@@ -608,7 +608,7 @@ static auto ppu_load_exports(const std::shared_ptr<ppu_linkage_info>& link, u32 
 				for (const auto vref : vlink.imports)
 				{
 					ppu_patch_refs(nullptr, vref, vaddr);
-					//LOG_WARNING(LOADER, "Exported variable '%s' in module '%s'", ppu_get_variable_name(module_name, vnid), module_name);
+					LOG_WARNING(LOADER, "Exported variable '%s' in module '%s'", ppu_get_variable_name(module_name, vnid), module_name);
 				}
 			}
 		}
@@ -674,7 +674,7 @@ static auto ppu_load_imports(std::vector<ppu_reloc>& relocs, const std::shared_p
 				ppu_patch_refs(&relocs, frefs, link_addr);
 			}
 
-			//LOG_WARNING(LOADER, "Imported function '%s' in module '%s' (0x%x)", ppu_get_function_name(module_name, fnid), module_name, faddr);
+			LOG_WARNING(LOADER, "Imported function '%s' in module '%s' (0x%x)", ppu_get_function_name(module_name, fnid), module_name, faddr);
 		}
 
 		const auto vnids = +lib.vnids;
@@ -697,7 +697,7 @@ static auto ppu_load_imports(std::vector<ppu_reloc>& relocs, const std::shared_p
 			// Link if available
 			ppu_patch_refs(&relocs, vref, vlink.export_addr);
 
-			//LOG_WARNING(LOADER, "Imported variable '%s' in module '%s' (0x%x)", ppu_get_variable_name(module_name, vnid), module_name, vlink.first);
+			LOG_WARNING(LOADER, "Imported variable '%s' in module '%s' (0x%x)", ppu_get_variable_name(module_name, vnid), module_name, vlink.export_addr);
 		}
 
 		addr += lib.size ? lib.size : sizeof(ppu_prx_module_info);
@@ -1562,6 +1562,7 @@ void ppu_load_exec(const ppu_exec_object& elf)
 	// TODO: adjust for liblv2 loading option
 	u32 entry = static_cast<u32>(elf.header.e_entry);
 
+	
 	if (loaded_modules.size() != 0)
 	{
 		if (g_cfg.core.lib_loading != lib_loading_type::liblv2only)
@@ -1571,13 +1572,12 @@ void ppu_load_exec(const ppu_exec_object& elf)
 			({
 				{ ppu_cmd::set_args, 4 }, u64{ppu->id}, u64{tls_vaddr}, u64{tls_fsize}, u64{tls_vsize},
 				{ ppu_cmd::hle_call, FIND_FUNC(sys_initialize_tls) },
-			});
+				});
 		}
 		else
 		{
 			// Run liblv2.sprx entry point (TODO)
 			entry = loaded_modules[0]->start.addr();
-
 			loaded_modules.clear();
 		}
 	}

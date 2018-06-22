@@ -113,6 +113,7 @@
     <ClCompile Include="..\Utilities\version.cpp" />
     <ClCompile Include="..\Utilities\VirtualMemory.cpp" />
     <ClCompile Include="Emu\Cell\lv2\sys_gpio.cpp" />
+    <ClCompile Include="Emu\Cell\lv2\sys_hid.cpp" />
     <ClCompile Include="Emu\Cell\lv2\sys_net.cpp" />
     <ClCompile Include="Emu\Cell\lv2\sys_config.cpp" />
     <ClCompile Include="Emu\Cell\lv2\sys_rsxaudio.cpp" />
@@ -399,6 +400,7 @@
     <ClInclude Include="define_new_memleakdetect.h" />
     <ClInclude Include="Emu\Cell\lv2\sys_gpio.h" />
     <ClInclude Include="Emu\Cell\lv2\sys_config.h" />
+    <ClInclude Include="Emu\Cell\lv2\sys_hid.h" />
     <ClInclude Include="Emu\Cell\lv2\sys_rsxaudio.h" />
     <ClInclude Include="Emu\Cell\lv2\sys_storage.h" />
     <ClInclude Include="Emu\Cell\lv2\sys_uart.h" />

@@ -811,6 +811,19 @@ void Emulator::Load(bool add_only)
 				argv.resize(1);
 			}
 
+			argv.resize(9);//hacks
+
+			//ps1_newemu.self
+			argv[1] = "filename1.VM1";//virtual mc 1 /dev_hdd0/savedata/vmc/NAME
+			argv[2] = "filename2.VM1";//virtual mc 2 /dev_hdd0/savedata/vmc/NAME
+
+			argv[3] = "0082";//region target
+			argv[4] = "1600";//??? arg4 600 / 1200 / 1600, resolution scale?
+			argv[5] = "/dev_hdd0/game/NPUJ00892";//ps1 game folder path
+			argv[6] = "1";//??? arg6 1
+			argv[7] = "2";//??? arg7 2 -- full screen on/off 2/1 ?
+			argv[8] = "1";//??? arg8 2 -- smoothing	on/off	= 1/0
+
 			if (argv[0].empty())
 			{
 				if (from_hdd0_game && m_cat == "DG")

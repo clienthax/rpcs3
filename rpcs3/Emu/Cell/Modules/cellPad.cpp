@@ -400,7 +400,8 @@ s32 cellPadGetDataExtra(u32 port_no, vm::ptr<u32> device_type, vm::ptr<CellPadDa
 	// TODO: This is used just to get data from a BD/CEC remote,
 	// but if the port isnt a remote, device type is set to 0 and just regular cellPadGetData is returned
 
-	*device_type = 0;
+	if(device_type)
+		*device_type = 0;
 
 	// set BD data before just incase
 	data->button[24] = 0x0;
@@ -710,6 +711,14 @@ s32 cellPadLddUnregisterController(s32 handle)
 	return CELL_OK;
 }
 
+s32 sys_io_3733EA3C(u32 port_no, vm::ptr<u32> device_type, vm::ptr<CellPadData> data)
+{
+
+	sys_io.trace("sys_io_3733EA3C(port_no=%d, device_type=*0x%x, data=*0x%x)", port_no, device_type, data);
+
+	return cellPadGetDataExtra(port_no, device_type, data);
+}
+
 
 void cellPad_init()
 {
@@ -734,4 +743,7 @@ void cellPad_init()
 	REG_FUNC(sys_io, cellPadLddDataInsert);
 	REG_FUNC(sys_io, cellPadLddGetPortNo);
 	REG_FUNC(sys_io, cellPadLddUnregisterController);
+
+	REG_FNID(sys_io, 0x3733EA3C, sys_io_3733EA3C);
+
 }
