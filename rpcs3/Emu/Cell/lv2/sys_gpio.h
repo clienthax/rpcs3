@@ -43,9 +43,25 @@ s32 sys_storage_async_configure();
 s32 sys_storage_async_read();
 s32 sys_storage_async_write();
 s32 sys_storage_async_cancel();
-s32 sys_storage_get_device_info(u64 device, vm::ptr<u8> buffer);
+
+#pragma pack(push, 1)
+struct StorageDeviceInfo
+{
+	u8 name[0x20];    // 0x0
+	be_t<u32> zero; // 0x20
+	be_t<u32> zero2;  // 0x24 
+	be_t<u64> sector_count; // 0x28
+	be_t<u32> sector_size; // 0x30
+	be_t<u32> one; // 0x34
+	u8 flags[8]; // 0x38
+};
+#pragma pack(pop)
+
+static_assert(sizeof(StorageDeviceInfo) == 0x40, "StorageDeviceInfoSizeTest");
+
+s32 sys_storage_get_device_info(u64 device, vm::ptr<StorageDeviceInfo> buffer);
 s32 sys_storage_get_device_config(vm::ptr<u32> storages, vm::ptr<u32> devices);
-s32 sys_storage_report_devices(u32 storages, u32 zero, u32 devices, vm::ptr<u64> device_ids);
+s32 sys_storage_report_devices(u32 storages, u32 start, u32 devices, vm::ptr<u64> device_ids);
 s32 sys_storage_configure_medium_event(u32 fd, u32 equeue_id, u32 c);
 s32 sys_storage_set_medium_polling_interval();
 s32 sys_storage_create_region();
@@ -56,3 +72,25 @@ s32 sys_storage_set_region_acl();
 s32 sys_storage_async_send_device_command();
 s32 sys_storage_get_region_offset();
 s32 sys_storage_set_emulated_speed();
+
+struct uart_packet
+{
+	u8 magic;
+	u8 size;
+	u8 cmd;
+	u8 data[1];
+};
+
+// SysCalls
+error_code sys_uart_initialize();
+error_code sys_uart_receive(ppu_thread& ppu, vm::ptr<char> buffer, u64 size, u32 unk);
+error_code sys_uart_send(ppu_thread& ppu, vm::cptr<u8> buffer, u64 size, u64 flags);
+error_code sys_uart_get_params(vm::ptr<char> buffer);
+
+error_code sys_console_write(vm::cptr<char> buf, u32 len);
+
+error_code sys_hid_manager_510();
+error_code sys_hid_manager_514();
+error_code sys_sm_get_ext_event2();
+
+error_code sys_btsetting_if(u64 cmd, vm::ptr<void> msg);

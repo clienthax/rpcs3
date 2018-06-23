@@ -20,10 +20,10 @@ logs::channel sys_prx("sys_prx");
 
 static const std::unordered_map<std::string, int> s_prx_ignore
 {
-	{ "/dev_flash/sys/external/libaudio.sprx", 0 },
+	/*{ "/dev_flash/sys/external/libaudio.sprx", 0 },
 	{ "/dev_flash/sys/external/libcamera.sprx", 0 },
 	{ "/dev_flash/sys/external/libgem.sprx", 0 },
-	//{ "/dev_flash/sys/external/libio.sprx", 0 },
+	{ "/dev_flash/sys/external/libio.sprx", 0 },
 	{ "/dev_flash/sys/external/libmedi.sprx", 0 },
 	{ "/dev_flash/sys/external/libmic.sprx", 0 },
 	{ "/dev_flash/sys/external/libnetctl.sprx", 0 },
@@ -78,7 +78,7 @@ static const std::unordered_map<std::string, int> s_prx_ignore
 	{ "/dev_flash/sys/external/libsysutil_video_player.sprx", 0 },
 	{ "/dev_flash/sys/external/libsysutil_video_upload.sprx", 0 },
 	{ "/dev_flash/sys/external/libvdec.sprx", 0 },
-	{ "/dev_flash/sys/external/libvoice.sprx", 0 },
+	{ "/dev_flash/sys/external/libvoice.sprx", 0 },*/
 };
 
 static error_code prx_load_module(const std::string& vpath, u64 flags, vm::ptr<sys_prx_load_module_option_t> pOpt, fs::file src = {})
@@ -269,7 +269,7 @@ error_code _sys_prx_stop_module(u32 id, u64 flags, vm::ptr<sys_prx_start_stop_mo
 error_code _sys_prx_unload_module(u32 id, u64 flags, vm::ptr<sys_prx_unload_module_option_t> pOpt)
 {
 	sys_prx.todo("_sys_prx_unload_module(id=0x%x, flags=0x%x, pOpt=*0x%x)", id, flags, pOpt);
-
+	
 	// Get the PRX, free the used memory and delete the object and its ID
 	const auto prx = idm::withdraw<lv2_obj, lv2_prx>(id);
 
@@ -277,7 +277,7 @@ error_code _sys_prx_unload_module(u32 id, u64 flags, vm::ptr<sys_prx_unload_modu
 	{
 		return CELL_ESRCH;
 	}
-
+	sys_prx.todo("unloaded %s", prx->name);
 	ppu_unload_prx(*prx);
 
 	//s32 result = prx->exit ? prx->exit() : CELL_OK;

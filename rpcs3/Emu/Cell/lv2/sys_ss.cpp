@@ -29,7 +29,6 @@ const HCRYPTPROV s_crypto_provider = []() -> HCRYPTPROV
 #endif
 
 
-
 logs::channel sys_ss("sys_ss");
 
 error_code sys_ss_random_number_generator(u32 arg1, vm::ptr<void> buf, u64 size)
@@ -96,5 +95,28 @@ s32 sys_ss_appliance_info_manager(u32 code, vm::ptr<u8> buffer)
 	}
 	default: sys_ss.todo("sys_ss_363(code=0x%x, buffer=*0x%x)", code, buffer);
 	}
+	return CELL_OK;
+}
+
+s32 sys_ss_get_cache_of_product_mode(vm::ptr<u8> ptr)
+{
+	sys_ss.todo("UNIMPLEMENTED sys_ss_get_cache_of_product_mode(0x%x)", ptr);
+	s32 pid = 1;
+
+	if (false /*process == null*/)
+	{
+		return 0x80010003;
+	}
+	if (!ptr)
+	{
+		return 0x80010002;
+	}
+	// 0xff Happens when hypervisor call returns an error
+	// 0 - disabled
+	// 1 - enabled
+
+	// except something segfaults when using 0, so error it is!
+	*ptr = 0xFF; 
+
 	return CELL_OK;
 }

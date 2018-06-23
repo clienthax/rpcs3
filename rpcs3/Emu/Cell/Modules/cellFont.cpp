@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/Cell/PPUModule.h"
 
@@ -748,7 +748,7 @@ s32 cellFontControl()
 DECLARE(ppu_module_manager::cellFont)("cellFont", []()
 {
 
-	REG_FUNC(cellFont, cellFontSetFontsetOpenMode);
+	/*REG_FUNC(cellFont, cellFontSetFontsetOpenMode);
 	REG_FUNC(cellFont, cellFontSetFontOpenMode);
 	REG_FUNC(cellFont, cellFontCreateRenderer);
 	REG_FUNC(cellFont, cellFontGetHorizontalLayout);
@@ -830,5 +830,5 @@ DECLARE(ppu_module_manager::cellFont)("cellFont", []()
 	REG_FUNC(cellFont, cellFontGetRenderEffectSlant);
 	REG_FUNC(cellFont, cellFontGetScalePoint);
 	REG_FUNC(cellFont, cellFontGraphicsGetLineRGBA);
-	REG_FUNC(cellFont, cellFontControl);
+	REG_FUNC(cellFont, cellFontControl);*/
 });
