@@ -36,6 +36,7 @@
 #include "sys_rsxaudio.h"
 #include "sys_storage.h"
 #include "sys_uart.h"
+#include "sys_sm.h"
 
 extern std::string ppu_get_syscall_name(u64 code);
 
@@ -381,9 +382,9 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_game_set_system_sw_version)   //375 (0x177)  ROOT
 	null_func,//BIND_FUNC(sys_game_get_system_sw_version)   //376 (0x178)  ROOT
 	null_func,//BIND_FUNC(sys_sm_set_shop_mode)             //377 (0x179)  ROOT
-	null_func,//BIND_FUNC(sys_sm_get_ext_event2)            //378 (0x17A)  ROOT
+	BIND_FUNC(sys_sm_get_ext_event2),                       //378 (0x17A)  ROOT
 	null_func,//BIND_FUNC(sys_sm_shutdown)                  //379 (0x17B)  ROOT
-	null_func,//BIND_FUNC(sys_sm_get_params)                //380 (0x17C)  DBG
+	BIND_FUNC(sys_sm_get_params),                          //380 (0x17C)  DBG
 	null_func,//BIND_FUNC(sys_sm_get_inter_lpar_parameter)  //381 (0x17D)  ROOT
 	null_func,//BIND_FUNC(sys_sm_)                          //382 (0x17E)  ROOT
 	null_func,//BIND_FUNC(sys_game_get_temperature)         //383 (0x17F)  ROOT
@@ -758,7 +759,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(syscall_...)                      //864  DBG
 	BIND_FUNC(sys_ss_random_number_generator),              //865 (0x361)
 	null_func,//BIND_FUNC(sys_...)                          //866  ROOT
-	null_func,//BIND_FUNC(sys_...)                          //867  ROOT
+	BIND_FUNC(sys_ss_appliance_info_manager),               //867  ROOT
 	null_func,//BIND_FUNC(sys_...)                          //868  ROOT / DBG  AUTHID
 	null_func,//BIND_FUNC(sys_...)                          //869  ROOT
 	BIND_FUNC(sys_ss_get_console_id),                       //870 (0x366)
