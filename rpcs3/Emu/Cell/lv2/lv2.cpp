@@ -33,6 +33,7 @@
 #include "sys_gamepad.h"
 #include "sys_ss.h"
 #include "sys_gpio.h"
+#include "sys_rsxaudio.h"
 
 extern std::string ppu_get_syscall_name(u64 code);
 
@@ -612,9 +613,9 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func, null_func, null_func, null_func, null_func,  //644  DEPRECATED
 	null_func, null_func, null_func, null_func, null_func,  //649  DEPRECATED
 
-	null_func,//BIND_FUNC(sys_rsxaudio_initialize)          //650 (0x28A)
+	BIND_FUNC(sys_rsxaudio_initialize),                     //650 (0x28A)
 	null_func,//BIND_FUNC(sys_rsxaudio_finalize)            //651 (0x28B)
-	null_func,//BIND_FUNC(sys_rsxaudio_import_shared_memory) //652 (0x28C)
+	BIND_FUNC(sys_rsxaudio_import_shared_memory),           //652 (0x28C)
 	null_func,//BIND_FUNC(sys_rsxaudio_unimport_shared_memory) //653 (0x28D)
 	null_func,//BIND_FUNC(sys_rsxaudio_create_connection)   //654 (0x28E)
 	null_func,//BIND_FUNC(sys_rsxaudio_close_connection)    //655 (0x28F)
