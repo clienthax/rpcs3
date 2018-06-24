@@ -403,7 +403,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_sm_request_system_event_log)  //395 (0x18B)  PM
 	null_func,//BIND_FUNC(sys_sm_set_rtc_alarm)             //396 (0x18C)  ROOT
 	null_func,//BIND_FUNC(sys_sm_get_rtc_alarm)             //397 (0x18D)  ROOT
-	null_func,//BIND_FUNC(sys_console_write)                //398 (0x18E)  ROOT
+	BIND_FUNC(sys_console_write),                            //398 (0x18E)  ROOT
 	uns_func,                                               //399 (0x18F)  UNS
 	null_func,//BIND_FUNC(sys_sm_...)                       //400 (0x190)  PM
 	null_func,//BIND_FUNC(sys_sm_...)                       //401 (0x191)  ROOT

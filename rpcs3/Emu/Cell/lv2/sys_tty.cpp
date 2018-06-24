@@ -42,3 +42,20 @@ error_code sys_tty_write(s32 ch, vm::cptr<char> buf, u32 len, vm::ptr<u32> pwrit
 
 	return CELL_OK;
 }
+
+error_code sys_console_write(vm::cptr<char> buf, u32 len)
+{
+	sys_tty.notice("sys_console_write(buf=*0x%x, len=%d)", buf, len);
+
+	const u32 written_len = static_cast<s32>(len) > 0 ? len : 0;
+
+	if (written_len > 0 && g_tty)
+	{
+		// Lock size by making it negative
+		g_tty_size -= (1ll << 48);
+		g_tty.write(buf.get_ptr(), len);
+		g_tty_size += (1ll << 48) + len;
+	}
+
+	return CELL_OK;
+}
