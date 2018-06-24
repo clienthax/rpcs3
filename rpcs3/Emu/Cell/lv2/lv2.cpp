@@ -34,6 +34,7 @@
 #include "sys_ss.h"
 #include "sys_gpio.h"
 #include "sys_rsxaudio.h"
+#include "sys_storage.h"
 
 extern std::string ppu_get_syscall_name(u64 code);
 
@@ -570,26 +571,26 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_bluetooth_...)                //597 (0x255)
 	null_func,//BIND_FUNC(sys_bluetooth_...)                //598 (0x256)  ROOT
 	null_func,//BIND_FUNC(sys_bluetooth_...)                //599 (0x257)  ROOT
-	null_func,//BIND_FUNC(sys_storage_open)                 //600 (0x258)  ROOT
-	null_func,//BIND_FUNC(sys_storage_close)                //601 (0x259)
-	null_func,//BIND_FUNC(sys_storage_read)                 //602 (0x25A)
-	null_func,//BIND_FUNC(sys_storage_write)                //603 (0x25B)
-	null_func,//BIND_FUNC(sys_storage_send_device_command)  //604 (0x25C)
-	null_func,//BIND_FUNC(sys_storage_async_configure)      //605 (0x25D)
-	null_func,//BIND_FUNC(sys_storage_async_read)           //606 (0x25E)
-	null_func,//BIND_FUNC(sys_storage_async_write)          //607 (0x25F)
-	null_func,//BIND_FUNC(sys_storage_async_cancel)         //608 (0x260)
-	null_func,//BIND_FUNC(sys_storage_get_device_info)      //609 (0x261)  ROOT
-	null_func,//BIND_FUNC(sys_storage_get_device_config)    //610 (0x262)  ROOT
-	null_func,//BIND_FUNC(sys_storage_report_devices)       //611 (0x263)  ROOT
-	null_func,//BIND_FUNC(sys_storage_configure_medium_event) //612 (0x264)  ROOT
-	null_func,//BIND_FUNC(sys_storage_set_medium_polling_interval) //613 (0x265)
-	null_func,//BIND_FUNC(sys_storage_create_region)        //614 (0x266)
-	null_func,//BIND_FUNC(sys_storage_delete_region)        //615 (0x267)
-	null_func,//BIND_FUNC(sys_storage_execute_device_command) //616 (0x268)
-	null_func,//BIND_FUNC(sys_storage_check_region_acl)     //617 (0x269)
-	null_func,//BIND_FUNC(sys_storage_set_region_acl)       //618 (0x26A)
-	null_func,//BIND_FUNC(sys_storage_async_send_device_command) //619 (0x26B)
+	BIND_FUNC(sys_storage_open),                            //600 (0x258)  ROOT
+	BIND_FUNC(sys_storage_close),                           //601 (0x259)
+	BIND_FUNC(sys_storage_read),                            //602 (0x25A)
+	BIND_FUNC(sys_storage_write),                           //603 (0x25B)
+	BIND_FUNC(sys_storage_send_device_command),             //604 (0x25C)
+	BIND_FUNC(sys_storage_async_configure),                 //605 (0x25D)
+	BIND_FUNC(sys_storage_async_read),                      //606 (0x25E)
+	BIND_FUNC(sys_storage_async_write),                     //607 (0x25F)
+	BIND_FUNC(sys_storage_async_cancel),                    //608 (0x260)
+	BIND_FUNC(sys_storage_get_device_info),                 //609 (0x261)  ROOT
+	BIND_FUNC(sys_storage_get_device_config),               //610 (0x262)  ROOT
+	BIND_FUNC(sys_storage_report_devices),                  //611 (0x263)  ROOT
+	BIND_FUNC(sys_storage_configure_medium_event),          //612 (0x264)  ROOT
+	BIND_FUNC(sys_storage_set_medium_polling_interval),     //613 (0x265)
+	BIND_FUNC(sys_storage_create_region),                   //614 (0x266)
+	BIND_FUNC(sys_storage_delete_region),                   //615 (0x267)
+	BIND_FUNC(sys_storage_execute_device_command),          //616 (0x268)
+	BIND_FUNC(sys_storage_check_region_acl),                //617 (0x269)
+	BIND_FUNC(sys_storage_set_region_acl),                  //618 (0x26A)
+	BIND_FUNC(sys_storage_async_send_device_command),       //619 (0x26B)
 	null_func,//BIND_FUNC(sys_...)                          //620 (0x26C)  ROOT
 	BIND_FUNC(sys_gamepad_ycon_if),                         //621 (0x26D)
 	null_func,//BIND_FUNC(sys_storage_get_region_offset)    //622 (0x26E)
