@@ -535,4 +535,13 @@ error_code sys_mmapper_339(u64 ipc_key, s32 size, u32 flags, vm::ptr<struct_339>
 	return CELL_OK;
 }
 
+s32 sys_mmapper_328(u32 a, u32 size, u64 flags, u32 d, vm::ptr<u32> alloc_addr, u32 f, vm::ptr<u32> mem_id)
+{
+	//Called by ScePafJob in vsh
+	sys_mmapper.error("sys_mmapper_328(a=0x%x, size=0x%x, flags=0x%x, d=0x%x, alloc_addr=*0x%x, f=0x%x, mem_id=*0x%x)", a, size, flags, d, alloc_addr, f, mem_id);
 
+	sys_mmapper_allocate_address(0x10000000, flags, 0x10000000, alloc_addr);//Not sure about this, but minimum address space of sys_mmapper is 0x10000000
+	sys_mmapper_allocate_shared_memory(0, size, flags, vm::cast(mem_id.addr()));
+
+	return CELL_OK;//TODO fix this to check for errors in above calls
+}

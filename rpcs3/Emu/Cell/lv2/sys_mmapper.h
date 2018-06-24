@@ -82,3 +82,4 @@ error_code sys_mmapper_search_and_map(u32 start_addr, u32 mem_id, u64 flags, vm:
 error_code sys_mmapper_unmap_shared_memory(u32 addr, vm::ptr<u32> mem_id);
 error_code sys_mmapper_enable_page_fault_notification(u32 start_addr, u32 event_queue_id);
 error_code sys_mmapper_339(u64 a, s32 b, u32 flags, vm::ptr<struct_339> src, s32 count, vm::ptr<u32> mem_id);
+s32 sys_mmapper_328(u32 a, u32 size, u64 flags, u32 d, vm::ptr<u32> alloc_addr, u32 f, vm::ptr<u32> mem_id);
