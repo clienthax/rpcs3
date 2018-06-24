@@ -59,6 +59,16 @@ struct page_fault_event_entries
 	semaphore<> pf_mutex;
 };
 
+struct struct_339
+{
+	be_t<u32> a;
+	be_t<u32> b;
+	be_t<u32> c;
+	be_t<u32> d;
+	be_t<u32> e;
+	be_t<u32> f;
+};
+
 // SysCalls
 error_code sys_mmapper_allocate_address(u64 size, u64 flags, u64 alignment, vm::ptr<u32> alloc_addr);
 error_code sys_mmapper_allocate_fixed_address();
@@ -71,3 +81,4 @@ error_code sys_mmapper_map_shared_memory(u32 addr, u32 mem_id, u64 flags);
 error_code sys_mmapper_search_and_map(u32 start_addr, u32 mem_id, u64 flags, vm::ptr<u32> alloc_addr);
 error_code sys_mmapper_unmap_shared_memory(u32 addr, vm::ptr<u32> mem_id);
 error_code sys_mmapper_enable_page_fault_notification(u32 start_addr, u32 event_queue_id);
+error_code sys_mmapper_339(u64 a, s32 b, u32 flags, vm::ptr<struct_339> src, s32 count, vm::ptr<u32> mem_id);

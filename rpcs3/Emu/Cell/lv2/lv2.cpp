@@ -340,7 +340,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	BIND_FUNC(sys_mmapper_change_address_access_right),     //336 (0x150)
 	BIND_FUNC(sys_mmapper_search_and_map),                  //337 (0x151)
 	null_func,//BIND_FUNC(sys_mmapper_get_shared_memory_attribute) //338 (0x152)
-	null_func,//BIND_FUNC(sys_...)                          //339 (0x153)
+	BIND_FUNC(sys_mmapper_339),                             //339 (0x153)
 	null_func,//BIND_FUNC(sys_...)                          //340 (0x154)
 	BIND_FUNC(sys_memory_container_create),                 //341 (0x155)
 	BIND_FUNC(sys_memory_container_destroy),                //342 (0x156)
