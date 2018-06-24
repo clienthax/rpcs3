@@ -764,9 +764,9 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_...)                          //868  ROOT / DBG  AUTHID
 	null_func,//BIND_FUNC(sys_...)                          //869  ROOT
 	BIND_FUNC(sys_ss_get_console_id),                       //870 (0x366)
-	null_func,//BIND_FUNC(sys_ss_access_control_engine),    //871 (0x367)  DBG
+	BIND_FUNC(sys_ss_access_control_engine),                //871 (0x367)  DBG
 	BIND_FUNC(sys_ss_get_open_psid),                        //872 (0x368)
-	null_func,//BIND_FUNC(sys_ss_get_cache_of_product_mode), //873 (0x369)
+	BIND_FUNC(sys_ss_get_cache_of_product_mode),            //873 (0x369)
 	null_func,//BIND_FUNC(sys_ss_get_cache_of_flash_ext_flag), //874 (0x36A)
 	null_func,//BIND_FUNC(sys_ss_get_boot_device)           //875 (0x36B)
 	null_func,//BIND_FUNC(sys_ss_disc_access_control)       //876 (0x36C)

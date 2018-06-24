@@ -99,3 +99,28 @@ s32 sys_ss_appliance_info_manager(u32 code, vm::ptr<u8> buffer)
 	}
 	return CELL_OK;
 }
+
+s32 sys_ss_access_control_engine(u32 a, u32 b, u32 c)
+{
+	sys_ss.todo("sys_ss_access_control_engine(0x%x, 0x%x, 0x%x)", a, b, c);
+
+	return CELL_OK;
+}
+
+s32 sys_ss_get_cache_of_product_mode(vm::ptr<u32/*vm::ptr<char>*/> ptr)
+{
+	sys_ss.todo("UNIMPLEMENTED sys_ss_get_cache_of_product_mode(0x%x)", ptr);
+	s32 pid = 1;
+
+	if (false /*process == null*/)
+	{
+		return 0x80010003;
+	}
+	if (!ptr)
+	{
+		return 0x80010002;
+	}
+	*ptr = -1; // Happens when hypervisor call returns an error
+
+	return CELL_OK;
+}
