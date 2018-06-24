@@ -35,6 +35,7 @@
 #include "sys_gpio.h"
 #include "sys_rsxaudio.h"
 #include "sys_storage.h"
+#include "sys_uart.h"
 
 extern std::string ppu_get_syscall_name(u64 code);
 
@@ -369,10 +370,10 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_mmapper_...)                  //363 (0x16B)
 	null_func,//BIND_FUNC(sys_mmapper_...)                  //364 (0x16C)
 	uns_func, uns_func,                                     //366 (0x16E)  UNS
-	null_func,//BIND_FUNC(sys_uart_initialize)              //367 (0x16F)  ROOT
-	null_func,//BIND_FUNC(sys_uart_receive)                 //368 (0x170)  ROOT
-	null_func,//BIND_FUNC(sys_uart_send)                    //369 (0x171)  ROOT
-	null_func,//BIND_FUNC(sys_uart_get_params)              //370 (0x172)  ROOT
+	BIND_FUNC(sys_uart_initialize),                         //367 (0x16F)  ROOT
+	BIND_FUNC(sys_uart_receive),                            //368 (0x170)  ROOT
+	BIND_FUNC(sys_uart_send),                               //369 (0x171)  ROOT
+	BIND_FUNC(sys_uart_get_params),                         //370 (0x172)  ROOT
 	uns_func,                                               //371 (0x173)  UNS
 	null_func,//BIND_FUNC(sys_game_watchdog_start)          //372 (0x174)
 	null_func,//BIND_FUNC(sys_game_watchdog_stop)           //373 (0x175)
