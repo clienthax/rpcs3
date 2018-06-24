@@ -37,6 +37,7 @@
 #include "sys_storage.h"
 #include "sys_uart.h"
 #include "sys_sm.h"
+#include "sys_config.h"
 
 extern std::string ppu_get_syscall_name(u64 code);
 
@@ -492,12 +493,12 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_hid_manager_...)              //513 (0x201)
 	null_func,//BIND_FUNC(sys_hid_manager_...)              //514 (0x202)
 	uns_func,                                               //515 (0x203)  UNS
-	null_func,//BIND_FUNC(sys_config_open)                  //516 (0x204)
-	null_func,//BIND_FUNC(sys_config_close)                 //517 (0x205)
+	BIND_FUNC(sys_config_open),                             //516 (0x204)
+	BIND_FUNC(sys_config_close),                            //517 (0x205)
 	null_func,//BIND_FUNC(sys_config_get_service_event)     //518 (0x206)
-	null_func,//BIND_FUNC(sys_config_add_service_listener)  //519 (0x207)
+	BIND_FUNC(sys_config_add_service_listener),            //519 (0x207)
 	null_func,//BIND_FUNC(sys_config_remove_service_listener) //520 (0x208)
-	null_func,//BIND_FUNC(sys_config_register_service)      //521 (0x209)
+	BIND_FUNC(sys_config_register_service),                 //521 (0x209)
 	null_func,//BIND_FUNC(sys_config_unregister_service)    //522 (0x20A)
 	null_func,//BIND_FUNC(sys_config_io_event)              //523 (0x20B)
 	null_func,//BIND_FUNC(sys_config_...)                   //524 (0x20C)
