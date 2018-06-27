@@ -382,6 +382,7 @@ error_code sys_fs_lsn_write(u32 fd, vm::cptr<void>, u64);
 error_code sys_fs_mapped_allocate(u32 fd, u64, vm::pptr<void> out_ptr);
 error_code sys_fs_mapped_free(u32 fd, vm::ptr<void> ptr);
 error_code sys_fs_truncate2(u32 fd, u64 size);
+error_code sys_fs_mount(vm::cptr<char> dev_name, vm::cptr<char> file_system, vm::cptr<char> path, s32 unk1, s32 prot, s32 unk3, vm::cptr<char> str1, u32 str_len);
 
 struct CellFsMountInfo
 {

@@ -81,4 +81,6 @@ struct struct_339
 	be_t<u32> e;
 	be_t<u32> f;
 };
+static_assert(sizeof(struct_339) == 0x18, "struct_339Test");
+error_code sys_mmapper_allocate_shared_memory_ext(u64 ipc_key, u32 size, u64 flags, u32 mc_id, vm::ptr<struct_339> entries, s32 entry_count, vm::ptr<u32> mem_id);
 error_code sys_mmapper_339(u64 a, s32 b, u32 flags, vm::ptr<struct_339> src, s32 count, vm::ptr<u32> mem_id);

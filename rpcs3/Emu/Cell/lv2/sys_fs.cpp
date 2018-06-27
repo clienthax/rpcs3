@@ -765,7 +765,7 @@ error_code sys_fs_access(vm::cptr<char> path, s32 mode)
 
 error_code sys_fs_fcntl(u32 fd, u32 op, vm::ptr<void> _arg, u32 _size)
 {
-	sys_fs.trace("sys_fs_fcntl(fd=%d, op=0x%x, arg=*0x%x, size=0x%x)", fd, op, _arg, _size);
+	sys_fs.warning("sys_fs_fcntl(fd=%d, op=0x%x, arg=*0x%x, size=0x%x)", fd, op, _arg, _size);
 
 	switch (op)
 	{
@@ -1550,6 +1550,11 @@ error_code sys_fs_get_mount_info(vm::ptr<CellFsMountInfo> info, u32 len, vm::ptr
 	strcpy(info[6].filesystem, "CELL_FS_UFS");
 	strcpy(info[6].dev_name, "CELL_FS_UTILITY:HDD0");
 
+	/*
+		strcpy(info[6].mount_path, "/dev_bdvd");
+	strcpy(info[6].filesystem, "CELL_FS_ISO9660");
+	strcpy(info[6].dev_name, "CELL_FS_IOS:PATA0_BDVD_DRIVE");*/
+
 	return CELL_OK;
 }
 
@@ -1585,5 +1590,11 @@ error_code sys_fs_truncate2(u32 fd, u64 size)
 {
 	sys_fs.todo("sys_fs_truncate2(fd=%d, size=0x%x)", fd, size);
 
+	return CELL_OK;
+}
+
+error_code sys_fs_mount(vm::cptr<char> dev_name, vm::cptr<char> file_system, vm::cptr<char> path, s32 unk1, s32 prot, s32 unk3, vm::cptr<char> str1, u32 str_len)
+{
+	sys_fs.todo("sys_fs_mount(dev_name=%s, file_system=%s, path=%s, unk1=0x%x, prot=0x%x, unk3=0x%x, str1=%s, str_len=%d)", dev_name, file_system, path, unk1, prot, unk3, str1, str_len); 
 	return CELL_OK;
 }

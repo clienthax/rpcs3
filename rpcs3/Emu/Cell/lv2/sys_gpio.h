@@ -28,7 +28,7 @@ typedef vm::ptr<void()> ServiceListenerCallback;
 // SysCalls
 error_code sys_config_open(u32 equeue_id, vm::ptr<u32> config_id);
 error_code sys_config_close(u32 equeue_id);
-error_code sys_config_register_service(u32 config_id, s32 b, u32 c, u32 d, vm::ptr<u32> data, u32 size, vm::ptr<u32> output);
+error_code sys_config_register_service(ppu_thread& ppu, u32 config_id, s64 b, u32 c, u32 d, vm::ptr<u32> data, u32 size, vm::ptr<u32> output);
 error_code sys_config_add_service_listener(u32 a, s64 b, u32 c, u32 d, vm::ptr<ServiceListenerCallback[2]> funcs, u32 f, u32 g);
 
 error_code sys_rsxaudio_initialize(vm::ptr<u32>);
@@ -38,8 +38,8 @@ s32 sys_storage_open(u64 device, u32 b, vm::ptr<u32> fd, u32 d);
 s32 sys_storage_close(u32 fd);
 s32 sys_storage_read(u32 fd, u32 mode, u32 start_sector, u32 num_sectors, vm::ptr<u8> bounce_buf, vm::ptr<u32> sectors_read, u64 flags);
 s32 sys_storage_write();
-s32 sys_storage_send_device_command();
-s32 sys_storage_async_configure();
+s32 sys_storage_send_device_command(u32 dev_handle, u64 cmd, vm::ptr<void> in, u64 inlen, vm::ptr<void> out, u64 outlen);
+s32 sys_storage_async_configure(u32 fd, u32 io_buf, u32 equeue_id, u32 unk);
 s32 sys_storage_async_read();
 s32 sys_storage_async_write();
 s32 sys_storage_async_cancel();
@@ -69,7 +69,7 @@ s32 sys_storage_delete_region();
 s32 sys_storage_execute_device_command(u32 fd, u64 cmd, vm::ptr<char> cmdbuf, u64 cmdbuf_size, vm::ptr<char> databuf, u64 databuf_size, vm::ptr<u32> driver_status);
 s32 sys_storage_check_region_acl();
 s32 sys_storage_set_region_acl();
-s32 sys_storage_async_send_device_command();
+s32 sys_storage_async_send_device_command(u32 dev_handle, u64 cmd, vm::ptr<void> in, u64 inlen, vm::ptr<void> out, u64 outlen, u64 unk);
 s32 sys_storage_get_region_offset();
 s32 sys_storage_set_emulated_speed();
 
@@ -83,8 +83,8 @@ struct uart_packet
 
 // SysCalls
 error_code sys_uart_initialize();
-error_code sys_uart_receive(ppu_thread& ppu, vm::ptr<char> buffer, u64 size, u32 unk);
-error_code sys_uart_send(ppu_thread& ppu, vm::cptr<u8> buffer, u64 size, u64 flags);
+error_code sys_uart_receive(vm::ptr<void> buffer, u64 size, u32 unk);
+error_code sys_uart_send(vm::cptr<void> buffer, u64 size, u64 flags);
 error_code sys_uart_get_params(vm::ptr<char> buffer);
 
 error_code sys_console_write(vm::cptr<char> buf, u32 len);
@@ -94,3 +94,9 @@ error_code sys_hid_manager_514();
 error_code sys_sm_get_ext_event2();
 
 error_code sys_btsetting_if(u64 cmd, vm::ptr<void> msg);
+error_code sys_bdemu_send_command(u64 cmd, u64 a2, u64 a3, vm::ptr<void> buf, u64 buf_len);
+
+error_code sys_io_buffer_create(u32 block_count, u32 block_size, u32 blocks, u32 unk1, vm::ptr<u32> handle);
+error_code sys_io_buffer_destroy(u32 handle);
+error_code sys_io_buffer_allocate(u32 handle, vm::ptr<u32> block);
+error_code sys_io_buffer_free(u32 handle, u32 block);

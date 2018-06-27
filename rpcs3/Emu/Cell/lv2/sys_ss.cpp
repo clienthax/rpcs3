@@ -3,12 +3,13 @@
 
 #include "sys_ss.h"
 
+extern u64 get_timebased_time();
+
 #ifdef _WIN32
 #include <Windows.h>
 #include <wincrypt.h>
 
-const HCRYPTPROV s_crypto_provider = []() -> HCRYPTPROV
-{
+const HCRYPTPROV s_crypto_provider = []() -> HCRYPTPROV {
 	HCRYPTPROV result;
 
 	if (!CryptAcquireContextW(&result, nullptr, nullptr, PROV_RSA_FULL, 0) && !CryptAcquireContextW(&result, nullptr, nullptr, PROV_RSA_FULL, CRYPT_NEWKEYSET))
@@ -16,8 +17,7 @@ const HCRYPTPROV s_crypto_provider = []() -> HCRYPTPROV
 		return 0;
 	}
 
-	::atexit([]()
-	{
+	::atexit([]() {
 		if (s_crypto_provider)
 		{
 			CryptReleaseContext(s_crypto_provider, 0);
@@ -27,7 +27,6 @@ const HCRYPTPROV s_crypto_provider = []() -> HCRYPTPROV
 	return result;
 }();
 #endif
-
 
 logs::channel sys_ss("sys_ss");
 
@@ -77,7 +76,7 @@ s32 sys_ss_get_open_psid(vm::ptr<CellSsOpenPSID> psid)
 	sys_ss.warning("sys_ss_get_open_psid(psid=*0x%x)", psid);
 
 	psid->high = 0;
-	psid->low = 0;
+	psid->low  = 0;
 
 	return CELL_OK;
 }
@@ -116,7 +115,93 @@ s32 sys_ss_get_cache_of_product_mode(vm::ptr<u8> ptr)
 	// 1 - enabled
 
 	// except something segfaults when using 0, so error it is!
-	*ptr = 0xFF; 
+	*ptr = 0x0;
+
+	return CELL_OK;
+}
+
+// these arguments are odd and change type based on command packet
+s32 sys_ss_secure_rtc(u64 cmd, u64 a2, u64 a3, u64 a4)
+{
+	sys_ss.todo("sys_ss_secure_rtc(cmd=0x%x, a2=0x%x, a3=0x%x, a4=0x%x)", cmd, a2, a3, a4);
+	if (cmd == 0x3001)
+	{
+		if (a3 != 0x20)
+			return 0x80010500;
+
+		return CELL_OK;
+	}
+	else if (cmd == 0x3002)
+	{
+		// Get time
+		if (a2 > 1)
+			return 0x80010500;
+
+		// a3 is actual output, not 100% sure, but best guess is its tb val
+		*vm::ptr<u64>::make(a3) = get_timebased_time();
+		// a4 is a pointer to status, non 0 on error
+		*vm::ptr<u64>::make(a4) = 0;
+
+		return CELL_OK;
+	}
+	else if (cmd == 0x3003)
+	{
+		return CELL_OK;
+	}
+
+	return 0x80010500;
+}
+
+s32 sys_ss_get_cache_of_flash_ext_flag(vm::ptr<u8> buf)
+{
+	sys_ss.todo("sys_ss_get_cache_of_flash_ext_flag(buf=*0x%x)", buf);
+	*buf = 0xFE; // nand vs nor from lsb
+	return CELL_OK;
+}
+
+s32 sys_ss_get_boot_device(vm::ptr<u64> dev)
+{
+	sys_ss.todo("sys_ss_get_boot_device(dev=*0x%x)", dev);
+	*dev = 0x190;
+	return CELL_OK;
+}
+
+s32 sys_ss_update_manager(u64 pkg_id, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6)
+{
+	sys_ss.todo("sys_ss_update_manager(pkg=0x%x, a1=0x%x, a2=0x%x, a3=0x%x, a4=0x%x, a5=0x%x, a6=0x%x)", pkg_id, a1, a2, a3, a4, a5, a6);
+	if (pkg_id == 0x600B)
+	{
+		// read eeprom
+		// a1 == offset
+		// a2 == *value
+		if (a1 == 0x48C06) // fself ctrl?
+			*vm::ptr<u8>::make(a2) = 0xFF;
+		else if (a1 == 0x48C42) // hddcopymode
+			*vm::ptr<u8>::make(a2) = 0xFF;
+		else if (a1 >= 0x48C1C && a1 <= 0x48C1F)
+		{
+			// vsh target? (seems it can be 0xFFFFFFFE, 0xFFFFFFFF, 0x00000001 default: 0x00000000 /maybe QA,Debug,Retail,Kiosk?)
+			*vm::ptr<u8>::make(a2) = a1 == 0x48C1F ? 0x1 : 0;
+		}
+		else if (a1 >= 0x48C18 && a1 <= 0x48C1B)
+		{
+			// system language
+			// *i think* this gives english
+			*vm::ptr<u8>::make(a2) = a1 == 0x48C1B ? 0x1 : 0;
+		}
+	}
+	else if (pkg_id == 0x600C)
+	{
+		// write eeprom
+	}
+	else if (pkg_id == 0x6009)
+	{
+		// get seed token
+	}
+	else if (pkg_id == 0x600A)
+	{
+		// set seed token
+	}
 
 	return CELL_OK;
 }
