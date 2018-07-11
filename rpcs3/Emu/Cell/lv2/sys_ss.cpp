@@ -85,14 +85,21 @@ s32 sys_ss_appliance_info_manager(u32 code, vm::ptr<u8> buffer)
 {
 	switch (code)
 	{
+	case 0x19003:
+	{
+		sys_ss.warning("sys_ss_appliance_info_manager(code=0x%x (IDPS), buffer=*0x%x)", code, buffer);
+		u8 idps[] = { 0x00, 0x00, 0x00, 0x01, 0x00, 0x89, 0x00, 0x0B, 0x14, 0x00, 0xEF, 0xDD, 0xCA, 0x25, 0x52, 0x66 };
+		memcpy(buffer.get_ptr(), idps, 16);
+		break;
+	}
 	case 0x19004:
 	{
-		sys_ss.warning("sys_ss_363(code=0x%x (PSCODE), buffer=*0x%x)", code, buffer);
+		sys_ss.warning("sys_ss_appliance_info_manager(code=0x%x (PSCODE), buffer=*0x%x)", code, buffer);
 		u8 pscode[] = {0x00, 0x01, 0x00, 0x85, 0x00, 0x07, 0x00, 0x04};
 		memcpy(buffer.get_ptr(), pscode, 8);
 		break;
 	}
-	default: sys_ss.todo("sys_ss_363(code=0x%x, buffer=*0x%x)", code, buffer);
+	default: sys_ss.todo("sys_ss_appliance_info_manager(code=0x%x, buffer=*0x%x)", code, buffer);
 	}
 	return CELL_OK;
 }
@@ -115,7 +122,7 @@ s32 sys_ss_get_cache_of_product_mode(vm::ptr<u8> ptr)
 	// 1 - enabled
 
 	// except something segfaults when using 0, so error it is!
-	*ptr = 0x0;
+	*ptr = 0xFF;
 
 	return CELL_OK;
 }

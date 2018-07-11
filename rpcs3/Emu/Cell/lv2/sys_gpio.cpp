@@ -5,7 +5,11 @@
 
 #include "Emu/Cell/ErrorCodes.h"
 
+#include "Emu/Cell/PPUThread.h"
+
 #include "sys_gpio.h"
+
+#include "sys_tty.h"
 
 error_code sys_gpio_get(u64 device_id, vm::ptr<u64> value)
 {
@@ -41,11 +45,46 @@ logs::channel sys_sm("sys_sm");
 
 error_code sys_sm_get_params(vm::ptr<u8> a, vm::ptr<u8> b, vm::ptr<u32> c, vm::ptr<u64> d)
 {
-	sys_sm.todo("sys_sm_get_params(0x%x, 0x%x, 0x%x, 0x%x)", a, b, c, d);
+	sys_sm.todo("sys_sm_get_params(a=*0x%x, b=*0x%x, c=*0x%x, d=*0x%x)", a, b, c, d);
 	*a = 0;
 	*b = 0;
 	*c = 0x200;
 	*d = 7;
+	return CELL_OK;
+}
+
+error_code sys_sm_get_ext_event2(vm::ptr<u64> a1, vm::ptr<u64> a2, vm::ptr<u64> a3, u64 a4)
+{
+	sys_sm.trace("sys_sm_get_ext_event2(a1=*0x%x, a2=*0x%x, a3=*0x%x, a4=*0x%x, a4=0x%xll", a1, a2, a3, a4);
+	if (a4 != 0 && a4 != 1)
+		return CELL_EINVAL;
+
+	*a1 = 0;
+	*a2 = 0;
+	*a3 = 0;
+
+	return CELL_OK;
+}
+
+error_code sys_sm_shutdown(u16 op, vm::ptr<void> param, u64 size)
+{
+	sys_sm.todo("sys_sm_shutdown(op=0x%x, param=*0x%x, size=0x%x", op, param, size);
+	return CELL_OK;
+}
+
+error_code sys_console_write(ppu_thread& ppu, vm::cptr<char> buf, u32 len)
+{
+	sys_sm.todo("sys_console_write: buf=%s, len=0x%x", buf, len);
+	// to make this easier to spot, also piping to tty
+	std::string tmp(buf.get_ptr(), len);
+	tmp = "CONSOLE: " + tmp;
+	auto tty = vm::make_str("CONSOLE: " + tmp);
+	sys_tty_write(0, tty, tmp.size(), vm::null);
+	return CELL_OK;
+}
+
+error_code sys_sm_control_led(u8 led, u8 action) {
+	sys_sm.todo("sys_sm_control_led(led=0x%x, action=0x%x", led, action);
 	return CELL_OK;
 }
 
@@ -106,10 +145,16 @@ error_code sys_config_register_service(ppu_thread& ppu, u32 config_id, s64 b, u3
 error_code sys_config_add_service_listener(u32 config_id, s64 id, u32 c, u32 d, vm::ptr<ServiceListenerCallback[2]> funcs, u32 f, u32 g)
 {
 	sys_config.todo("sys_config_add_service_listener(config_id=0x%x, id=0x%x, 0x%x, 0x%x, funcs=0x%x, 0x%x, 0x%x)", config_id, id, c, d, funcs, f, g);
-	//	VSH, @61CE68 - add_service_listener is called with 2 `funcs`, first being an add controller functions, second being a remove controller
 
-	auto start_func = *funcs[0];
-	auto end_func   = *funcs[1];
+	static u64 ctr = 0x100000001;
+	const auto cfg = idm::get<lv2_config>(config_id);
+	if (cfg) {
+		if (auto q = cfg->queue.lock())
+		{
+			q->send(1, config_id, ctr, 0x68);
+			++ctr;
+		}
+	}
 
 	return CELL_OK;
 }
@@ -279,7 +324,7 @@ s32 sys_storage_get_device_info(u64 device, vm::ptr<StorageDeviceInfo> buffer)
 			return -5;
 		std::string u = "unnamed";
 		memcpy(buffer->name, u.c_str(), u.size());
-		buffer->sector_count = 0x4D955;
+		/*buffer->sector_count = 0x4D955;*/
 		buffer->sector_size  = 0x200;
 		buffer->one          = 1;
 		buffer->flags[1]     = 0;
@@ -817,23 +862,11 @@ error_code sys_uart_get_params(vm::ptr<char> buffer)
 	return CELL_OK;
 }
 
-error_code sys_console_write(vm::cptr<char> buf, u32 len)
-{
-	std::string tmp(buf.get_ptr(), len);
-	sys_sm.todo("console: %s", tmp);
-	return CELL_OK;
-}
-
 error_code sys_hid_manager_510()
 {
 	return CELL_OK;
 }
 error_code sys_hid_manager_514()
-{
-	return CELL_OK;
-}
-
-error_code sys_sm_get_ext_event2()
 {
 	return CELL_OK;
 }
@@ -874,12 +907,13 @@ logs::channel sys_bdemu("sys_bdemu");
 error_code sys_bdemu_send_command(u64 cmd, u64 a2, u64 a3, vm::ptr<void> buf, u64 buf_len)
 {
 	sys_bdemu.todo("cmd=0%x, a2=0x%x, a3=0x%x, buf=0x%x, buf_len=0x%x", cmd, a2, a3, buf, buf_len);
-	if (cmd == 0)
+	return CELL_ENOSYS;
+	/*if (cmd == 0)
 	{
 		auto out = vm::static_ptr_cast<u64>(buf);
 		*out     = 0x101000000000008;
 	}
-	return CELL_OK;
+	return CELL_OK;*/
 }
 
 struct lv2_io_buf

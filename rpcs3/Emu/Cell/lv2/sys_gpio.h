@@ -12,8 +12,6 @@ enum : u64
 error_code sys_gpio_get(u64 device_id, vm::ptr<u64> value);
 error_code sys_gpio_set(u64 device_id, u64 mask, u64 value);
 
-error_code sys_sm_get_params(vm::ptr<u8> a, vm::ptr<u8> b, vm::ptr<u32> c, vm::ptr<u64> d);
-
 struct lv2_config
 {
 	static const u32 id_base  = 0x01000000; // TODO all of these are just random
@@ -87,11 +85,15 @@ error_code sys_uart_receive(vm::ptr<void> buffer, u64 size, u32 unk);
 error_code sys_uart_send(vm::cptr<void> buffer, u64 size, u64 flags);
 error_code sys_uart_get_params(vm::ptr<char> buffer);
 
-error_code sys_console_write(vm::cptr<char> buf, u32 len);
+error_code sys_console_write(ppu_thread& ppu, vm::cptr<char> buf, u32 len);
 
 error_code sys_hid_manager_510();
 error_code sys_hid_manager_514();
-error_code sys_sm_get_ext_event2();
+
+error_code sys_sm_get_ext_event2(vm::ptr<u64> a1, vm::ptr<u64> a2, vm::ptr<u64> a3, u64 a4);
+error_code sys_sm_shutdown(u16 op, vm::ptr<void> param, u64 size);
+error_code sys_sm_get_params(vm::ptr<u8> a, vm::ptr<u8> b, vm::ptr<u32> c, vm::ptr<u64> d);
+error_code sys_sm_control_led(u8 led, u8 action);
 
 error_code sys_btsetting_if(u64 cmd, vm::ptr<void> msg);
 error_code sys_bdemu_send_command(u64 cmd, u64 a2, u64 a3, vm::ptr<void> buf, u64 buf_len);

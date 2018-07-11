@@ -200,7 +200,7 @@ error_code sys_fs_open(vm::cptr<char> path, s32 flags, vm::ptr<u32> fd, s32 mode
 	if (!path[0])
 		return CELL_ENOENT;
 
-	const std::string& local_path = vfs::get(path.get_ptr());
+	std::string& local_path = vfs::get(path.get_ptr());
 
 	if (local_path.empty())
 	{
@@ -208,6 +208,10 @@ error_code sys_fs_open(vm::cptr<char> path, s32 flags, vm::ptr<u32> fd, s32 mode
 	}
 
 	// TODO: other checks for path
+	if (strcmp(path.get_ptr(), "/dev_hdd0") == 0) {
+		local_path = "G:/gitrepos/rpcs3/bin/dev_hdd0/hdd0.dsk";
+	}
+
 
 	if (local_path == "/" || fs::is_dir(local_path))
 	{

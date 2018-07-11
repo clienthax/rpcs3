@@ -379,14 +379,14 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_game_get_system_sw_version)   //376 (0x178)  ROOT
 	null_func,//BIND_FUNC(sys_sm_set_shop_mode)             //377 (0x179)  ROOT
 	BIND_FUNC(sys_sm_get_ext_event2),            //378 (0x17A)  ROOT
-	null_func,//BIND_FUNC(sys_sm_shutdown)                  //379 (0x17B)  ROOT
+	BIND_FUNC(sys_sm_shutdown),                  //379 (0x17B)  ROOT
 	BIND_FUNC(sys_sm_get_params),                           //380 (0x17C)  DBG
 	null_func,//BIND_FUNC(sys_sm_get_inter_lpar_parameter)  //381 (0x17D)  ROOT
 	null_func,//BIND_FUNC(sys_sm_)                          //382 (0x17E)  ROOT
 	null_func,//BIND_FUNC(sys_game_get_temperature)         //383 (0x17F)  ROOT
 	null_func,//BIND_FUNC(sys_sm_get_tzpb)                  //384 (0x180)  ROOT
 	null_func,//BIND_FUNC(sys_sm_request_led)               //385 (0x181)  ROOT
-	null_func,//BIND_FUNC(sys_sm_control_led)               //386 (0x182)  ROOT
+	BIND_FUNC(sys_sm_control_led),               //386 (0x182)  ROOT
 	null_func,//BIND_FUNC(sys_sm_get_platform_info)         //387 (0x183)  DBG
 	null_func,//BIND_FUNC(sys_sm_ring_buzzer)               //388 (0x184)  ROOT
 	null_func,//BIND_FUNC(sys_sm_set_fan_policy)            //389 (0x185)  PM
@@ -496,7 +496,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	BIND_FUNC(sys_config_register_service),      //521 (0x209)
 	null_func,//BIND_FUNC(sys_config_unregister_service)    //522 (0x20A)
 	null_func,//BIND_FUNC(sys_config_io_event)              //523 (0x20B)
-	null_func,//BIND_FUNC(sys_config_...)                   //524 (0x20C)
+	null_func,//BIND_FUNC(sys_config_register_io_error_listener) //524 (0x20C)
 	null_func,//BIND_FUNC(sys_config_...)                   //525 (0x20D)
 	uns_func, uns_func, uns_func, uns_func,                 //526-529  UNS
 	BIND_FUNC(sys_usbd_initialize),                         //530 (0x212)
