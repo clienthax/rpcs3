@@ -159,10 +159,10 @@ s32 sys_ss_secure_rtc(u64 cmd, u64 a2, u64 a3, u64 a4)
 	return 0x80010500;
 }
 
-s32 sys_ss_get_cache_of_flash_ext_flag(vm::ptr<u8> buf)
+s32 sys_ss_get_cache_of_flash_ext_flag(vm::ptr<u64> flag)
 {
-	sys_ss.todo("sys_ss_get_cache_of_flash_ext_flag(buf=*0x%x)", buf);
-	*buf = 0xFE; // nand vs nor from lsb
+	sys_ss.todo("sys_ss_get_cache_of_flash_ext_flag(flag=*0x%x)", flag);
+	*flag = 0xFE; // nand vs nor from lsb
 	return CELL_OK;
 }
 
@@ -210,5 +210,10 @@ s32 sys_ss_update_manager(u64 pkg_id, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u6
 		// set seed token
 	}
 
+	return CELL_OK;
+}
+
+s32 sys_ss_virtual_trm_manager(u64 pkg_id, u64 a1, u64 a2, u64 a3, u64 a4) {
+	sys_ss.todo("sys_ss_virtual_trm_manager(pkg=0x%x, a1=0x%llx, a2=0x%llx, a3=0x%llx, a4=0x%llx)", pkg_id, a1, a2, a3, a4);
 	return CELL_OK;
 }

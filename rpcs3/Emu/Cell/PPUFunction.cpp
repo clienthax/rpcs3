@@ -311,6 +311,7 @@ extern std::string ppu_get_syscall_name(u64 code)
 	case 507: return "sys_hid_manager_remove_hot_key_observer";
 	case 508: return "sys_hid_manager_grab_focus";
 	case 509: return "sys_hid_manager_release_focus";
+	case 512: return "sys_hid_manager_is_process_permission_root";
 	case 516: return "sys_config_open";
 	case 517: return "sys_config_close";
 	case 518: return "sys_config_get_service_event";
@@ -479,7 +480,11 @@ extern std::string ppu_get_syscall_name(u64 code)
 	case 846: return "sys_fs_mapped_free";
 	case 847: return "sys_fs_truncate2";
 	case 860: return "sys_ss_get_cache_of_analog_sunset_flag";
+	case 862: return "sys_ss_virtual_trm_manager";
+	case 863: return "sys_ss_update_manager";
 	case 865: return "sys_ss_random_number_generator";
+	case 866: return "sys_ss_secure_rtc";
+	case 867: return "sys_ss_appliance_info_manager";
 	case 870: return "sys_ss_get_console_id";
 	case 871: return "sys_ss_access_control_engine";
 	case 872: return "sys_ss_get_open_psid";

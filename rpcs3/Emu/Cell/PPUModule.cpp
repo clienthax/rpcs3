@@ -714,6 +714,9 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 	// Access linkage information object
 	const auto link = fxm::get_always<ppu_linkage_info>();
 
+	// used in 0.85 files for toc based relocations
+	bool hasSegSym = false;
+
 	// Initialize HLE modules
 	ppu_initialize_modules(link);
 
@@ -773,8 +776,9 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 
 			break;
 		}
-
+		case 0x7: break; // TLS, empty
 		case 0x700000a4: break; // Relocations
+		case 0x700000a8: hasSegSym = true; break;// 0.85 segment
 
 		default: LOG_ERROR(LOADER, "Unknown segment type! 0x%08x", p_type);
 		}
@@ -787,131 +791,382 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 		const u32 addr = vm::cast(s.sh_addr);
 		const u32 size = vm::cast(s.sh_size);
 
-		if (s.sh_type == 1 && addr && size) // TODO: some sections with addr=0 are valid
+		for (auto i = 0; i < prx->segs.size(); i++)
 		{
-			for (auto i = 0; i < prx->segs.size(); i++)
+			const u32 saddr = static_cast<u32>(elf.progs[i].p_vaddr);
+			if (addr >= saddr && addr < saddr + elf.progs[i].p_memsz)
 			{
-				const u32 saddr = static_cast<u32>(elf.progs[i].p_vaddr);
-				if (addr >= saddr && addr < saddr + elf.progs[i].p_memsz)
+				// "Relocate" section
+				ppu_segment _sec;
+				_sec.addr = addr - saddr + prx->segs[i].addr;
+				_sec.size = size;
+				_sec.type = s.sh_type;
+				_sec.flags = s.sh_flags & 7;
+				_sec.filesz = 0;
+				prx->secs.emplace_back(_sec);
+				break;
+			}
+		}
+	}
+
+	// handle section relocations
+	if (hasSegSym) {
+
+		struct elf64_sym {
+			be_t<u32> name;
+			u8 info;
+			u8 other;
+			be_t<u16> shndx;
+			be_t<u64> value;
+			be_t<u64> size;
+		};
+
+		u32 tocVal = 0;
+		u64 numSymbols = 0;
+
+		std::vector<uchar> symtable;
+		std::vector<uchar> secstrtable;
+		std::vector<uchar> strtable;
+
+		// load symtable
+		for (const auto& s : elf.shdrs) {
+			if (s.sh_type == 2 /*SHT_SYMTAB*/) {
+				for (const auto& p : elf.progs) {
+					if (p.p_offset <= s.sh_offset && s.sh_offset < p.p_offset + p.p_filesz) {
+						symtable.resize(s.sh_size);
+						const u64 offset = s.sh_offset - p.p_offset;
+						std::copy(p.bin.begin() + offset, p.bin.begin() + offset + s.sh_size, symtable.begin());
+						numSymbols = s.sh_entsize != 0 ? s.sh_size / s.sh_entsize : 0;
+						break;
+					}
+				}
+				break;
+			}
+		}
+
+		// load sec string table
+		if (elf.header.e_shstrndx != 0 /*SHN_UNDEF*/) {
+			const auto& strtab = elf.shdrs.at(elf.header.e_shstrndx);
+			if (strtab.sh_type == 3 /*SHT_STRTAB*/) {
+				for (const auto& p : elf.progs) {
+					if (p.p_offset <= strtab.sh_offset && strtab.sh_offset < p.p_offset + p.p_filesz) {
+						const u64 offset = strtab.sh_offset - p.p_offset;
+						secstrtable.resize(strtab.sh_size);
+						std::copy(p.bin.begin() + offset, p.bin.begin() + offset + strtab.sh_size, secstrtable.begin());
+						break;
+					}
+				}
+			}
+		}
+
+		for (const auto& s : elf.shdrs) {
+			if (strcmp((char*)&secstrtable.at(s.sh_name), ".toc") == 0) {
+				LOG_WARNING(LOADER, "found toc: 0x%x", s.sh_addr);
+				const u32 addr = vm::cast(s.sh_addr);
+				const u32 size = vm::cast(s.sh_size);
+
+				for (auto i = 0; i < prx->segs.size(); i++)
 				{
-					// "Relocate" section
-					ppu_segment _sec;
-					_sec.addr = addr - saddr + prx->segs[i].addr;
-					_sec.size = size;
-					_sec.type = s.sh_type;
-					_sec.flags = s.sh_flags & 7;
-					_sec.filesz = 0;
-					prx->secs.emplace_back(_sec);
-					break;
+					const u32 saddr = static_cast<u32>(elf.progs[i].p_vaddr);
+					if (addr >= saddr && addr < saddr + elf.progs[i].p_memsz)
+					{
+						tocVal = addr - saddr + prx->segs[i].addr;
+						LOG_WARNING(LOADER, "toc relocated to : 0x%x", tocVal);
+						break;
+					}
+				}
+			}
+
+			if (strcmp((char*)&secstrtable.at(s.sh_name), ".strtab") == 0) {
+				for (const auto& p : elf.progs) {
+					if (p.p_offset <= s.sh_offset && s.sh_offset < p.p_offset + p.p_filesz) {
+						const u64 offset = s.sh_offset - p.p_offset;
+						strtable.resize(s.sh_size);
+						std::copy(p.bin.begin() + offset, p.bin.begin() + offset + s.sh_size, strtable.begin());
+						break;
+					}
+				}
+			}
+		}
+
+		struct GlobalSymbolTable {
+			std::unordered_map<std::string, u32> symmap;
+		};
+
+		auto globalsymtab = fxm::get_always<GlobalSymbolTable>();
+
+		const auto& symbols = reinterpret_cast<const elf64_sym*>(symtable.data());
+
+		for (const auto& s : elf.shdrs) {
+			if (s.sh_type == 4 /*SHT_RELA */) {
+
+				struct elf64_rela {
+					be_t<u64> offset;
+					be_t<u64> info;
+					be_t<s64> addend;
+				};
+
+				// ignore non allocatable relative
+				if ((elf.shdrs.at(s.sh_info).sh_flags & 2) /*SHF_ALLOC*/ == 0)
+					continue;
+
+				// find segment that holds section
+				const u8* relocs = nullptr;
+				for (const auto& p : elf.progs) {
+					if (p.p_offset <= s.sh_offset && s.sh_offset < p.p_offset + p.p_filesz) {
+						relocs = p.bin.data() + (s.sh_offset - p.p_offset);
+						break;
+					}
+				}
+
+				if (relocs == nullptr)
+					fmt::throw_exception("couldnt find section data");
+
+				for (uint i = 0; i < s.sh_size; i += sizeof(elf64_rela)) {
+
+					const auto& rel = reinterpret_cast<const elf64_rela&>(relocs[i]);
+
+					const auto type = (u32)rel.info;
+					const auto sym = (u32)(rel.info >> 32);
+					const u8 bind = (rel.info >> 4) & 0xf;
+
+					if (type == 0)
+						continue;
+
+					if (sym > numSymbols)
+						fmt::throw_exception("invalid symbol idx");
+
+					const auto& syminfo = symbols[sym];
+
+					std::string tmp = "";
+					if (syminfo.name > 0)
+						tmp = std::string((char*)&strtable[syminfo.name]);
+
+
+					u32 symaddr = 0;
+					if (bind == 1 /*STB_GLOBAL*/) {
+						auto it = globalsymtab->symmap.find(tmp);
+						if (it != globalsymtab->symmap.end()) {
+							// already defined, grab target
+							//symaddr = 
+						}
+					}
+
+
+					const u32 symaddr = syminfo.shndx == 0xfff1 /*SHN_ABS*/ ? vm::cast(syminfo.value) : prx->secs.at(syminfo.shndx).addr;
+
+					const u32 raddr = vm::cast(prx->secs.at(s.sh_info).addr + rel.offset, HERE);
+					u32 rdata = syminfo.shndx != 0 ? vm::cast(symaddr + syminfo.value + rel.addend) : 0;
+
+					// todo: merge this with segment relocs somehow, these have toc relocations in them
+					switch (type)
+					{
+					case 1: // R_PPC64_ADDR32
+					{
+						const u32 value = vm::_ref<u32>(raddr) = static_cast<u32>(rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(1): 0x%x <- 0x%08x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 4: //R_PPC64_ADDR16_LO
+					{
+						const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(4): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 5: //R_PPC64_ADDR16_HI
+					{
+						const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata >> 16);
+						LOG_TRACE(LOADER, "**** RELOCATION(5): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 6: //R_PPC64_ADDR16_HA
+					{
+						const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata >> 16) + (rdata & 0x8000 ? 1 : 0);
+						LOG_TRACE(LOADER, "**** RELOCATION(6): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 10: //R_PPC64_REL24
+					{
+						const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 6, 24>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
+						LOG_WARNING(LOADER, "**** RELOCATION(10): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 11: //R_PPC64_REL14
+					{
+						const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 16, 14>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
+						LOG_WARNING(LOADER, "**** RELOCATION(11): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 38: //R_PPC64_ADDR64
+					{
+						const u64 value = vm::_ref<u64>(raddr) = rdata;
+						LOG_TRACE(LOADER, "**** RELOCATION(38): 0x%x <- 0x%016llx (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 44: //R_PPC64_REL64
+					{
+						const u64 value = vm::_ref<u64>(raddr) = rdata - raddr;
+						LOG_TRACE(LOADER, "**** RELOCATION(44): 0x%x <- 0x%016llx (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 47: //R_PPC64_TOC16
+					{
+						rdata = rdata - tocVal;
+						const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata);
+						LOG_WARNING(LOADER, "**** RELOCATION(47): 0x%x <- 0x%016llx (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 57: //R_PPC64_ADDR16_LO_DS
+					{
+						const u16 value = vm::_ref<ppu_bf_t<be_t<u16>, 0, 14>>(raddr) = static_cast<u16>(rdata) >> 2;
+						LOG_TRACE(LOADER, "**** RELOCATION(57): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 63: //R_PPC64_TOC16_DS
+					{
+						rdata = rdata - tocVal;
+						const u16 value = vm::_ref<ppu_bf_t<be_t<u16>, 0, 14>>(raddr) = static_cast<u16>(rdata) >> 2;
+						LOG_WARNING(LOADER, "**** RELOCATION(63): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 107: //R_PPC64_TLSGD
+					{
+						rdata = tocVal;
+						const u32 value = vm::_ref<u32>(raddr) = static_cast<u32>(rdata);
+						LOG_WARNING(LOADER, "**** RELOCATION(107): 0x%x <- 0x%08x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					default: LOG_ERROR(LOADER, "**** RELOCATION(%u): Illegal/Unknown type! (addr=0x%x; 0x%llx)", type, raddr, rdata);
+					}
+
+					ppu_reloc _rel;
+					_rel.addr = raddr;
+					_rel.type = type;
+					_rel.data = rdata;
+					prx->relocs.emplace_back(_rel);
 				}
 			}
 		}
 	}
 
-	// Do relocations
-	for (auto& prog : elf.progs)
-	{
-		switch (const u32 p_type = prog.p_type)
+	if (!hasSegSym) {
+		// Do relocations
+		for (auto& prog : elf.progs)
 		{
-		case 0x700000a4:
-		{
-			// Relocation information of the SCE_PPURELA segment
-			struct ppu_prx_relocation_info
+			switch (const u32 p_type = prog.p_type)
 			{
-				be_t<u64> offset;
-				be_t<u16> unk0;
-				u8 index_value;
-				u8 index_addr;
-				be_t<u32> type;
-				vm::bptr<void, u64> ptr;
-			};
-
-			for (uint i = 0; i < prog.p_filesz; i += sizeof(ppu_prx_relocation_info))
+			case 0x700000a4:
 			{
-				const auto& rel = reinterpret_cast<const ppu_prx_relocation_info&>(prog.bin[i]);
-
-				ppu_reloc _rel;
-				const u32 raddr = _rel.addr = vm::cast(prx->segs.at(rel.index_addr).addr + rel.offset, HERE);
-				const u32 rtype = _rel.type = rel.type;
-				const u64 rdata = _rel.data = rel.index_value == 0xFF ? rel.ptr.addr().value() : prx->segs.at(rel.index_value).addr + rel.ptr.addr();
-				prx->relocs.emplace_back(_rel);
-
-				switch (rtype)
+				// Relocation information of the SCE_PPURELA segment
+				struct ppu_prx_relocation_info
 				{
-				case 1: // R_PPC64_ADDR32
+					be_t<u64> offset;
+					be_t<u16> unk0;
+					u8 index_value;
+					u8 index_addr;
+					be_t<u32> type;
+					vm::bptr<void, u64> ptr;
+				};
+
+				for (uint i = 0; i < prog.p_filesz; i += sizeof(ppu_prx_relocation_info))
 				{
-					const u32 value = vm::_ref<u32>(raddr) = static_cast<u32>(rdata);
-					LOG_TRACE(LOADER, "**** RELOCATION(1): 0x%x <- 0x%08x (0x%llx)", raddr, value, rdata);
-					break;
+					const auto& rel = reinterpret_cast<const ppu_prx_relocation_info&>(prog.bin[i]);
+
+					ppu_reloc _rel;
+					const u32 raddr = _rel.addr = vm::cast(prx->segs.at(rel.index_addr).addr + rel.offset, HERE);
+					const u32 rtype = _rel.type = rel.type;
+					const u64 rdata = _rel.data = rel.index_value == 0xFF ? rel.ptr.addr().value() : prx->segs.at(rel.index_value).addr + rel.ptr.addr();
+					prx->relocs.emplace_back(_rel);
+
+					switch (rtype)
+					{
+					case 1: // R_PPC64_ADDR32
+					{
+						const u32 value = vm::_ref<u32>(raddr) = static_cast<u32>(rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(1): 0x%x <- 0x%08x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 4: //R_PPC64_ADDR16_LO
+					{
+						const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(4): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 5: //R_PPC64_ADDR16_HI
+					{
+						const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata >> 16);
+						LOG_TRACE(LOADER, "**** RELOCATION(5): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 6: //R_PPC64_ADDR16_HA
+					{
+						const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata >> 16) + (rdata & 0x8000 ? 1 : 0);
+						LOG_TRACE(LOADER, "**** RELOCATION(6): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 10: //R_PPC64_REL24
+					{
+						const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 6, 24>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
+						LOG_WARNING(LOADER, "**** RELOCATION(10): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 11: //R_PPC64_REL14
+					{
+						const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 16, 14>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
+						LOG_WARNING(LOADER, "**** RELOCATION(11): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 38: //R_PPC64_ADDR64
+					{
+						const u64 value = vm::_ref<u64>(raddr) = rdata;
+						LOG_TRACE(LOADER, "**** RELOCATION(38): 0x%x <- 0x%016llx (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 44: //R_PPC64_REL64
+					{
+						const u64 value = vm::_ref<u64>(raddr) = rdata - raddr;
+						LOG_TRACE(LOADER, "**** RELOCATION(44): 0x%x <- 0x%016llx (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					case 57: //R_PPC64_ADDR16_LO_DS
+					{
+						const u16 value = vm::_ref<ppu_bf_t<be_t<u16>, 0, 14>>(raddr) = static_cast<u16>(rdata) >> 2;
+						LOG_TRACE(LOADER, "**** RELOCATION(57): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						break;
+					}
+
+					default: LOG_ERROR(LOADER, "**** RELOCATION(%u): Illegal/Unknown type! (addr=0x%x; 0x%llx)", rtype, raddr, rdata);
+					}
+
+					if (rdata == 0)
+					{
+						LOG_TODO(LOADER, "**** RELOCATION(%u): 0x%x <- (zero-based value)", rtype, raddr);
+					}
 				}
 
-				case 4: //R_PPC64_ADDR16_LO
-				{
-					const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata);
-					LOG_TRACE(LOADER, "**** RELOCATION(4): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
-					break;
-				}
-
-				case 5: //R_PPC64_ADDR16_HI
-				{
-					const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata >> 16);
-					LOG_TRACE(LOADER, "**** RELOCATION(5): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
-					break;
-				}
-
-				case 6: //R_PPC64_ADDR16_HA
-				{
-					const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata >> 16) + (rdata & 0x8000 ? 1 : 0);
-					LOG_TRACE(LOADER, "**** RELOCATION(6): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
-					break;
-				}
-
-				case 10: //R_PPC64_REL24
-				{
-					const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 6, 24>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
-					LOG_WARNING(LOADER, "**** RELOCATION(10): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
-					break;
-				}
-
-				case 11: //R_PPC64_REL14
-				{
-					const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 16, 14>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
-					LOG_WARNING(LOADER, "**** RELOCATION(11): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
-					break;
-				}
-
-				case 38: //R_PPC64_ADDR64
-				{
-					const u64 value = vm::_ref<u64>(raddr) = rdata;
-					LOG_TRACE(LOADER, "**** RELOCATION(38): 0x%x <- 0x%016llx (0x%llx)", raddr, value, rdata);
-					break;
-				}
-
-				case 44: //R_PPC64_REL64
-				{
-					const u64 value = vm::_ref<u64>(raddr) = rdata - raddr;
-					LOG_TRACE(LOADER, "**** RELOCATION(44): 0x%x <- 0x%016llx (0x%llx)", raddr, value, rdata);
-					break;
-				}
-
-				case 57: //R_PPC64_ADDR16_LO_DS
-				{
-					const u16 value = vm::_ref<ppu_bf_t<be_t<u16>, 0, 14>>(raddr) = static_cast<u16>(rdata) >> 2;
-					LOG_TRACE(LOADER, "**** RELOCATION(57): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
-					break;
-				}
-
-				default: LOG_ERROR(LOADER, "**** RELOCATION(%u): Illegal/Unknown type! (addr=0x%x; 0x%llx)", rtype, raddr, rdata);
-				}
-
-				if (rdata == 0)
-				{
-					LOG_TODO(LOADER, "**** RELOCATION(%u): 0x%x <- (zero-based value)", rtype, raddr);
-				}
+				break;
 			}
-
-			break;
-		}
+			}
 		}
 	}
 

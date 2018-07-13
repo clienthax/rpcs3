@@ -260,12 +260,12 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_spu_thread_recover_page_fault)//198 (0x0C6)
 	null_func,//BIND_FUNC(sys_raw_spu_recover_page_fault)   //199 (0x0C7)
 
-	null_func, null_func, null_func, null_func, null_func,  //204  UNS?
-	null_func, null_func, null_func, null_func, null_func,  //209  UNS?
-	null_func, null_func, null_func, null_func, null_func,  //214  UNS?
+	uns_func, uns_func, uns_func, uns_func, uns_func,  //204  UNS?
+	uns_func, uns_func, uns_func, uns_func, uns_func,  //209  UNS?
+	uns_func, uns_func, uns_func, uns_func, uns_func,  //214  UNS?
 
-	null_func,//BIND_FUNC(sys_dbg_mat_set_condition)        //215 (0x0D7)
-	null_func,//BIND_FUNC(sys_dbg_mat_get_condition)        //216 (0x0D8)
+	uns_func,//BIND_FUNC(sys_dbg_mat_set_condition)        //215 (0x0D7)
+	uns_func,//BIND_FUNC(sys_dbg_mat_get_condition)        //216 (0x0D8)
 	uns_func,//BIND_FUNC(sys_dbg_...)                       //217 (0x0D9) DBG  UNS?
 	uns_func,//BIND_FUNC(sys_dbg_...)                       //218 (0x0DA) DBG  UNS?
 	uns_func,//BIND_FUNC(sys_dbg_...)                       //219 (0x0DB) DBG  UNS?
@@ -392,7 +392,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_sm_set_fan_policy)            //389 (0x185)  PM
 	null_func,//BIND_FUNC(sys_sm_request_error_log)         //390 (0x186)  ROOT
 	null_func,//BIND_FUNC(sys_sm_request_be_count)          //391 (0x187)  ROOT
-	null_func,//BIND_FUNC(sys_sm_ring_buzzer)               //392 (0x188)  ROOT
+	BIND_FUNC(sys_sm_ring_buzzer),               //392 (0x188)  ROOT
 	null_func,//BIND_FUNC(sys_sm_get_hw_config)             //393 (0x189)  ROOT
 	null_func,//BIND_FUNC(sys_sm_request_scversion)         //394 (0x18A)  ROOT
 	null_func,//BIND_FUNC(sys_sm_request_system_event_log)  //395 (0x18B)  PM
@@ -484,13 +484,13 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_hid_manager_release_focus)    //509 (0x1FD)  ROOT
 	BIND_FUNC(sys_hid_manager_510),             //510 (0x1FE)
 	null_func,//BIND_FUNC(sys_hid_manager_set_...)          //511 (0x1FF)  ROOT
-	null_func,//BIND_FUNC(sys_hid_manager_...)              //512 (0x200)  ROOT
+	BIND_FUNC(sys_hid_manager_is_process_permission_root),             //512 (0x200)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_...)              //513 (0x201)
 	BIND_FUNC(sys_hid_manager_514),              //514 (0x202)
 	uns_func,                                               //515 (0x203)  UNS
 	BIND_FUNC(sys_config_open),                  //516 (0x204)
 	BIND_FUNC(sys_config_close),                 //517 (0x205)
-	null_func,//BIND_FUNC(sys_config_get_service_event)     //518 (0x206)
+	BIND_FUNC(sys_config_get_service_event),     //518 (0x206)
 	BIND_FUNC(sys_config_add_service_listener),  //519 (0x207)
 	null_func,//BIND_FUNC(sys_config_remove_service_listener) //520 (0x208)
 	BIND_FUNC(sys_config_register_service),      //521 (0x209)
@@ -750,7 +750,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 
 	null_func,//BIND_FUNC(syscall_sys_ss_get_cache_of_analog_sunset_flag), //860 (0x35C)  AUTHID
 	null_func,//BIND_FUNC(syscall_...)                      //861  ROOT
-	null_func,//BIND_FUNC(syscall_...)                      //862  ROOT
+	BIND_FUNC(sys_ss_virtual_trm_manager),                      //862  ROOT
     BIND_FUNC(sys_ss_update_manager),               // 863 (0x35F) ROOT
 	null_func,//BIND_FUNC(syscall_...)                      //864  DBG
 	BIND_FUNC(sys_ss_random_number_generator),              //865 (0x361)

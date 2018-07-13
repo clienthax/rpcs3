@@ -59,11 +59,16 @@ error_code sys_sm_get_ext_event2(vm::ptr<u64> a1, vm::ptr<u64> a2, vm::ptr<u64> 
 	if (a4 != 0 && a4 != 1)
 		return CELL_EINVAL;
 
+	// a1 == 7 - 'console too hot, restart'
+	// a2 looks to be used if a1 is either 5 or 3?
+	// a3 looks to be ignored in vsh
+
 	*a1 = 0;
 	*a2 = 0;
 	*a3 = 0;
 
-	return CELL_OK;
+	// eagain for no event
+	return not_an_error(CELL_EAGAIN);
 }
 
 error_code sys_sm_shutdown(u16 op, vm::ptr<void> param, u64 size)
@@ -78,13 +83,19 @@ error_code sys_console_write(ppu_thread& ppu, vm::cptr<char> buf, u32 len)
 	// to make this easier to spot, also piping to tty
 	std::string tmp(buf.get_ptr(), len);
 	tmp = "CONSOLE: " + tmp;
-	auto tty = vm::make_str("CONSOLE: " + tmp);
-	sys_tty_write(0, tty, tmp.size(), vm::null);
+	auto tty = vm::make_str(tmp);
+	auto out = vm::var<u32>();
+	sys_tty_write(0, tty, tmp.size(), out);
 	return CELL_OK;
 }
 
 error_code sys_sm_control_led(u8 led, u8 action) {
-	sys_sm.todo("sys_sm_control_led(led=0x%x, action=0x%x", led, action);
+	sys_sm.todo("sys_sm_control_led(led=0x%x, action=0x%x)", led, action);
+	return CELL_OK;
+}
+
+error_code sys_sm_ring_buzzer(u64 packet, u64 a1, u64 a2) {
+	sys_sm.todo("sys_sm_ring_buzzer(packet=0x%x, a1=0x%x, a2=0x%x)", packet, a1, a2);
 	return CELL_OK;
 }
 
@@ -142,19 +153,38 @@ error_code sys_config_register_service(ppu_thread& ppu, u32 config_id, s64 b, u3
 	return CELL_OK;
 }
 
-error_code sys_config_add_service_listener(u32 config_id, s64 id, u32 c, u32 d, vm::ptr<ServiceListenerCallback[2]> funcs, u32 f, u32 g)
+error_code sys_config_add_service_listener(u32 config_id, s64 id, u32 c, u32 d, u32 unk, u32 f, vm::ptr<u32> service_listener_handle)
 {
-	sys_config.todo("sys_config_add_service_listener(config_id=0x%x, id=0x%x, 0x%x, 0x%x, funcs=0x%x, 0x%x, 0x%x)", config_id, id, c, d, funcs, f, g);
+	sys_config.todo("sys_config_add_service_listener(config_id=0x%x, id=0x%x, 0x%x, 0x%x, funcs=0x%x, 0x%x, service_listener_handle=*0x%x)", config_id, id, c, d, unk, f, service_listener_handle);
 
-	static u64 ctr = 0x100000001;
+	static u32 listener_handles = 0x42000001;
+
+	*service_listener_handle = listener_handles;
+	listener_handles += 0x100; // unknown how these are used/incremented, this seems to be pretty close tho
+
+	// low 32 bits is event_id, 33rd bit, can be either 1 or 0
+	// 0 looks to be 'unavaiable' flag?
+	// 1 is 'available' flag
+	static u64 event_id = 0x100000001; 
 	const auto cfg = idm::get<lv2_config>(config_id);
 	if (cfg) {
 		if (auto q = cfg->queue.lock())
 		{
-			q->send(1, config_id, ctr, 0x68);
-			++ctr;
+			// 'source' in this case looks to be config_event_type:
+			// 1 for service event
+			// 2 for io event
+			// invalid for any others
+			// data3 looks to be size of event to write
+			//q->send(1, config_id, event_id, 0x68);
+			//++event_id;
 		}
 	}
+
+	return CELL_OK;
+}
+
+error_code sys_config_get_service_event(u32 config_id, u32 event_id, vm::ptr<void> event, u64 size) {
+	sys_config.todo("sys_config_get_service_event(config_id=0x%x, event_id=0x%llx, event=*0x%llx, size=0x%llx)", config_id, event_id, event, size);
 
 	return CELL_OK;
 }
@@ -193,36 +223,68 @@ logs::channel sys_storage("sys_storage");
 #define USB_MASS_STORAGE_1(n) (0x10300000000000A + n)       /* For 0-5 */
 #define USB_MASS_STORAGE_2(n) (0x10300000000001F + (n - 6)) /* For 6-127 */
 
-s32 sys_storage_open(u64 device, u32 mode, vm::ptr<u32> fd, u32 flags)
+s32 sys_storage_open(u64 device, u64 mode, vm::ptr<u32> fd, u64 flags)
 {
 	sys_storage.todo("sys_storage_open(device=0x%x, mode=0x%x, fd=*0x%x, flags=0x%x)", device, mode, fd, flags);
+	if (device == 0)
+		return CELL_ENOENT;
 
-	u64 storage = device & 0xFFFFF00FFFFFFFF;
-	//	if (storage != ATA_HDD && storage != BDVD_DRIVE)
-	//	fmt::throw_exception("unexpected device");
-	static u32 dumbctr = 0xdadad0d0;
-	*fd                = dumbctr++; // Poison value
-	return CELL_OK;
+	u64 storage_id = device & 0xFFFFF00FFFFFFFF;
+	fs::file file;
+
+	if (device == 0x100000200000004) {
+		file = fs::file("G:/gitrepos/rpcs3/bin/imagedump/extnorarea.dat", fs::read);
+		if (!file)
+			sys_storage.fatal("couldnt find nor region file");
+	}
+
+	auto storage = std::make_shared<lv2_storage>(device, std::move(file), mode, flags);
+
+	if (const u32 id = idm::import_existing<lv2_storage>(std::move(storage))) {
+
+		*fd = id;
+		return CELL_OK;
+	}
+
+	// idk error
+	return CELL_EFAULT;
 }
 
 s32 sys_storage_close(u32 fd)
 {
 	sys_storage.todo("sys_storage_close(fd=0x%x)", fd);
+
+	idm::remove<lv2_storage>(fd);
+
 	return CELL_OK;
 }
 
-s32 sys_storage_read(u32 fd, u32 mode, u32 start_sector, u32 num_sectors, vm::ptr<u8> bounce_buf, vm::ptr<u32> sectors_read, u64 flags)
+s32 sys_storage_read(u32 fd, u32 mode, u32 start_sector, u32 num_sectors, vm::ptr<void> bounce_buf, vm::ptr<u32> sectors_read, u64 flags)
 {
 	sys_storage.todo("sys_storage_read(fd=0x%x, mode=0x%x, start_sector=0x%x, num_sectors=0x%x, bounce_buf=*0x%x, sectors_read=*0x%x, flags=0x%x)", fd, mode, start_sector, num_sectors, bounce_buf,
 	    sectors_read, flags);
-	*sectors_read = num_sectors; // LIESSSSS!
+	
 	memset(bounce_buf.get_ptr(), 0, num_sectors * 0x200);
+
+	auto handle = idm::get<lv2_storage>(fd);
+	if (!handle)
+		return CELL_ESRCH; // idk
+
+	if (handle->device_id == 0x100000200000004 && handle->file) {
+		handle->file.seek(start_sector * 0x200);
+		u64 size = num_sectors * 0x200;
+		const u64 result = handle->file.read(bounce_buf.get_ptr(), size);
+		if (result != size) // woof
+			fmt::throw_exception("didnt read expected");
+	}
+
+	*sectors_read = num_sectors;
 	return CELL_OK;
 }
 
-s32 sys_storage_write()
+s32 sys_storage_write(u32 fd, u32 mode, u32 start_sector, u32 num_sectors, vm::ptr<void> data, vm::ptr<u32> sectors_wrote, u64 flags)
 {
-	sys_storage.todo("sys_storage_write()");
+	sys_storage.todo("sys_storage_write(fd=0x%x, mode=0x%x, start_sector=0x%x, num_sectors=0x%x, data=*=0x%x, sectors_wrote=*0x%x, flags=0x%llx)", fd, mode, start_sector, num_sectors, data, sectors_wrote, flags);
 	return CELL_OK;
 }
 
@@ -374,7 +436,7 @@ s32 sys_storage_get_device_info(u64 device, vm::ptr<StorageDeviceInfo> buffer)
 		{
 		case 0: buffer->sector_count = 0x8000;
 		case 1: buffer->sector_count = 0x77F8;
-		case 2: buffer->sector_count = 0x100;
+		case 2: buffer->sector_count = 0x100; // offset, 0x20000
 		case 3: buffer->sector_count = 0x400;
 		}
 	}
@@ -503,7 +565,8 @@ s32 sys_storage_get_region_offset()
 s32 sys_storage_set_emulated_speed()
 {
 	sys_storage.todo("sys_storage_set_emulated_speed()");
-	return CELL_OK;
+	// todo: only debug kernel has this
+	return CELL_ENOSYS;
 }
 
 #define PS3AV_VERSION 0x205 /* version of ps3av command */
@@ -816,7 +879,7 @@ error_code sys_uart_send(vm::cptr<void> buffer, u64 size, u64 flags)
 	if ((flags & ~2ull) != 0)
 		return CELL_EINVAL;
 
-	u32 counter = size;
+	u64 counter = size;
 	if (flags == 0x2)
 	{
 		// avset
@@ -864,11 +927,15 @@ error_code sys_uart_get_params(vm::ptr<char> buffer)
 
 error_code sys_hid_manager_510()
 {
-	return CELL_OK;
+	return not_an_error(1);
 }
 error_code sys_hid_manager_514()
 {
 	return CELL_OK;
+}
+
+error_code sys_hid_manager_is_process_permission_root() {
+	return not_an_error(1);
 }
 
 logs::channel sys_btsetting("sys_btsetting");
@@ -907,6 +974,7 @@ logs::channel sys_bdemu("sys_bdemu");
 error_code sys_bdemu_send_command(u64 cmd, u64 a2, u64 a3, vm::ptr<void> buf, u64 buf_len)
 {
 	sys_bdemu.todo("cmd=0%x, a2=0x%x, a3=0x%x, buf=0x%x, buf_len=0x%x", cmd, a2, a3, buf, buf_len);
+	// todo: only debug kernel has this
 	return CELL_ENOSYS;
 	/*if (cmd == 0)
 	{

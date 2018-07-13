@@ -115,6 +115,29 @@ struct sys_prx_get_module_list_option_t
 	be_t<u32> unk; // 0
 };
 
+struct sys_prx_register_module_0x20_t
+{
+	be_t<u64> size;
+	be_t<u32> toc;
+	be_t<u32> toc_size;
+	be_t<u32> stubs_ea;
+	be_t<u32> stubs_size;
+	vm::bptr<void> error_handler_opd;
+};
+
+struct sys_prx_register_module_0x30_t
+{
+	be_t<u64> size;
+	be_t<u64> unk2;
+	be_t<u32> unk3;
+	be_t<u32> unk4;
+	vm::bptr<u32> lib_entries_ea;
+	be_t<u32> lib_entries_size;
+	vm::bptr<u32> lib_stub_ea;
+	be_t<u32> lib_stub_size;
+	vm::bptr<void> error_handler_opd;
+};
+
 struct lv2_prx final : lv2_obj, ppu_module
 {
 	static const u32 id_base = 0x23000000;
@@ -147,7 +170,7 @@ error_code _sys_prx_load_module(vm::cptr<char> path, u64 flags, vm::ptr<sys_prx_
 error_code _sys_prx_start_module(u32 id, u64 flags, vm::ptr<sys_prx_start_stop_module_option_t> pOpt);
 error_code _sys_prx_stop_module(u32 id, u64 flags, vm::ptr<sys_prx_start_stop_module_option_t> pOpt);
 error_code _sys_prx_unload_module(u32 id, u64 flags, vm::ptr<sys_prx_unload_module_option_t> pOpt);
-error_code _sys_prx_register_module();
+error_code _sys_prx_register_module(vm::cptr<char> name, vm::ptr<void> opt);
 error_code _sys_prx_query_module();
 error_code _sys_prx_register_library(vm::ptr<void> library);
 error_code _sys_prx_unregister_library(vm::ptr<void> library);

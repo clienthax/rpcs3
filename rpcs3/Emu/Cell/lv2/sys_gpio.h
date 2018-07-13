@@ -14,11 +14,29 @@ error_code sys_gpio_set(u64 device_id, u64 mask, u64 value);
 
 struct lv2_config
 {
-	static const u32 id_base  = 0x01000000; // TODO all of these are just random
+	static const u32 id_base  = 0x41000000;
 	static const u32 id_step  = 1;
 	static const u32 id_count = 2048;
 
 	std::weak_ptr<lv2_event_queue> queue;
+};
+
+struct lv2_storage
+{
+	static const u32 id_base = 0x45000000;
+	static const u32 id_step = 1;
+	static const u32 id_count = 2048;
+
+	const u64 device_id;
+	const fs::file file;
+	const u64 mode;
+	const u64 flags;
+
+	lv2_storage(u64 device_id, fs::file&& file, u64 mode, u64 flags)
+		: device_id(device_id)
+		, file(std::move(file))
+		, mode(mode)
+		, flags(flags) {}
 };
 
 typedef vm::ptr<void()> ServiceListenerCallback;
@@ -27,15 +45,16 @@ typedef vm::ptr<void()> ServiceListenerCallback;
 error_code sys_config_open(u32 equeue_id, vm::ptr<u32> config_id);
 error_code sys_config_close(u32 equeue_id);
 error_code sys_config_register_service(ppu_thread& ppu, u32 config_id, s64 b, u32 c, u32 d, vm::ptr<u32> data, u32 size, vm::ptr<u32> output);
-error_code sys_config_add_service_listener(u32 a, s64 b, u32 c, u32 d, vm::ptr<ServiceListenerCallback[2]> funcs, u32 f, u32 g);
+error_code sys_config_add_service_listener(u32 config_id, s64 id, u32 c, u32 d, u32 unk, u32 f, vm::ptr<u32> service_listener_handle);
+error_code sys_config_get_service_event(u32 config_id, u32 event_id, vm::ptr<void> event, u64 size);
 
 error_code sys_rsxaudio_initialize(vm::ptr<u32>);
 error_code sys_rsxaudio_import_shared_memory(u32, vm::ptr<u64>);
 
-s32 sys_storage_open(u64 device, u32 b, vm::ptr<u32> fd, u32 d);
+s32 sys_storage_open(u64 device, u64 mode, vm::ptr<u32> fd, u64 flags);
 s32 sys_storage_close(u32 fd);
-s32 sys_storage_read(u32 fd, u32 mode, u32 start_sector, u32 num_sectors, vm::ptr<u8> bounce_buf, vm::ptr<u32> sectors_read, u64 flags);
-s32 sys_storage_write();
+s32 sys_storage_read(u32 fd, u32 mode, u32 start_sector, u32 num_sectors, vm::ptr<void> bounce_buf, vm::ptr<u32> sectors_read, u64 flags);
+s32 sys_storage_write(u32 fd, u32 mode, u32 start_sector, u32 num_sectors, vm::ptr<void> data, vm::ptr<u32> sectors_wrote, u64 flags);
 s32 sys_storage_send_device_command(u32 dev_handle, u64 cmd, vm::ptr<void> in, u64 inlen, vm::ptr<void> out, u64 outlen);
 s32 sys_storage_async_configure(u32 fd, u32 io_buf, u32 equeue_id, u32 unk);
 s32 sys_storage_async_read();
@@ -88,12 +107,14 @@ error_code sys_uart_get_params(vm::ptr<char> buffer);
 error_code sys_console_write(ppu_thread& ppu, vm::cptr<char> buf, u32 len);
 
 error_code sys_hid_manager_510();
+error_code sys_hid_manager_is_process_permission_root();
 error_code sys_hid_manager_514();
 
 error_code sys_sm_get_ext_event2(vm::ptr<u64> a1, vm::ptr<u64> a2, vm::ptr<u64> a3, u64 a4);
 error_code sys_sm_shutdown(u16 op, vm::ptr<void> param, u64 size);
 error_code sys_sm_get_params(vm::ptr<u8> a, vm::ptr<u8> b, vm::ptr<u32> c, vm::ptr<u64> d);
 error_code sys_sm_control_led(u8 led, u8 action);
+error_code sys_sm_ring_buzzer(u64 packet, u64 a1, u64 a2);
 
 error_code sys_btsetting_if(u64 cmd, vm::ptr<void> msg);
 error_code sys_bdemu_send_command(u64 cmd, u64 a2, u64 a3, vm::ptr<void> buf, u64 buf_len);

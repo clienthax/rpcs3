@@ -285,9 +285,20 @@ error_code _sys_prx_unload_module(u32 id, u64 flags, vm::ptr<sys_prx_unload_modu
 	return CELL_OK;
 }
 
-error_code _sys_prx_register_module()
+error_code _sys_prx_register_module(vm::cptr<char> name, vm::ptr<void> opt)
 {
-	sys_prx.todo("_sys_prx_register_module()");
+	sys_prx.todo("_sys_prx_register_module(name=%s, opt=*0x%x)", name, opt);
+	if (!opt)
+		return CELL_EINVAL;
+
+	const auto size_check = vm::static_ptr_cast<u64>(opt);
+	if (*size_check == 0x20) {
+		const auto info = vm::static_ptr_cast<sys_prx_register_module_0x20_t>(opt);
+		sys_prx.todo("opt: sys_prx_register_module_t");
+		sys_prx.todo("     size=0x%llx, toc=0x%x, toc_size=0x%x", info->size, info->toc, info->toc_size);
+		sys_prx.todo("     stubs_ea=0x%x, stubs_size=0x%x, error_handler=0x%x", info->stubs_ea, info->stubs_size, info->error_handler_opd);
+	}
+
 	return CELL_OK;
 }
 

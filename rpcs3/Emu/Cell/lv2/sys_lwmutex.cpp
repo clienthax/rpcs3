@@ -28,7 +28,7 @@ error_code _sys_lwmutex_create(vm::ptr<u32> lwmutex_id, u32 protocol, vm::ptr<sy
 
 	if (arg4 != 0x80000001 || arg6)
 	{
-		fmt::throw_exception("Unknown arguments (arg4=0x%x, arg6=0x%x)" HERE, arg4, arg6);
+		//fmt::throw_exception("Unknown arguments (arg4=0x%x, arg6=0x%x)" HERE, arg4, arg6);
 	}
 
 	if (const u32 id = idm::make<lv2_obj, lv2_lwmutex>(protocol, control, name))
