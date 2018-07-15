@@ -4,6 +4,7 @@
 #include "Emu/IdManager.h"
 #include "Emu/Cell/PPUThread.h"
 #include "Utilities/Thread.h"
+#include "Emu/System.h"
 
 #include "sys_sync.h"
 #include "sys_net.h"
@@ -1809,6 +1810,7 @@ s32 sys_net_abort(ppu_thread& ppu, s32 type, u64 arg, s32 flags)
 s32 sys_net_infoctl(ppu_thread& ppu, s32 cmd, vm::ptr<void> arg)
 {
 	sys_net.todo("sys_net_infoctl(cmd=%d, arg=*0x%x)", cmd, arg);
+	// cmd == 0x35 == sys_net_lib_set_sync, arg is ptr to u64 sys_cond ipc key?
 	return 0;
 }
 
@@ -1821,6 +1823,22 @@ s32 sys_net_control(ppu_thread& ppu, u32 arg1, s32 arg2, vm::ptr<void> arg3, s32
 s32 sys_net_bnet_ioctl(ppu_thread& ppu, s32 arg1, u32 arg2, u32 arg3)
 {
 	sys_net.todo("sys_net_bnet_ioctl(%d, 0x%x, 0x%x)", arg1, arg2, arg3);
+
+	// todo: arg1 is socket number?
+
+	if (arg2 == 0xc0206911) {
+		// arg3 is str name of interface
+		auto inf = vm::cptr<char>::make(arg3);
+		sys_net.todo("arg3 %s", inf);
+	}
+	else if (arg2 == 0x80206910) {
+		auto inf = vm::cptr<char>::make(arg3);
+		sys_net.todo("arg3 %s", inf);
+	}
+	else if (arg2 == 0xc020698c) {
+		// get info of inf
+		memset(vm::base(arg3), 0xff, 0x2e);
+	}
 	return 0;
 }
 

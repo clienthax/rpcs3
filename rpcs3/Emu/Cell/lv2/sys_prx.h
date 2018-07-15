@@ -138,6 +138,22 @@ struct sys_prx_register_module_0x30_t
 	vm::bptr<void> error_handler_opd;
 };
 
+struct sys_prx_register_library_t {
+	u8 size;
+	u8 pad;
+	be_t<u16> ver;
+	be_t<u16> attr;
+	be_t<u16> num_func;
+	be_t<u16> num_var;
+	be_t<u16> num_tlsvar;
+	u8 info_hash;
+	u8 info_tlshash;
+	be_t<u16> pad2;
+	be_t<u32> name_ea;
+	be_t<u32> fnid_ea;
+	be_t<u32> fstub_ea;
+};
+
 struct lv2_prx final : lv2_obj, ppu_module
 {
 	static const u32 id_base = 0x23000000;
@@ -172,7 +188,7 @@ error_code _sys_prx_stop_module(u32 id, u64 flags, vm::ptr<sys_prx_start_stop_mo
 error_code _sys_prx_unload_module(u32 id, u64 flags, vm::ptr<sys_prx_unload_module_option_t> pOpt);
 error_code _sys_prx_register_module(vm::cptr<char> name, vm::ptr<void> opt);
 error_code _sys_prx_query_module();
-error_code _sys_prx_register_library(vm::ptr<void> library);
+error_code _sys_prx_register_library(vm::ptr<sys_prx_register_library_t> library);
 error_code _sys_prx_unregister_library(vm::ptr<void> library);
 error_code _sys_prx_link_library();
 error_code _sys_prx_unlink_library();

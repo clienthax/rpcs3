@@ -13,6 +13,9 @@
 #include "Emu/Cell/lv2/sys_sync.h"
 #include "Emu/Cell/lv2/sys_prx.h"
 #include "Emu/Cell/lv2/sys_rsx.h"
+#include "Emu/Cell/lv2/sys_event.h"
+
+#include "Utilities/Thread.h"
 
 #include "Emu/IdManager.h"
 #include "Emu/RSX/GSRender.h"
@@ -1220,6 +1223,63 @@ void Emulator::Run()
 	idm::select<ppu_thread>(on_select);
 	idm::select<RawSPUThread>(on_select);
 	idm::select<SPUThread>(on_select);
+
+	//0x12340098
+
+	struct wrapper {
+		std::shared_ptr<thread_ctrl> thread;
+	};
+	auto w = fxm::make<wrapper>();
+
+	thread_ctrl::spawn(w->thread, "helperthread", [this]()
+	{
+		std::this_thread::sleep_for(5s);
+
+		//auto q = lv2_event_queue::find(0x12340098);
+		//q->send(0x10e012400, 1, 0x8000cafe02460100, 0x20170be0);
+
+		u64 aud_Fake = 0x12340098;
+		u64 vsh_fake = 0x8000cafe02460100;
+
+		auto queue = std::make_shared<lv2_event_queue>(SYS_SYNC_FIFO, 1, 0, aud_Fake, 127);
+		u32 id;
+		if (!ipc_manager<lv2_event_queue, u64>::add(aud_Fake, [&]() -> std::shared_ptr<lv2_event_queue>
+		{
+			if (const u32 _id = idm::import_existing<lv2_obj, lv2_event_queue>(queue))
+			{
+				id = _id;
+				return std::move(queue);
+			}
+
+			return nullptr;
+		}))
+		{
+			return CELL_EEXIST;
+		}
+
+		queue = idm::get<lv2_obj, lv2_event_queue>(id);
+		// TODO: exit condition
+		while (!Emu.IsStopped())
+		{
+			{
+				semaphore_lock lock(queue->mutex);
+
+				while (!queue->events.empty())
+				{
+					u64 a1, a2, a3, a4;
+					std::tie(a1, a2, a3, a4) = queue->events.front();
+
+					LOG_FATAL(GENERAL, "AE: 0x%llx, 0x%llx, 0x%llx, 0x%llx", a1, a2, a3, a4);
+					queue->events.pop_front();
+
+					auto q = lv2_event_queue::find(0x8000cafe02460100);
+					q->send(0x10e002900, 2, 0, 8);
+				}
+			}
+			thread_ctrl::wait_for(1000);
+
+		}
+	});
 
 #ifdef WITH_GDB_DEBUGGER
 	// Initialize debug server at the end of emu run sequence

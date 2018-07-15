@@ -308,9 +308,15 @@ error_code _sys_prx_query_module()
 	return CELL_OK;
 }
 
-error_code _sys_prx_register_library(vm::ptr<void> library)
+error_code _sys_prx_register_library(vm::ptr<sys_prx_register_library_t> library)
 {
 	sys_prx.todo("_sys_prx_register_library(library=*0x%x)", library);
+	sys_prx.todo("opt: sys_prx_register_library_t");
+	sys_prx.todo("    size=0x%x, ver=0x%x, attr=0x%x", library->size, library->ver, library->attr);
+	sys_prx.todo("    num_func=0x%x, num_var=0x%x, num_tlsvar=0x%x", library->num_func, library->num_var, library->num_tlsvar);
+	sys_prx.todo("    info_hash=0x%x, info_tlshash=0x%x", library->info_hash, library->info_tlshash);
+	sys_prx.todo("    name_ea=0x%x, fnid_ea=0x%x, fstub_ea=0x%x", library->name_ea, library->fnid_ea, library->fstub_ea);
+
 	return CELL_OK;
 }
 

@@ -812,55 +812,11 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 	// handle section relocations
 	if (hasSegSym) {
 
-		struct elf64_sym {
-			be_t<u32> name;
-			u8 info;
-			u8 other;
-			be_t<u16> shndx;
-			be_t<u64> value;
-			be_t<u64> size;
-		};
-
 		u32 tocVal = 0;
-		u64 numSymbols = 0;
-
-		std::vector<uchar> symtable;
-		std::vector<uchar> secstrtable;
-		std::vector<uchar> strtable;
-
-		// load symtable
-		for (const auto& s : elf.shdrs) {
-			if (s.sh_type == 2 /*SHT_SYMTAB*/) {
-				for (const auto& p : elf.progs) {
-					if (p.p_offset <= s.sh_offset && s.sh_offset < p.p_offset + p.p_filesz) {
-						symtable.resize(s.sh_size);
-						const u64 offset = s.sh_offset - p.p_offset;
-						std::copy(p.bin.begin() + offset, p.bin.begin() + offset + s.sh_size, symtable.begin());
-						numSymbols = s.sh_entsize != 0 ? s.sh_size / s.sh_entsize : 0;
-						break;
-					}
-				}
-				break;
-			}
-		}
-
-		// load sec string table
-		if (elf.header.e_shstrndx != 0 /*SHN_UNDEF*/) {
-			const auto& strtab = elf.shdrs.at(elf.header.e_shstrndx);
-			if (strtab.sh_type == 3 /*SHT_STRTAB*/) {
-				for (const auto& p : elf.progs) {
-					if (p.p_offset <= strtab.sh_offset && strtab.sh_offset < p.p_offset + p.p_filesz) {
-						const u64 offset = strtab.sh_offset - p.p_offset;
-						secstrtable.resize(strtab.sh_size);
-						std::copy(p.bin.begin() + offset, p.bin.begin() + offset + strtab.sh_size, secstrtable.begin());
-						break;
-					}
-				}
-			}
-		}
+		u64 numSymbols = elf.symtable.size() / 0x18;
 
 		for (const auto& s : elf.shdrs) {
-			if (strcmp((char*)&secstrtable.at(s.sh_name), ".toc") == 0) {
+			if (strcmp((char*)&elf.secstrtable.at(s.sh_name), ".toc") == 0) {
 				LOG_WARNING(LOADER, "found toc: 0x%x", s.sh_addr);
 				const u32 addr = vm::cast(s.sh_addr);
 				const u32 size = vm::cast(s.sh_size);
@@ -876,26 +832,11 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 					}
 				}
 			}
-
-			if (strcmp((char*)&secstrtable.at(s.sh_name), ".strtab") == 0) {
-				for (const auto& p : elf.progs) {
-					if (p.p_offset <= s.sh_offset && s.sh_offset < p.p_offset + p.p_filesz) {
-						const u64 offset = s.sh_offset - p.p_offset;
-						strtable.resize(s.sh_size);
-						std::copy(p.bin.begin() + offset, p.bin.begin() + offset + s.sh_size, strtable.begin());
-						break;
-					}
-				}
-			}
 		}
-
-		struct GlobalSymbolTable {
-			std::unordered_map<std::string, u32> symmap;
-		};
 
 		auto globalsymtab = fxm::get_always<GlobalSymbolTable>();
 
-		const auto& symbols = reinterpret_cast<const elf64_sym*>(symtable.data());
+		const auto& symbols = reinterpret_cast<const elf64_sym*>(elf.symtable.data());
 
 		for (const auto& s : elf.shdrs) {
 			if (s.sh_type == 4 /*SHT_RELA */) {
@@ -928,7 +869,6 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 
 					const auto type = (u32)rel.info;
 					const auto sym = (u32)(rel.info >> 32);
-					const u8 bind = (rel.info >> 4) & 0xf;
 
 					if (type == 0)
 						continue;
@@ -938,24 +878,48 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 
 					const auto& syminfo = symbols[sym];
 
-					std::string tmp = "";
-					if (syminfo.name > 0)
-						tmp = std::string((char*)&strtable[syminfo.name]);
+					//bool foundSym = true;
+					//u32 symaddr = 0;
+					//// grab previous global
+					//if (syminfo.name > 0) {
+					//	const u8 bind = (syminfo.info >> 4) & 0xf;
+					//	std::string symname = std::string((char*)&elf.strtable[syminfo.name]);
+					//	if (bind == 1 /*STB_GLOBAL*/) {
+					//		auto it = globalsymtab->symmap.find(symname);
+					//		if (it != globalsymtab->symmap.end()) {
+					//			// already defined, grab target
+					//			symaddr = it->second;
+					//		}
+					//		else {
+					//			symaddr = syminfo.shndx == 0xfff1 /*SHN_ABS*/ ? vm::cast(syminfo.value) : prx->secs.at(syminfo.shndx).addr;
+					//			symaddr += syminfo.value;
+					//			globalsymtab->symmap.insert({ symname, symaddr });
+					//		}
+					//	}
+					//	else if (syminfo.shndx == 0 /*SHN_UNDEF*/ && bind == 2 /* STB_WEAK */) {
+					//		// see if we can define the undef weak ref
+					//		auto it = globalsymtab->symmap.find(symname);
+					//		if (it != globalsymtab->symmap.end()) {
+					//			// grab target
+					//			symaddr = it->second;
+					//		}
+					//		else
+					//			foundSym = false;
+					//	}
+					//	else {
+					//		// local or something
+					//		symaddr = syminfo.shndx == 0xfff1 /*SHN_ABS*/ ? vm::cast(syminfo.value) : prx->secs.at(syminfo.shndx).addr;
+					//		symaddr += syminfo.value;
+					//	}
+					//}
+					//else {
+					//	symaddr = syminfo.shndx == 0xfff1 /*SHN_ABS*/ ? vm::cast(syminfo.value) : prx->secs.at(syminfo.shndx).addr;
+					//	symaddr += syminfo.value;
+					//}
 
-
-					u32 symaddr = 0;
-					if (bind == 1 /*STB_GLOBAL*/) {
-						auto it = globalsymtab->symmap.find(tmp);
-						if (it != globalsymtab->symmap.end()) {
-							// already defined, grab target
-							//symaddr = 
-						}
-					}
-
-
-					const u32 symaddr = syminfo.shndx == 0xfff1 /*SHN_ABS*/ ? vm::cast(syminfo.value) : prx->secs.at(syminfo.shndx).addr;
-
+					//u32 rdata = foundSym ? symaddr + rel.addend.value() : 0;
 					const u32 raddr = vm::cast(prx->secs.at(s.sh_info).addr + rel.offset, HERE);
+					const u32 symaddr = syminfo.shndx == 0xfff1 ? vm::cast(syminfo.value) : prx->secs.at(syminfo.shndx).addr;
 					u32 rdata = syminfo.shndx != 0 ? vm::cast(symaddr + syminfo.value + rel.addend) : 0;
 
 					// todo: merge this with segment relocs somehow, these have toc relocations in them
@@ -992,14 +956,14 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 					case 10: //R_PPC64_REL24
 					{
 						const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 6, 24>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
-						LOG_WARNING(LOADER, "**** RELOCATION(10): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(10): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
 						break;
 					}
 
 					case 11: //R_PPC64_REL14
 					{
 						const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 16, 14>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
-						LOG_WARNING(LOADER, "**** RELOCATION(11): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(11): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
 						break;
 					}
 
@@ -1021,7 +985,7 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 					{
 						rdata = rdata - tocVal;
 						const u16 value = vm::_ref<u16>(raddr) = static_cast<u16>(rdata);
-						LOG_WARNING(LOADER, "**** RELOCATION(47): 0x%x <- 0x%016llx (0x%llx)", raddr, value, rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(47): 0x%x <- 0x%016llx (0x%llx)", raddr, value, rdata);
 						break;
 					}
 
@@ -1036,7 +1000,7 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 					{
 						rdata = rdata - tocVal;
 						const u16 value = vm::_ref<ppu_bf_t<be_t<u16>, 0, 14>>(raddr) = static_cast<u16>(rdata) >> 2;
-						LOG_WARNING(LOADER, "**** RELOCATION(63): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(63): 0x%x <- 0x%04x (0x%llx)", raddr, value, rdata);
 						break;
 					}
 
@@ -1044,7 +1008,7 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 					{
 						rdata = tocVal;
 						const u32 value = vm::_ref<u32>(raddr) = static_cast<u32>(rdata);
-						LOG_WARNING(LOADER, "**** RELOCATION(107): 0x%x <- 0x%08x (0x%llx)", raddr, value, rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(107): 0x%x <- 0x%08x (0x%llx)", raddr, value, rdata);
 						break;
 					}
 
@@ -1123,14 +1087,14 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 					case 10: //R_PPC64_REL24
 					{
 						const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 6, 24>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
-						LOG_WARNING(LOADER, "**** RELOCATION(10): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(10): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
 						break;
 					}
 
 					case 11: //R_PPC64_REL14
 					{
 						const u32 value = vm::_ref<ppu_bf_t<be_t<u32>, 16, 14>>(raddr) = static_cast<u32>(rdata - raddr) >> 2;
-						LOG_WARNING(LOADER, "**** RELOCATION(11): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
+						LOG_TRACE(LOADER, "**** RELOCATION(11): 0x%x <- 0x%06x (0x%llx)", raddr, value, rdata);
 						break;
 					}
 
@@ -1354,11 +1318,7 @@ void ppu_load_exec(const ppu_exec_object& elf)
 		const u32 type = _sec.type = s.sh_type;
 		const u32 flag = _sec.flags = s.sh_flags & 7;
 		_sec.filesz = 0;
-
-		if (s.sh_type == 1 && addr && size)
-		{
-			_main->secs.emplace_back(_sec);
-		}
+		_main->secs.emplace_back(_sec);
 	}
 
 	sha1_finish(&sha, _main->sha1);
@@ -1388,6 +1348,7 @@ void ppu_load_exec(const ppu_exec_object& elf)
 
 	// Load other programs
 	bool empty_imports_exports = false;
+	bool no_process_params = false;
 	for (auto& prog : elf.progs)
 	{
 		switch (const u32 p_type = prog.p_type)
@@ -1445,6 +1406,8 @@ void ppu_load_exec(const ppu_exec_object& elf)
 					//LOG_NOTICE(LOADER, "*** crash dump param addr: 0x%x", info.crash_dump_param_addr);
 				}
 			}
+			else
+				no_process_params = true;
 			break;
 		}
 
@@ -1496,7 +1459,7 @@ void ppu_load_exec(const ppu_exec_object& elf)
 		}
 	}
 
-	if (empty_imports_exports)
+	if (empty_imports_exports && no_process_params)
 	{
 		LOG_ERROR(LOADER, "Failed identifying imports and export, trying for best effort");
 
@@ -1565,7 +1528,79 @@ void ppu_load_exec(const ppu_exec_object& elf)
 			ppu_load_imports(_main->relocs, link, libstub_start, libstub_end);
 		}
 	}
- 
+
+	// 0.85 vsh loading, cheating a bit here since newer doesnt have section strings
+	if (!empty_imports_exports && no_process_params) {
+		if (elf.secstrtable.size() != 0) {
+			for (const auto& s : elf.shdrs) {
+				if (strcmp((char*)&elf.secstrtable.at(s.sh_name), ".rodata") == 0) {
+					const u32 addr = vm::cast(s.sh_addr);
+					const u32 size = vm::cast(s.sh_size);
+
+					for (const auto& p : elf.progs)
+					{
+						const u32 saddr = static_cast<u32>(p.p_vaddr);
+						if (addr >= saddr && addr < saddr + p.p_memsz)
+						{
+							struct ppu_prx_library_info
+							{
+								be_t<u16> attributes;
+								u8 version[2];
+								char name[28];
+								be_t<u32> toc;
+								be_t<u32> exports_start;
+								be_t<u32> exports_end;
+								be_t<u32> imports_start;
+								be_t<u32> imports_end;
+							};
+
+							// Access library information (TODO)
+							const auto& lib_info = vm::cptr<ppu_prx_library_info>(vm::cast(p.p_vaddr, HERE));
+
+							ppu_load_exports(link, lib_info->exports_start, lib_info->exports_end);
+							ppu_load_imports(_main->relocs, link, lib_info->imports_start, lib_info->imports_end);
+							std::stable_sort(_main->relocs.begin(), _main->relocs.end());
+							break;
+						}
+					}
+				}
+			}
+		}
+		else
+			LOG_ERROR(LOADER, "no process params, and empty section string table, cant load import/exports");
+	}
+
+	u32 numSymbols = elf.symtable.size() / 0x18;
+	
+	if (numSymbols > 0) {
+		auto globalsymtab = fxm::get_always<GlobalSymbolTable>();
+		for (uint i = 0; i < elf.symtable.size(); i += sizeof(elf64_sym)) {
+			const auto* syminfo = reinterpret_cast<const elf64_sym*>(&elf.symtable[i]);
+
+			bool foundSym = true;
+			u32 symaddr = 0;
+			// grab previous global
+			if (syminfo->name > 0) {
+				const u8 bind = (syminfo->info >> 4) & 0xf;
+				std::string symname = std::string((char*)&elf.strtable[syminfo->name]);
+				if (bind == 1 /*STB_GLOBAL*/) {
+					auto it = globalsymtab->symmap.find(symname);
+					if (it == globalsymtab->symmap.end()) {
+						// add symbol
+						symaddr = syminfo->shndx == 0xfff1 /*SHN_ABS*/ ? vm::cast(syminfo->value) : _main->secs.at(syminfo->shndx).addr;
+						symaddr += syminfo->value;
+						globalsymtab->symmap.insert({ symname, symaddr });
+					}
+				}
+			}
+		}
+	}
+
+	// remove 'useless' sections
+	_main->secs.erase(std::remove_if(_main->secs.begin(), _main->secs.end(), [](auto s) {
+		return !(s.type == 1 && s.addr && s.size);
+	}), _main->secs.end());
+
 
 	// Initialize process
 	std::vector<std::shared_ptr<lv2_prx>> loaded_modules;

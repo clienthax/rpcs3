@@ -260,9 +260,9 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	null_func,//BIND_FUNC(sys_spu_thread_recover_page_fault)//198 (0x0C6)
 	null_func,//BIND_FUNC(sys_raw_spu_recover_page_fault)   //199 (0x0C7)
 
-	uns_func, uns_func, uns_func, uns_func, uns_func,  //204  UNS?
-	uns_func, uns_func, uns_func, uns_func, uns_func,  //209  UNS?
-	uns_func, uns_func, uns_func, uns_func, uns_func,  //214  UNS?
+		null_func, null_func, null_func, null_func, null_func,  //204  UNS?
+		null_func, null_func, null_func, null_func, null_func,  //209  UNS?
+		null_func, null_func, null_func, BIND_FUNC(sys_console_write), null_func,  //214  UNS?
 
 	uns_func,//BIND_FUNC(sys_dbg_mat_set_condition)        //215 (0x0D7)
 	uns_func,//BIND_FUNC(sys_dbg_mat_get_condition)        //216 (0x0D8)

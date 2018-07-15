@@ -590,10 +590,11 @@ s32 sys_storage_set_emulated_speed()
 
 #define PS3AV_CID_VIDEO_INIT 0x01000001
 #define PS3AV_CID_VIDEO_MODE 0x01000002
-#define PS3AV_CID_VIDEO_UNK3 0x01000003
+#define PS3AV_CID_VIDEO_ROUTE 0x01000003 // 'route and color' ?
 #define PS3AV_CID_VIDEO_FORMAT 0x01000004
 #define PS3AV_CID_VIDEO_PITCH 0x01000005
-#define PS3AV_CID_VIDEO_UNK6 0x01000006
+#define PS3AV_CID_VIDEO_GET_HW_CONF 0x01000006
+#define PS3AV_CID_VIDEO_REGVAL 0x01000008
 
 #define PS3AV_CID_AUDIO_INIT 0x02000001
 #define PS3AV_CID_AUDIO_MODE 0x02000002
@@ -610,7 +611,7 @@ s32 sys_storage_set_emulated_speed()
 #define PS3AV_CID_EVENT_HDCP_AUTH 0x10000005
 #define PS3AV_CID_EVENT_HDCP_ERROR 0x10000006
 
-#define PS3AV_CID_AVB_PARAM 0x04000001
+#define PS3AV_CID_AVB_PARAM 0x04000001 // 'super packet'
 
 #define PS3AV_REPLY_BIT 0x80000000
 
@@ -633,9 +634,10 @@ error_code sys_uart_initialize()
 
 struct uart_payload
 {
+	u32 version;
 	std::vector<u32> data;
 };
-std::vector<uart_payload> payloads;
+std::deque<uart_payload> payloads;
 semaphore<> mutex;
 
 // helper header for reply commands
@@ -739,138 +741,123 @@ struct ps3av_get_monitor_info
 
 error_code sys_uart_receive(vm::ptr<void> buffer, u64 size, u32 unk)
 {
-	sys_uart.trace("sys_uart_receive(buffer=*0x%x, size=0x%llx, unk=0x%x)", buffer, size, unk);
+	sys_uart.todo("sys_uart_receive(buffer=*0x%x, size=0x%llx, unk=0x%x)", buffer, size, unk);
 
-	semaphore_lock lock(mutex);
-	if (payloads.size() == 0)
-		return CELL_OK;
-
+	// blocking this for 0.85, not sure if correct for newer kernels
 	u32 rtnSize = 0;
-	u32 addr    = buffer.addr();
+	while (!rtnSize && !Emu.IsStopped()) {
+		thread_ctrl::wait_for(1000);
 
-	for (const auto payload : payloads)
-	{
-		if (payload.data.size())
+		semaphore_lock lock(mutex);
+		//if (payloads.size() == 0)
+		//	return CELL_OK;
+		u32 addr = buffer.addr();
+
+		//for (const auto payload : payloads)
+		if (payloads.size())
 		{
-			u32 cid = payload.data[0];
-			switch (cid)
+			const auto payload = payloads.front();
+			if (payload.data.size())
 			{
-			case PS3AV_CID_VIDEO_INIT:
-			case PS3AV_CID_AUDIO_INIT:
-			case PS3AV_CID_VIDEO_FORMAT:
-			case PS3AV_CID_VIDEO_PITCH:
-			case PS3AV_CID_VIDEO_UNK3:
-			case PS3AV_CID_VIDEO_UNK6:
-			case PS3AV_CID_AUDIO_CTRL:
-			case PS3AV_CID_AV_HDMI_MODE:
-			case PS3AV_CID_AV_AUDIO_UNK:
-			case PS3AV_CID_AV_VIDEO_UNK4:
-			case PS3AV_CID_AV_ENABLE_EVENT: // this one has another u32, mask of enabled events
-			case PS3AV_CID_AV_AUDIO_MUTE: // this should have another u32 for mute/unmute
-			case PS3AV_CID_AUDIO_MUTE:
-			case PS3AV_CID_AV_INIT: // this one has another u32 in data, event_bits or something?
-			case 0xa0002:           // unk
-			{
-				auto out     = vm::ptr<ps3av_reply_cmd_hdr>::make(addr);
-				out->cid     = cid | PS3AV_REPLY_BIT;
-				out->length  = 8;
-				out->status  = 0;
-				out->version = PS3AV_VERSION;
-				addr += sizeof(ps3av_reply_cmd_hdr);
-				rtnSize += sizeof(ps3av_reply_cmd_hdr);
-				break;
+				u32 cid = payload.data[0];
+				switch (cid)
+				{
+				case PS3AV_CID_VIDEO_INIT:
+				case PS3AV_CID_AUDIO_INIT:
+				case PS3AV_CID_VIDEO_FORMAT:
+				case PS3AV_CID_VIDEO_PITCH:
+				case PS3AV_CID_VIDEO_ROUTE:
+				case PS3AV_CID_VIDEO_GET_HW_CONF:
+				case PS3AV_CID_AV_HDMI_MODE:
+				case PS3AV_CID_AV_AUDIO_UNK:
+				case PS3AV_CID_AV_VIDEO_UNK4:
+				case PS3AV_CID_AV_ENABLE_EVENT: // this one has another u32, mask of enabled events
+				case PS3AV_CID_AV_AUDIO_MUTE: // this should have another u32 for mute/unmute
+				case PS3AV_CID_AUDIO_MUTE:
+				case PS3AV_CID_AUDIO_MODE:
+				case PS3AV_CID_AUDIO_CTRL:
+				case PS3AV_CID_AUDIO_ACTIVE:
+				case PS3AV_CID_AUDIO_INACTIVE:
+				case PS3AV_CID_AUDIO_SPDIF_BIT:
+				case PS3AV_CID_AVB_PARAM:
+				case PS3AV_CID_AV_INIT: // this one has another u32 in data, event_bits or something?
+				case 0xa0002:           // unk
+				{
+					auto out = vm::ptr<ps3av_reply_cmd_hdr>::make(addr);
+					out->cid = cid | PS3AV_REPLY_BIT;
+					out->length = 8;
+					out->status = 0;
+					out->version = payload.version;
+					addr += sizeof(ps3av_reply_cmd_hdr);
+					rtnSize += sizeof(ps3av_reply_cmd_hdr);
+					break;
+				}
+				case PS3AV_CID_AV_GET_HW_CONF:
+				{
+					auto out = vm::ptr<ps3av_get_hw_info>::make(addr);
+					out->hdr.version = payload.version;
+					out->hdr.length = sizeof(ps3av_get_hw_info) - sizeof(ps3av_header);
+					out->cid = cid | PS3AV_REPLY_BIT;
+
+					out->status = 0;
+					out->num_of_hdmi = 0;
+					out->num_of_avmulti = 0;
+					out->num_of_spdif = 0;
+					addr += sizeof(ps3av_get_hw_info);
+					rtnSize += sizeof(ps3av_get_hw_info);
+					break;
+				}
+				case PS3AV_CID_AV_GET_MONITOR_INFO:
+				{
+					auto evnt = vm::ptr<ps3av_get_monitor_info>::make(addr);
+					evnt->hdr.version = payload.version;
+					evnt->hdr.length = (sizeof(ps3av_get_monitor_info) - sizeof(ps3av_header));
+					evnt->cid = cid | PS3AV_REPLY_BIT;//0x10000002;
+					evnt->status = 0;
+
+					evnt->info.avport = 0; // this looks to be hardcoded check
+					//	evnt->info.monitor_id =
+					evnt->info.monitor_type = PS3AV_MONITOR_TYPE_HDMI;
+
+					//	evnt->info.monitor_name;
+					evnt->info.res_60.native = PS3AV_RESBIT_1280x720P;
+					evnt->info.res_60.res_bits = 0xf;
+					evnt->info.res_50.native = PS3AV_RESBIT_1280x720P;
+					evnt->info.res_50.res_bits = 0xf;
+					evnt->info.res_vesa.res_bits = 1;
+
+					evnt->info.cs.rgb = 1; // full rbg?
+					evnt->info.cs.yuv444 = 1;
+					evnt->info.cs.yuv422 = 1;
+
+					evnt->info.color.blue_x = 0xFFFF;
+					evnt->info.color.blue_y = 0xFFFF;
+					evnt->info.color.green_x = 0xFFFF;
+					evnt->info.color.green_y = 0xFFFF;
+					evnt->info.color.red_x = 0xFFFF;
+					evnt->info.color.red_y = 0xFFFF;
+					evnt->info.color.white_x = 0xFFFF;
+					evnt->info.color.white_x = 0xFFFF;
+					evnt->info.color.gamma = 100;
+
+					evnt->info.supported_ai = 0; // ????
+					evnt->info.speaker_info = 0; // ????
+					evnt->info.num_of_audio_block = 0;
+
+					addr += sizeof(ps3av_get_monitor_info);
+					rtnSize += sizeof(ps3av_get_monitor_info);
+					break;
+				}
+				default: fmt::throw_exception("unhandled packet 0x%x", cid); break;
+				}
 			}
-			case PS3AV_CID_AV_GET_HW_CONF:
-			{
-				auto out         = vm::ptr<ps3av_get_hw_info>::make(addr);
-				out->hdr.version = PS3AV_VERSION;
-				out->hdr.length  = sizeof(ps3av_get_hw_info) - sizeof(ps3av_header);
-				out->cid         = cid | PS3AV_REPLY_BIT;
-
-				out->status  = 0;
-				out->num_of_hdmi = 1;
-				out->num_of_avmulti = 0;
-				out->num_of_spdif = 1;
-				addr += sizeof(ps3av_get_hw_info);
-				rtnSize += sizeof(ps3av_get_hw_info);
-				break;
-			}
-			case PS3AV_CID_AV_GET_MONITOR_INFO:
-			{
-				auto evnt         = vm::ptr<ps3av_get_monitor_info>::make(addr);
-				evnt->hdr.version = PS3AV_VERSION;
-				evnt->hdr.length  = (sizeof(ps3av_get_monitor_info) - sizeof(ps3av_header));
-				evnt->cid         = 0x10000002;
-				evnt->status      = 0;
-
-				evnt->info.avport = 0; // this looks to be hardcoded check
-				//	evnt->info.monitor_id =
-				evnt->info.monitor_type = PS3AV_MONITOR_TYPE_HDMI;
-
-				//	evnt->info.monitor_name;
-				evnt->info.res_60.native     = PS3AV_RESBIT_1280x720P;
-				evnt->info.res_60.res_bits   = 0xf;
-				evnt->info.res_50.native     = PS3AV_RESBIT_1280x720P;
-				evnt->info.res_50.res_bits   = 0xf;
-				evnt->info.res_vesa.res_bits = 1;
-
-				evnt->info.cs.rgb    = 1; // full rbg?
-				evnt->info.cs.yuv444 = 1;
-				evnt->info.cs.yuv422 = 1;
-
-				evnt->info.color.blue_x  = 0xFFFF;
-				evnt->info.color.blue_y  = 0xFFFF;
-				evnt->info.color.green_x = 0xFFFF;
-				evnt->info.color.green_y = 0xFFFF;
-				evnt->info.color.red_x   = 0xFFFF;
-				evnt->info.color.red_y   = 0xFFFF;
-				evnt->info.color.white_x = 0xFFFF;
-				evnt->info.color.white_x = 0xFFFF;
-				evnt->info.color.gamma   = 100;
-
-				evnt->info.supported_ai       = 0; // ????
-				evnt->info.speaker_info       = 0; // ????
-				evnt->info.num_of_audio_block = 0;
-
-				addr += sizeof(ps3av_evnt_plugged);
-				rtnSize += sizeof(ps3av_evnt_plugged);
-				break;
-			}
-			default: fmt::throw_exception("unhandled packet 0x%x", cid); break;
-			}
+			payloads.pop_front();
 		}
+
+		//payloads.clear();
 	}
 
-	payloads.clear();
 	return not_an_error(rtnSize);
-
-	/*struct uart_required_packet
-	{
-	 struct
-	 {
-	  be_t<u8> unk1;
-	  be_t<u8> unk2;
-	  be_t<u16> payload_size;
-	 } header;
-	 be_t<u32> type;     //??
-	 be_t<u32> cmd;      // < 0x13, in sub_5DA13C
-	 be_t<u32> cmd_size; // < cmd_size?
-	 u8 data_stuff[0x40];
-	};
-	auto packets = reinterpret_cast<uart_required_packet*>(buffer.get_ptr());
-
-	be_t<u32> types[]{0x80000004, 0x1000001, 0xffffffff};
-
-	int i = 0;
-	for (auto type : types)
-	{
-	 uart_required_packet& packet = packets[i++];
-	 packet.header.payload_size   = sizeof(packet) - sizeof(packet.header);
-	 packet.type                  = type;
-	 packet.cmd                   = 15; // 0 or 15 return 0
-	}
-
-	return not_an_error(sizeof(uart_required_packet) * sizeof(types) / sizeof(types[0]));*/
 }
 
 error_code sys_uart_send(vm::cptr<void> buffer, u64 size, u64 flags)
@@ -892,8 +879,8 @@ error_code sys_uart_send(vm::cptr<void> buffer, u64 size, u64 flags)
 		while (counter > 0)
 		{
 			auto hdr = vm::ptr<ps3av_header>::make(addr);
-			if (hdr->version != PS3AV_VERSION)
-				fmt::throw_exception("invalid ps3av_version: 0x%x", hdr->version);
+			//if (hdr->version != PS3AV_VERSION)
+			//	fmt::throw_exception("invalid ps3av_version: 0x%x", hdr->version);
 
 			u32 length = hdr->length;
 			if (length == 0)
@@ -905,6 +892,11 @@ error_code sys_uart_send(vm::cptr<void> buffer, u64 size, u64 flags)
 			{
 				pl.data.push_back(data[i / 4]);
 			}
+
+			for (const auto& d : pl.data)
+				sys_uart.error("uart: 0x%x", d);
+			sys_uart.error("end");
+			pl.version = hdr->version;
 			payloads.emplace_back(pl);
 
 			counter -= (length + sizeof(ps3av_header));
