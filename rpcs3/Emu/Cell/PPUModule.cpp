@@ -1459,7 +1459,7 @@ void ppu_load_exec(const ppu_exec_object& elf)
 		}
 	}
 
-	if (empty_imports_exports && no_process_params)
+	if (empty_imports_exports && !no_process_params)
 	{
 		LOG_ERROR(LOADER, "Failed identifying imports and export, trying for best effort");
 

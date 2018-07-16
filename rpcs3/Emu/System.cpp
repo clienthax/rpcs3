@@ -1273,7 +1273,7 @@ void Emulator::Run()
 					queue->events.pop_front();
 
 					auto q = lv2_event_queue::find(0x8000cafe02460100);
-					q->send(0x10e002900, 2, 0, 8);
+					q->send(a1, 2, 0, 8);
 				}
 			}
 			thread_ctrl::wait_for(1000);

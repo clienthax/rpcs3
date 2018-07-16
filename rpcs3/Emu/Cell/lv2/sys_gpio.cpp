@@ -7,6 +7,9 @@
 
 #include "Emu/Cell/PPUThread.h"
 
+#include "Emu/Cell/lv2/sys_event.h"
+#include "Emu/Cell/lv2/sys_timer.h"
+
 #include "sys_gpio.h"
 
 #include "sys_tty.h"
@@ -739,22 +742,24 @@ struct ps3av_get_monitor_info
 	ps3av_info_monitor info;
 };
 
-error_code sys_uart_receive(vm::ptr<void> buffer, u64 size, u32 unk)
+error_code sys_uart_receive(ppu_thread& ppu, vm::ptr<void> buffer, u64 size, u32 unk)
 {
 	sys_uart.todo("sys_uart_receive(buffer=*0x%x, size=0x%llx, unk=0x%x)", buffer, size, unk);
 
 	// blocking this for 0.85, not sure if correct for newer kernels
 	u32 rtnSize = 0;
-	while (!rtnSize && !Emu.IsStopped()) {
-		thread_ctrl::wait_for(1000);
+	while (!Emu.IsStopped()) {
+		sys_timer_usleep(ppu, 1000);
 
 		semaphore_lock lock(mutex);
+		if (rtnSize && payloads.size() == 0)
+			break;
 		//if (payloads.size() == 0)
 		//	return CELL_OK;
 		u32 addr = buffer.addr();
 
 		//for (const auto payload : payloads)
-		if (payloads.size())
+		while (payloads.size())
 		{
 			const auto payload = payloads.front();
 			if (payload.data.size())
@@ -812,7 +817,7 @@ error_code sys_uart_receive(vm::ptr<void> buffer, u64 size, u32 unk)
 					auto evnt = vm::ptr<ps3av_get_monitor_info>::make(addr);
 					evnt->hdr.version = payload.version;
 					evnt->hdr.length = (sizeof(ps3av_get_monitor_info) - sizeof(ps3av_header));
-					evnt->cid = cid | PS3AV_REPLY_BIT;//0x10000002;
+					evnt->cid = cid | PS3AV_REPLY_BIT;
 					evnt->status = 0;
 
 					evnt->info.avport = 0; // this looks to be hardcoded check

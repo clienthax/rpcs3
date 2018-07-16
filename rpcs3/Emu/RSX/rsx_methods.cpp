@@ -1192,6 +1192,7 @@ namespace rsx
 		{
 			static void impl(thread* rsx, u32 _reg, u32 arg)
 			{
+				flip_command(rsx, _reg, index);
 				rsx->reset();
 				sys_rsx_context_attribute(0x55555555, 0x102, index, arg, 0, 0);
 			}
@@ -1202,7 +1203,7 @@ namespace rsx
 		{
 			static void impl(thread* rsx, u32 _reg, u32 arg)
 			{
-				flip_command(rsx, _reg, arg);
+				//flip_command(rsx, _reg, arg);
 				sys_rsx_context_attribute(0x55555555, 0x103, index, arg, 0, 0);
 			}
 		};
@@ -1211,7 +1212,7 @@ namespace rsx
 	void rsx_state::reset()
 	{
 		//setup method registers
-		std::memset(registers.data(), 0, registers.size() * sizeof(u32));
+		//std::memset(registers.data(), 0, registers.size() * sizeof(u32));
 
 		registers[NV4097_SET_COLOR_MASK] = CELL_GCM_COLOR_MASK_R | CELL_GCM_COLOR_MASK_G | CELL_GCM_COLOR_MASK_B | CELL_GCM_COLOR_MASK_A;
 		registers[NV4097_SET_SCISSOR_HORIZONTAL] = (4096 << 16) | 0;
@@ -1621,6 +1622,10 @@ namespace rsx
 		methods[NV0039_FORMAT]                            = nullptr;
 		methods[NV0039_BUFFER_NOTIFY]                     = nullptr;
 
+		methods[0x4000 >> 2] = nullptr;
+		methods[0x4180 >> 2] = nullptr;
+		methods[0x4184 >> 2] = nullptr;
+		methods[0x4188 >> 2] = nullptr;
 		// NV30_CONTEXT_SURFACES_2D	(NV3062)
 		methods[NV3062_SET_OBJECT]                        = nullptr;
 		methods[NV3062_SET_CONTEXT_DMA_NOTIFIES]          = nullptr;
