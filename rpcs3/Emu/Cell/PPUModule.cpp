@@ -773,7 +773,9 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 				_seg.flags = prog.p_flags;
 				prx->segs.emplace_back(_seg);
 			}
-
+			else {
+				prx->segs.emplace_back(ppu_segment{});
+			}
 			break;
 		}
 		case 0x7: break; // TLS, empty
@@ -1047,6 +1049,9 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 				for (uint i = 0; i < prog.p_filesz; i += sizeof(ppu_prx_relocation_info))
 				{
 					const auto& rel = reinterpret_cast<const ppu_prx_relocation_info&>(prog.bin[i]);
+
+					if (rel.index_value >= prx->segs.size())
+						LOG_ERROR(LOADER, "rawr: idx: 0x%x, size: 0x%x", rel.index_value, prx->segs.size());
 
 					ppu_reloc _rel;
 					const u32 raddr = _rel.addr = vm::cast(prx->segs.at(rel.index_addr).addr + rel.offset, HERE);

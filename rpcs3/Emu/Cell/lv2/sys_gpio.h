@@ -106,9 +106,13 @@ error_code sys_uart_get_params(vm::ptr<char> buffer);
 
 error_code sys_console_write(ppu_thread& ppu, vm::cptr<char> buf, u32 len);
 
-error_code sys_hid_manager_510();
+error_code sys_hid_manager_open(u64 device_type, u64 port_no, vm::ptr<u32> handle);
+error_code sys_hid_manager_ioctl(u32 hid_handle, u32 pkg_id, vm::ptr<void> buf, u64 buf_size);
+error_code sys_hid_manager_add_hot_key_observer(u32 event_port, vm::ptr<u32> unk);
+error_code sys_hid_manager_check_focus();
 error_code sys_hid_manager_is_process_permission_root();
-error_code sys_hid_manager_514();
+error_code sys_hid_manager_514(u32 pkg_id, vm::ptr<void> buf, u64 buf_size);
+error_code sys_hid_manager_read(u32 handle, u32 pkg_id, vm::ptr<void> buf, u64 buf_size);
 
 error_code sys_sm_get_ext_event2(vm::ptr<u64> a1, vm::ptr<u64> a2, vm::ptr<u64> a3, u64 a4);
 error_code sys_sm_shutdown(u16 op, vm::ptr<void> param, u64 size);

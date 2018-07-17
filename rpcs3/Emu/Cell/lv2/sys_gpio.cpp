@@ -9,10 +9,13 @@
 
 #include "Emu/Cell/lv2/sys_event.h"
 #include "Emu/Cell/lv2/sys_timer.h"
+#include "Emu/Io/PadHandler.h"
+#include "Emu/Cell/Modules/cellPad.h"
 
 #include "sys_gpio.h"
 
 #include "sys_tty.h"
+#include "pad_thread.h"
 
 error_code sys_gpio_get(u64 device_id, vm::ptr<u64> value)
 {
@@ -156,9 +159,14 @@ error_code sys_config_register_service(ppu_thread& ppu, u32 config_id, s64 b, u3
 	return CELL_OK;
 }
 
+u32 padlistenderhandle = 0;
 error_code sys_config_add_service_listener(u32 config_id, s64 id, u32 c, u32 d, u32 unk, u32 f, vm::ptr<u32> service_listener_handle)
 {
 	sys_config.todo("sys_config_add_service_listener(config_id=0x%x, id=0x%x, 0x%x, 0x%x, funcs=0x%x, 0x%x, service_listener_handle=*0x%x)", config_id, id, c, d, unk, f, service_listener_handle);
+
+	// id's, 0x8000000000000001 == libpad
+	// 0x8000000000000002 == libkb
+	// 0x8000000000000003 == libmouse
 
 	static u32 listener_handles = 0x42000001;
 
@@ -170,16 +178,17 @@ error_code sys_config_add_service_listener(u32 config_id, s64 id, u32 c, u32 d, 
 	// 1 is 'available' flag
 	static u64 event_id = 0x100000001; 
 	const auto cfg = idm::get<lv2_config>(config_id);
-	if (cfg) {
+	if (cfg && id == 0x8000000000000001ll) {
 		if (auto q = cfg->queue.lock())
 		{
+			padlistenderhandle = *service_listener_handle;
 			// 'source' in this case looks to be config_event_type:
 			// 1 for service event
 			// 2 for io event
 			// invalid for any others
 			// data3 looks to be size of event to write
-			//q->send(1, config_id, event_id, 0x68);
-			//++event_id;
+			q->send(1, config_id, event_id, 0x68);
+			++event_id;
 		}
 	}
 
@@ -188,6 +197,24 @@ error_code sys_config_add_service_listener(u32 config_id, s64 id, u32 c, u32 d, 
 
 error_code sys_config_get_service_event(u32 config_id, u32 event_id, vm::ptr<void> event, u64 size) {
 	sys_config.todo("sys_config_get_service_event(config_id=0x%x, event_id=0x%llx, event=*0x%llx, size=0x%llx)", config_id, event_id, event, size);
+	struct sys_config_service_event_available {
+		be_t<u32> service_listener_handle;
+		be_t<u32> unk2;
+		be_t<u64> logical_port; // logical port, 0 - 255 for kb/io/mouse?
+		be_t<u64> device_no;         // or possibly called port_no
+		be_t<u64> unk5;
+		be_t<u64> unk6;
+		be_t<u32> unk7;
+	};
+
+	auto& ev = vm::static_ptr_cast<sys_config_service_event_available>(event);
+	ev->service_listener_handle = padlistenderhandle;
+	ev->logical_port = 3; // it doesnt look like 0 is valid?
+	ev->unk2 = 1;
+	ev->device_no = 0;
+	ev->unk5 = 5;
+	ev->unk6 = 6;
+	ev->unk7 = 7;
 
 	return CELL_OK;
 }
@@ -578,8 +605,10 @@ s32 sys_storage_set_emulated_speed()
 #define PS3AV_CID_AV_FIN 0x00000002
 #define PS3AV_CID_AV_GET_HW_CONF 0x00000003
 #define PS3AV_CID_AV_GET_MONITOR_INFO 0x00000004
+#define PS3AV_CID_AV_GET_KSV_LIST_SIZE 0x00000005
 #define PS3AV_CID_AV_ENABLE_EVENT 0x00000006
 #define PS3AV_CID_AV_DISABLE_EVENT 0x00000007
+#define PS3AV_CID_AV_GET_ALL_EDID 0x00000008
 #define PS3AV_CID_AV_TV_MUTE 0x0000000a
 
 #define PS3AV_CID_AV_VIDEO_CS 0x00010001
@@ -588,7 +617,10 @@ s32 sys_storage_set_emulated_speed()
 #define PS3AV_CID_AV_VIDEO_UNK4 0x00010004
 #define PS3AV_CID_AV_AUDIO_PARAM 0x00020001
 #define PS3AV_CID_AV_AUDIO_MUTE 0x00020002
-#define PS3AV_CID_AV_AUDIO_UNK 0x00020004
+#define PS3AV_CID_AV_ACP_CTRL 0x00020003
+#define PS3AV_CID_AV_SET_ACP_PACKET 0x00020004
+#define PS3AV_CID_AV_UNK 0x0030001
+#define PS3AV_CID_AV_UNK2 0x0030003
 #define PS3AV_CID_AV_HDMI_MODE 0x00040001
 
 #define PS3AV_CID_VIDEO_INIT 0x01000001
@@ -769,12 +801,15 @@ error_code sys_uart_receive(ppu_thread& ppu, vm::ptr<void> buffer, u64 size, u32
 				{
 				case PS3AV_CID_VIDEO_INIT:
 				case PS3AV_CID_AUDIO_INIT:
+				case PS3AV_CID_AV_GET_KSV_LIST_SIZE:
 				case PS3AV_CID_VIDEO_FORMAT:
 				case PS3AV_CID_VIDEO_PITCH:
 				case PS3AV_CID_VIDEO_ROUTE:
+				case PS3AV_CID_AV_UNK:
+				case PS3AV_CID_AV_UNK2:
 				case PS3AV_CID_VIDEO_GET_HW_CONF:
 				case PS3AV_CID_AV_HDMI_MODE:
-				case PS3AV_CID_AV_AUDIO_UNK:
+				case PS3AV_CID_AV_SET_ACP_PACKET:
 				case PS3AV_CID_AV_VIDEO_UNK4:
 				case PS3AV_CID_AV_ENABLE_EVENT: // this one has another u32, mask of enabled events
 				case PS3AV_CID_AV_AUDIO_MUTE: // this should have another u32 for mute/unmute
@@ -805,9 +840,9 @@ error_code sys_uart_receive(ppu_thread& ppu, vm::ptr<void> buffer, u64 size, u32
 					out->cid = cid | PS3AV_REPLY_BIT;
 
 					out->status = 0;
-					out->num_of_hdmi = 0;
+					out->num_of_hdmi = 1;
 					out->num_of_avmulti = 0;
-					out->num_of_spdif = 0;
+					out->num_of_spdif = 1;
 					addr += sizeof(ps3av_get_hw_info);
 					rtnSize += sizeof(ps3av_get_hw_info);
 					break;
@@ -922,17 +957,139 @@ error_code sys_uart_get_params(vm::ptr<char> buffer)
 	return CELL_OK;
 }
 
-error_code sys_hid_manager_510()
+logs::channel sys_hid("sys_hid");
+
+error_code sys_hid_manager_open(u64 device_type, u64 port_no, vm::ptr<u32> handle) {
+	sys_hid.todo("sys_hid_manager_open(device_type=0x%llx, port_no=0x%llx, handle=*0x%llx)", device_type, port_no, handle);
+	//device type == 1 = pad, 2 = kb, 3 = mouse
+	if (device_type > 3)
+		return CELL_EINVAL;
+
+	// 'handle' might actually be some sort of port number, but may not actually matter for the time being
+	static u32 ctr = 0x13370000;
+	*handle = ctr++;
+
+	//const auto handler = fxm::import<pad_thread>(Emu.GetCallbacks().get_pad_handler);
+	cellPadInit(7);
+
+	return CELL_OK;
+}
+
+error_code sys_hid_manager_ioctl(u32 hid_handle, u32 pkg_id, vm::ptr<void> buf, u64 buf_size) {
+	sys_hid.todo("sys_hid_manager_ioctl(hid_handle=0x%x, pkg_id=0x%llx, buf=*0x%x, buf_size=0x%llx)", hid_handle, pkg_id, buf, buf_size);
+	if (pkg_id == 5) {
+		// set sensor mode? also getinfo?
+		struct sys_hid_info {
+			le_t<u16> vid;
+			le_t<u16> pid;
+			u8 status;
+			// todo: more in this, not sure what tho
+		};
+
+		auto info = vm::static_ptr_cast<sys_hid_info>(buf);
+		info->vid = 0x054C;
+		info->pid = 0x0268;
+		info->status = 2; // apparently 2 is correct, 0/1 doesnt cause vsh to call read
+		// this is probly related to usbd, where the status is 'claimed' by kernel
+	}
+	else if (pkg_id == 2) {
+		struct sys_hid_info {
+			be_t<u32> unk1;
+			be_t<u32> unk2;
+			be_t<u32> unk3;
+			be_t<u32> unk4;
+			be_t<u32> unk5;
+			u8 unk6;
+		};
+
+		auto data = vm::static_ptr_cast<sys_hid_info>(buf);
+		// puting all of these to 0xff reports full hid device capabilities
+		// todo: figure out what each one cooresponds to
+		data->unk1 = 0xFF;
+		data->unk2 = 0xFF;
+		data->unk3 = 0xFF;
+		data->unk4 = 0xFF;
+		data->unk5 = 0xFF;
+		data->unk6 = 0xFF;
+	}
+	// pkg_id == 6 == setpressmode?
+	else if (pkg_id == 0x68) {
+		struct sys_hid_ioctl_68 {
+			u8 unk;
+			u8 unk2;
+		};
+
+		auto info = vm::static_ptr_cast<sys_hid_ioctl_68>(buf);
+		//info->unk2 = 0;
+	}
+	return CELL_OK;
+}
+
+error_code sys_hid_manager_check_focus()
 {
 	return not_an_error(1);
 }
-error_code sys_hid_manager_514()
+error_code sys_hid_manager_514(u32 pkg_id, vm::ptr<void> buf, u64 buf_size)
 {
+	if (pkg_id == 0xE)
+		sys_hid.trace("sys_hid_manager_514(pkg_id=0x%x, buf=*0x%x, buf_size=0x%llx)", pkg_id, buf, buf_size);
+	else
+		sys_hid.todo("sys_hid_manager_514(pkg_id=0x%x, buf=*0x%x, buf_size=0x%llx)", pkg_id, buf, buf_size);
+	if (pkg_id == 0xE) {
+		// buf holds device_type
+		//auto device_type = vm::static_ptr_cast<u8>(buf);
+
+		// return 1 or 0? look like almost like another check_focus type check, returning 0 looks to keep system focus
+
+	}
+	else if (pkg_id == 0xd) {
+		//unk
+		struct sys_hid_manager_514_pkg_d {
+			be_t<u32> unk1;
+			u8 unk2;
+		};
+		auto inf = vm::static_ptr_cast<sys_hid_manager_514_pkg_d>(buf);
+		sys_hid.todo("unk1: 0x%x, unk2:0x%x", inf->unk1, inf->unk2);
+	}
 	return CELL_OK;
 }
 
 error_code sys_hid_manager_is_process_permission_root() {
 	return not_an_error(1);
+}
+
+error_code sys_hid_manager_add_hot_key_observer(u32 event_port, vm::ptr<u32> unk) {
+	sys_hid.todo("sys_hid_manager_add_hot_key_observer(evnt_port=0x%x, unk=*0x%x)", event_port, unk);
+	return CELL_OK;
+}
+
+error_code sys_hid_manager_read(u32 handle, u32 pkg_id, vm::ptr<void> buf, u64 buf_size) {
+	if (pkg_id == 2 || pkg_id == 0x81)
+		sys_hid.trace("sys_hid_manager_read(handle=0x%x, pkg_id=0x%x, buf=*0x%x, buf_size=0x%llx)", handle, pkg_id, buf, buf_size);
+	else
+		sys_hid.todo("sys_hid_manager_read(handle=0x%x, pkg_id=0x%x, buf=*0x%x, buf_size=0x%llx)", handle, pkg_id, buf, buf_size);
+	if (pkg_id == 2) {
+		// cellPadGetData
+		// it returns just button array from 'CellPadData'
+		//auto data = vm::static_ptr_cast<u16[64]>(buf);
+		// todo: use handle and dont call cellpad here
+		vm::var<CellPadData> tmpData;
+		if ((cellPadGetData(0, tmpData) == CELL_OK) && tmpData->len > 0) {
+			u64 cpySize = std::min((u64)tmpData->len * 2, buf_size * 2);
+			memcpy(buf.get_ptr(), &tmpData->button, cpySize);
+			return not_an_error(cpySize);
+		}
+	}
+	else if (pkg_id == 0x81) {
+		// cellPadGetDataExtra?
+		vm::var<CellPadData> tmpData;
+		if ((cellPadGetData(0, tmpData) == CELL_OK) && tmpData->len > 0) {
+			u64 cpySize = std::min((u64)tmpData->len * 2, buf_size);
+			memcpy(buf.get_ptr(), &tmpData->button, cpySize);
+			return not_an_error(cpySize);
+		}
+	}
+	return CELL_OK;
 }
 
 logs::channel sys_btsetting("sys_btsetting");
@@ -984,7 +1141,7 @@ error_code sys_bdemu_send_command(u64 cmd, u64 a2, u64 a3, vm::ptr<void> buf, u6
 struct lv2_io_buf
 {
 	using id_type             = lv2_io_buf;
-	static const u32 id_base  = 0x44000000; // TODO all of these are just random
+	static const u32 id_base  = 0x44000000;
 	static const u32 id_step  = 1;
 	static const u32 id_count = 2048;
 
@@ -1005,8 +1162,8 @@ struct lv2_io_buf
 logs::channel sys_io2("sys_io2");
 error_code sys_io_buffer_create(u32 block_count, u32 block_size, u32 blocks, u32 unk1, vm::ptr<u32> handle)
 {
-	// blocks arg might just be alignment
-	sys_io2.todo("sys_io_buffer_create(block_count=0x%x, block_size=0x%x, blocks=0x%x, unk1=0x%x, handle=0x%x)", block_count, block_size, blocks, unk1, handle);
+	// blocks arg might just be alignment, or 'sector' size?
+	sys_io2.todo("sys_io_buffer_create(block_count=0x%x, block_size=0x%x, blocks=0x%x, unk1=0x%x, handle=*0x%x)", block_count, block_size, blocks, unk1, handle);
 	if (auto io = idm::make<lv2_io_buf>(block_count, block_size, blocks, unk1))
 	{
 		*handle = io;
@@ -1028,7 +1185,7 @@ error_code sys_io_buffer_allocate(u32 handle, vm::ptr<u32> block)
 	if (auto io = idm::get<lv2_io_buf>(handle))
 	{
 		// no idea what we actually need to allocate
-		if (u32 addr = vm::alloc(io->block_count * io->block_size, vm::any))
+		if (u32 addr = vm::alloc(io->block_count * io->block_size, vm::main))
 		{
 			*block = addr;
 			return CELL_OK;

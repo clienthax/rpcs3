@@ -472,17 +472,17 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	BIND_FUNC(_sys_prx_load_module_on_memcontainer),        //497 (0x1F1)
 	BIND_FUNC(_sys_prx_start),                              //498 (0x1F2)
 	BIND_FUNC(_sys_prx_stop),                               //499 (0x1F3)
-	null_func,//BIND_FUNC(sys_hid_manager_open)             //500 (0x1F4)
+	BIND_FUNC(sys_hid_manager_open),             //500 (0x1F4)
 	null_func,//BIND_FUNC(sys_hid_manager_close)            //501 (0x1F5)
-	null_func,//BIND_FUNC(sys_hid_manager_read)             //502 (0x1F6)  ROOT
-	null_func,//BIND_FUNC(sys_hid_manager_ioctl)            //503 (0x1F7)
+	BIND_FUNC(sys_hid_manager_read),             //502 (0x1F6)  ROOT
+	BIND_FUNC(sys_hid_manager_ioctl),            //503 (0x1F7)
 	null_func,//BIND_FUNC(sys_hid_manager_map_logical_id_to_port_id) //504 (0x1F8)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_unmap_logical_id_to_port_id) //505 (0x1F9)  ROOT
-	null_func,//BIND_FUNC(sys_hid_manager_add_hot_key_observer) //506 (0x1FA)  ROOT
+	BIND_FUNC(sys_hid_manager_add_hot_key_observer), //506 (0x1FA)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_remove_hot_key_observer) //507 (0x1FB)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_grab_focus)       //508 (0x1FC)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_release_focus)    //509 (0x1FD)  ROOT
-	BIND_FUNC(sys_hid_manager_510),             //510 (0x1FE)
+	BIND_FUNC(sys_hid_manager_check_focus),             //510 (0x1FE)
 	null_func,//BIND_FUNC(sys_hid_manager_set_...)          //511 (0x1FF)  ROOT
 	BIND_FUNC(sys_hid_manager_is_process_permission_root),             //512 (0x200)  ROOT
 	null_func,//BIND_FUNC(sys_hid_manager_...)              //513 (0x201)
