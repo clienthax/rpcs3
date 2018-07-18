@@ -96,3 +96,4 @@ struct CellPadActParam
 
 s32 cellPadGetData(u32 port_no, vm::ptr<CellPadData> data);
 s32 cellPadInit(u32 max_connect);
+s32 cellPadSetPortSetting(u32 port_no, u32 port_setting);

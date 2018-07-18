@@ -184,6 +184,20 @@ error_code sys_config_add_service_listener(u32 config_id, s64 id, u32 c, u32 d, 
 			padlistenderhandle = *service_listener_handle;
 			// 'source' in this case looks to be config_event_type:
 			// 1 for service event
+			// 2 for io error event
+			// invalid for any others
+			// data3 looks to be size of event to write
+			q->send(1, config_id, event_id, 0x68);
+			++event_id;
+		}
+	}
+	else if (cfg && id == 0x11) {
+		// 0x11 == padmanager?
+		if (auto q = cfg->queue.lock())
+		{
+			padlistenderhandle = *service_listener_handle;
+			// 'source' in this case looks to be config_event_type:
+			// 1 for service event
 			// 2 for io event
 			// invalid for any others
 			// data3 looks to be size of event to write
@@ -197,24 +211,40 @@ error_code sys_config_add_service_listener(u32 config_id, s64 id, u32 c, u32 d, 
 
 error_code sys_config_get_service_event(u32 config_id, u32 event_id, vm::ptr<void> event, u64 size) {
 	sys_config.todo("sys_config_get_service_event(config_id=0x%x, event_id=0x%llx, event=*0x%llx, size=0x%llx)", config_id, event_id, event, size);
+	struct sys_config_extended_device_info {
+		be_t<u16> hid_device_type; // 0x0 
+		be_t<u16> unk; // 0x2
+		be_t<u16> unk2; // 0x4
+		be_t<u16> unk3; // 0x6
+		be_t<u16> unk4; // 0x8
+		be_t<u16> vid; // 0xa vid
+		be_t<u16> pid; // 0xb pid
+		be_t<u16> bdaddr1;
+		be_t<u16> bdaddr2;
+		be_t<u16> bdaddr3;
+		be_t<u16> bdaddr4;
+	};
+
 	struct sys_config_service_event_available {
 		be_t<u32> service_listener_handle;
 		be_t<u32> unk2;
 		be_t<u64> logical_port; // logical port, 0 - 255 for kb/io/mouse?
 		be_t<u64> device_no;         // or possibly called port_no
 		be_t<u64> unk5;
-		be_t<u64> unk6;
-		be_t<u32> unk7;
+		be_t<u64> has_dev_info; // 0x20,
+		sys_config_extended_device_info hid_info; // 0x28
 	};
+
+	// args...0x8, 0x10, 0x18, 0x28..or 0 if unk6 == 0,  0x20
 
 	auto& ev = vm::static_ptr_cast<sys_config_service_event_available>(event);
 	ev->service_listener_handle = padlistenderhandle;
-	ev->logical_port = 3; // it doesnt look like 0 is valid?
-	ev->unk2 = 1;
+	ev->logical_port = 1; // it doesnt look like 0 is valid?
+	ev->unk2 = 0;
 	ev->device_no = 0;
-	ev->unk5 = 5;
-	ev->unk6 = 6;
-	ev->unk7 = 7;
+	ev->unk5 = 0;
+	ev->has_dev_info = 1;
+	ev->hid_info.hid_device_type = 1;
 
 	return CELL_OK;
 }
@@ -315,6 +345,7 @@ s32 sys_storage_read(u32 fd, u32 mode, u32 start_sector, u32 num_sectors, vm::pt
 s32 sys_storage_write(u32 fd, u32 mode, u32 start_sector, u32 num_sectors, vm::ptr<void> data, vm::ptr<u32> sectors_wrote, u64 flags)
 {
 	sys_storage.todo("sys_storage_write(fd=0x%x, mode=0x%x, start_sector=0x%x, num_sectors=0x%x, data=*=0x%x, sectors_wrote=*0x%x, flags=0x%llx)", fd, mode, start_sector, num_sectors, data, sectors_wrote, flags);
+	*sectors_wrote = num_sectors;
 	return CELL_OK;
 }
 
@@ -805,6 +836,8 @@ error_code sys_uart_receive(ppu_thread& ppu, vm::ptr<void> buffer, u64 size, u32
 				case PS3AV_CID_VIDEO_FORMAT:
 				case PS3AV_CID_VIDEO_PITCH:
 				case PS3AV_CID_VIDEO_ROUTE:
+				case PS3AV_CID_AV_VIDEO_DISABLE_SIG:
+				case PS3AV_CID_AV_TV_MUTE:
 				case PS3AV_CID_AV_UNK:
 				case PS3AV_CID_AV_UNK2:
 				case PS3AV_CID_VIDEO_GET_HW_CONF:
@@ -971,6 +1004,7 @@ error_code sys_hid_manager_open(u64 device_type, u64 port_no, vm::ptr<u32> handl
 
 	//const auto handler = fxm::import<pad_thread>(Emu.GetCallbacks().get_pad_handler);
 	cellPadInit(7);
+	cellPadSetPortSetting(0, 1 | 2);
 
 	return CELL_OK;
 }
@@ -1058,8 +1092,8 @@ error_code sys_hid_manager_is_process_permission_root() {
 	return not_an_error(1);
 }
 
-error_code sys_hid_manager_add_hot_key_observer(u32 event_port, vm::ptr<u32> unk) {
-	sys_hid.todo("sys_hid_manager_add_hot_key_observer(evnt_port=0x%x, unk=*0x%x)", event_port, unk);
+error_code sys_hid_manager_add_hot_key_observer(u32 event_queue, vm::ptr<u32> unk) {
+	sys_hid.todo("sys_hid_manager_add_hot_key_observer(event_queue=0x%x, unk=*0x%x)", event_queue, unk);
 	return CELL_OK;
 }
 
@@ -1083,11 +1117,13 @@ error_code sys_hid_manager_read(u32 handle, u32 pkg_id, vm::ptr<void> buf, u64 b
 	else if (pkg_id == 0x81) {
 		// cellPadGetDataExtra?
 		vm::var<CellPadData> tmpData;
-		if ((cellPadGetData(0, tmpData) == CELL_OK) && tmpData->len > 0) {
-			u64 cpySize = std::min((u64)tmpData->len * 2, buf_size);
-			memcpy(buf.get_ptr(), &tmpData->button, cpySize);
-			return not_an_error(cpySize);
-		}
+		cellPadGetData(0, tmpData);
+		u64 cpySize = std::min((u64)tmpData->len * 2, buf_size);
+		memcpy(buf.get_ptr(), &tmpData->button, cpySize);
+		return not_an_error(cpySize / 2);
+	}
+	else if (pkg_id == 0xFF) {
+		
 	}
 	return CELL_OK;
 }
@@ -1118,8 +1154,8 @@ error_code sys_btsetting_if(u64 cmd, vm::ptr<void> msg)
 			q->send(0, 0, 0xDEAD, 0);
 		}
 	}
-	else
-		fmt::throw_exception("unhandled btpckt");
+	//else
+		//fmt::throw_exception("unhandled btpckt");
 
 	return CELL_OK;
 }
