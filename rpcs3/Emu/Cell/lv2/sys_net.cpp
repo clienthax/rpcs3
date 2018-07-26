@@ -1346,20 +1346,25 @@ s32 sys_net_bnet_socket(ppu_thread& ppu, s32 family, s32 type, s32 protocol)
 {
 	sys_net.warning("sys_net_bnet_socket(family=%d, type=%d, protocol=%d)", family, type, protocol);
 
-	if (family != SYS_NET_AF_INET && family != SYS_NET_AF_UNSPEC)
+	if (family != SYS_NET_AF_INET && family != SYS_NET_AF_UNSPEC && family != SYS_NET_AF_NETBIOS)
 	{
 		sys_net.error("sys_net_bnet_socket(): unknown family (%d)", family);
 	}
 
-	if (type != SYS_NET_SOCK_STREAM && type != SYS_NET_SOCK_DGRAM && type != SYS_NET_SOCK_DGRAM_P2P)
+	if (type != SYS_NET_SOCK_STREAM && type != SYS_NET_SOCK_DGRAM && type != SYS_NET_SOCK_DGRAM_P2P && type != SYS_NET_SOCK_RAW)//needs admin on windows for raw
 	{
 		sys_net.error("sys_net_bnet_socket(): unsupported type (%d)", type);
 		return -SYS_NET_EPROTONOSUPPORT;
 	}
 
-	const int native_domain = AF_INET;
+	//const int native_domain = AF_INET;
+	//NETBIOS s = socket( AF_NETBIOS, {SOCK_SEQPACKET|SOCK_DGRAM}, -Lana ); ??
 
-	const int native_type =
+	const int native_domain =
+		type == SYS_NET_AF_NETBIOS ? AF_NETBIOS :
+		type == SYS_NET_AF_INET ? AF_INET : AF_INET;
+
+	int native_type =
 		type == SYS_NET_SOCK_STREAM ? SOCK_STREAM :
 		type == SYS_NET_SOCK_DGRAM ? SOCK_DGRAM :
 		type == SYS_NET_SOCK_DGRAM_P2P ? SOCK_DGRAM : SOCK_RAW;
@@ -1376,6 +1381,11 @@ s32 sys_net_bnet_socket(ppu_thread& ppu, s32 family, s32 type, s32 protocol)
 	{
 		//Windows gets all errory if you try a unspec socket with protocol 0
 		native_proto = IPPROTO_UDP;
+	}
+
+	if (native_domain == AF_NETBIOS)
+	{
+		native_type = SOCK_DGRAM;
 	}
 
 	const auto native_socket = ::socket(native_domain, native_type, native_proto);
@@ -1578,7 +1588,7 @@ s32 sys_net_bnet_poll(ppu_thread& ppu, vm::ptr<sys_net_pollfd> fds, s32 nfds, s3
 
 s32 sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set> readfds, vm::ptr<sys_net_fd_set> writefds, vm::ptr<sys_net_fd_set> exceptfds, vm::ptr<sys_net_timeval> _timeout)
 {
-	sys_net.warning("sys_net_bnet_select(nfds=%d, readfds=*0x%x, writefds=*0x%x, exceptfds=*0x%x, timeout=*0x%x)", nfds, readfds, writefds, exceptfds, _timeout);
+	sys_net.trace("sys_net_bnet_select(nfds=%d, readfds=*0x%x, writefds=*0x%x, exceptfds=*0x%x, timeout=*0x%x)", nfds, readfds, writefds, exceptfds, _timeout);//vsh is loudd
 
 	atomic_t<s32> signaled{0};
 
@@ -1810,7 +1820,55 @@ s32 sys_net_abort(ppu_thread& ppu, s32 type, u64 arg, s32 flags)
 s32 sys_net_infoctl(ppu_thread& ppu, s32 cmd, vm::ptr<void> arg)
 {
 	sys_net.todo("sys_net_infoctl(cmd=%d, arg=*0x%x)", cmd, arg);
+
+	//Emu.Pause();
+
 	// cmd == 0x35 == sys_net_lib_set_sync, arg is ptr to u64 sys_cond ipc key?
+	// cmd == 0x38 (56) == check ethernet? / ips?
+
+	if (cmd == 9) {
+		//Name servers, returns the following
+		//"nameserver 192.168.1.1"
+		u8 name_server[] = {
+		0x6E, 0x61, 0x6D, 0x65, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x20, 0x31, 0x39,
+			0x32, 0x2E, 0x31, 0x36, 0x38, 0x2E, 0x31, 0x2E, 0x31, 0xA, 0x00
+		};
+		memcpy(arg.get_ptr(), name_server, 0x18);
+	}
+	else if (cmd == 53) {
+		//Theres a check in LV2 to make sure this is called from pspemu O_o
+		//If its from pspemu lv2 will murder itself
+
+		u8 bacon[] = {//lolhaxbaconwizard
+			0x6c, 0x6f, 0x6c, 0x68, 0x61, 0x78, 0x62, 0x61, 0x63, 0x6f, 0x6e, 0x77, 0x69, 0x7a, 0x61, 0x72, 0x64, 0x00
+		};
+		memcpy(arg.get_ptr(), bacon, 0x12);
+
+
+	}
+	else if (cmd == 55) {
+//		Emu.Pause();
+		//Returning error here seems to make vsh print out network failure and cause it to loop retrys
+		//Seems to take 16 bytes
+	}
+	else if (cmd == 56) {//Called before 55
+		//seems to be 16 bytes
+		sys_net.todo("hmm");
+
+
+		u8 bacon[] = {//lolhaxbaconwizard
+			0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x00
+		};
+		memcpy(arg.get_ptr(), bacon, 0x10);
+
+
+		//Seems to be 21(?) bytes in length
+		//*(be_t<s64>*)arg.get_ptr() = 0xffffffffffffffff;
+
+		//lv2 seems to return this on decr even with rootflag..
+		//return 0xffffffea;
+	}
+
 	return 0;
 }
 
@@ -1820,36 +1878,134 @@ s32 sys_net_control(ppu_thread& ppu, u32 arg1, s32 arg2, vm::ptr<void> arg3, s32
 	return 0;
 }
 
-s32 sys_net_bnet_ioctl(ppu_thread& ppu, s32 arg1, u32 arg2, u32 arg3)
+s32 sys_net_bnet_ioctl(ppu_thread& ppu, s32 socket_id, u32 command, u32 args)//args should be ifreq
 {
-	sys_net.todo("sys_net_bnet_ioctl(%d, 0x%x, 0x%x)", arg1, arg2, arg3);
+//	sys_net.todo("sys_net_bnet_ioctl(socket_id=%d, command=0x%x, args=0x%x)", socket_id, command, args);
+	//http://man7.org/linux/man-pages/man7/netdevice.7.html
+
+	//https://github.com/GSchiaffonati/OmegaFreeBSD/blob/9502e66ab39458bf8c851ad7f9aaae245a156959/src/root/mips_ap/usr/include/sys/sockio.h ??
 
 	// todo: arg1 is socket number?
 
-	if (arg2 == 0xc0206911) {
+	/*
+	This is what ifconfig does when changing an IP:
+		1. call sysctl() to obtain the whole interface list.
+		2. do some needed work.
+		 (ie. get the FIRST IP of the interface from the interface list)
+		3. issue SIOCDIFADDR request by calling ioctl() to delete the FIRST IP.
+		4. issue SIOCAIFADDR request by calling ioctl() to assign the new IP.
+	*/
+	//TODO
+	//SIOCAIFADDR Socket IO set IPv4 address
+	//SIOCDIFADDR Socket IO delete ipv4 address O_o
+
+	if (command == SIOCSIFMTU) {// Socket IO Set interface mtu
+		sys_net.error("sys_net_bnet_ioctl(socket_id=%d, command=0x%x (SIOC_S_IF_MTU), args=0x%x)", socket_id, command, args);
+//		Emu.Pause();
+	}
+	else if (command == SIOCAIFADDR) {// Socket IO set IPv4 address
+		// struct ifreq ifr; ??
+		sys_net.todo("sys_net_bnet_ioctl(socket_id=%d, command=0x%x (SIOC_A_IF_ADDR), args=0x%x)", socket_id, command, args);
+//		Emu.Pause();
+	}
+	else if (command == SIOCDIFADDR) {// Socket IO delete ipv4 address O_o
+		sys_net.todo("sys_net_bnet_ioctl(socket_id=%d, command=0x%x (SIOC_D_IF_ADDR), args=0x%x)", socket_id, command, args);
+		//Emu.Pause();
+		//args contains interface name
+
+	}
+	else if (command == SIOCGIFFLAGS) {//Socket IO Get Interface Flags
+		sys_net.todo("sys_net_bnet_ioctl(socket_id=%d, command=0x%x (SIOC_G_IF_FLAGS), args=0x%x)", socket_id, command, args);
 		// arg3 is str name of interface
-		auto inf = vm::cptr<char>::make(arg3);
-		sys_net.todo("arg3 %s", inf);
+		auto inf = vm::cptr<char>::make(args);
+		sys_net.todo("args %s", inf);
+
+		//Breaks the bloody string, skip over it.. hopefully..
+		memset(vm::base(args+5), 0x01, 20);//Test TODO
+
+
 	}
-	else if (arg2 == 0x80206910) {
-		auto inf = vm::cptr<char>::make(arg3);
-		sys_net.todo("arg3 %s", inf);
+	else if (command == SIOCSIFFLAGS) {//Socket IO Set Interface Flags
+		sys_net.todo("sys_net_bnet_ioctl(socket_id=%d, command=0x%x (SIOC_S_IF_FLAGS), args=0x%x)", socket_id, command, args);
+
+//		Emu.Pause();
+		//Basically a setter? stuff like IFF_PROMISC
+
+		auto inf = vm::cptr<char>::make(args);
+		sys_net.todo("args %s", inf);
+
+		
+
 	}
-	else if (arg2 == 0xc020698c) {
-		// get info of inf
-		memset(vm::base(arg3), 0xff, 0x2e);
+	else if (command == 0xc020698c) {//http://man7.org/linux/man-pages/man3/getifaddrs.3.html ??
+		sys_net.todo("sys_net_bnet_ioctl(socket_id=%d, command=0x%x (Unknown Get Device Info), args=0x%x)", socket_id, command, args);
+
+		auto inf = vm::cptr<char>::make(args);
+		sys_net.todo("args %s", inf);
+
+//		Emu.Pause();
+
+		/*
+		// get info of inf, not on flag list
+		memset(vm::base(args), 0xff, 0x2e);
+
+		u8 crap[] = {
+			//ifreq?
+			0x01, 0x01, 0x01, 0x01, //ifr_addr??
+			0x01, 0x01, 0x01, 0x01, //ifr_dstaddr??
+			0x01, 0x01, 0x01, 0x01,  //ifr_broadaddr??
+			0x01, 0x01, 0x01, 0x01,  //ifr_netmask??
+			0x00, 0x01, //ifr_flags ??
+			0xDE, 0xED, 0xBE, 0xEF, 0xCA, 0xFE,//Mac address - ifr_hwaddr
+			0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+			0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+		};
+		memcpy(vm::base(args), crap, 0x2e);*/
+
+	}
+	else if (command == 0x8210698f) {//no idea
+		sys_net.error("sys_net_bnet_ioctl(socket_id=%d, command=0x%x (Unknown ?????), args=0x%x)", socket_id, command, args);
+//		Emu.Pause();
+	}
+	else if (command == 0x200050c8) {//no idea
+		sys_net.error("sys_net_bnet_ioctl(socket_id=%d, command=0x%x (Unknown ?????), args=0x%x)", socket_id, command, args);
+	//	Emu.Pause();
+	}
+	else {
+		sys_net.error("sys_net_bnet_ioctl(socket_id=%d, command=0x%x, args=0x%x)", socket_id, command, args);
+		sys_net.error("unsupported flag D:");
+		//Emu.Pause();
 	}
 	return 0;
 }
 
 s32 sys_net_bnet_sysctl(ppu_thread& ppu, u32 arg1, u32 arg2, u32 arg3, vm::ptr<void> arg4, u32 arg5, u32 arg6)
 {
+	/*
+	VSH
+	U {PPU[0x1000000] Thread (main_thread) [0x0001a4cc]} sys_net TODO: sys_net_bnet_sysctl(0xd0008674, 0x6, 0x0, *0xd00085e0, 0x0, 0x0)
+	U {PPU[0x1000000] Thread (main_thread) [0x0001a4cc]} sys_net TODO: sys_net_bnet_sysctl(0xd0008674, 0x6, 0x80292df0, *0xd00085e0, 0x0, 0x0)
+	U {PPU[0x1000000] Thread (main_thread) [0x0001a4cc]} sys_net TODO: sys_net_bnet_sysctl(0xd0008774, 0x6, 0x0, *0xd00086e0, 0x0, 0x0)
+	*/
 	sys_net.todo("sys_net_bnet_sysctl(0x%x, 0x%x, 0x%x, *0x%x, 0x%x, 0x%x)", arg1, arg2, arg3, arg4, arg5, arg6);
 	return 0;
 }
 
-s32 sys_net_eurus_post_command(ppu_thread& ppu, s32 arg1, u32 arg2, u32 arg3)
+/*
+int sys_net_eurus_post_command(uint16_t cmd, uint8_t *cmdbuf, uint64_t cmdbuf_size) Hypervisor_Reverse_Engineering#Commands_2 Commands
+*/
+s32 sys_net_eurus_post_command(ppu_thread& ppu, u16 cmd, vm::ptr<u8> cmdbuf, u32 cmdbuf_size)
 {
-	sys_net.todo("sys_net_eurus_post_command(%d, 0x%x, 0x%x)", arg1, arg2, arg3);
+	//system_call_3(SYS_NET_EURUS_POST_COMMAND, CMD_GET_MAC_ADDRESS, (u64)(u32)mac_address, 0x13);//0x103f
+	// sys_net TODO: sys_net_eurus_post_command(cmd=0xffff, cmdbuf=*0xd0012b60, cmdbuf_size=0x10)
+
+	if (cmd == 0xffff) {//Device state(?), handled by lv2
+		u8 bacon[] = {//lolhaxbaconwizard
+			0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x56, 0x00
+		};
+		memcpy(cmdbuf.get_ptr(), bacon, cmdbuf_size);
+	}
+
+	sys_net.todo("sys_net_eurus_post_command(cmd=0x%x, cmdbuf=*0x%x, cmdbuf_size=0x%x)", cmd, cmdbuf, cmdbuf_size);
 	return 0;
 }

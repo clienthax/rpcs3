@@ -293,7 +293,7 @@ s32 sys_storage_open(u64 device, u64 mode, vm::ptr<u32> fd, u64 flags)
 	fs::file file;
 
 	if (device == 0x100000200000004) {
-		file = fs::file("G:/gitrepos/rpcs3/bin/imagedump/extnorarea.dat", fs::read);
+		file = fs::file("G:/ps3 hdd dump/extnorarea.dat", fs::read);
 		if (!file)
 			sys_storage.fatal("couldnt find nor region file");
 	}

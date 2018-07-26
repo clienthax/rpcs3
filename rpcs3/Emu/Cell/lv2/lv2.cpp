@@ -442,8 +442,8 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	BIND_FUNC(sys_prx_get_ppu_guid),                        //467 (0x1D3)
 	null_func,//BIND_FUNC(sys_...)                          //468 (0x1D4) ROOT
 	uns_func,                                               //469 (0x1D5)  UNS
-	null_func,//BIND_FUNC(sys_...)                          //470 (0x1D6)  ROOT
-	null_func,//BIND_FUNC(sys_...)                          //471 (0x1D7)  ROOT
+	null_func,//BIND_FUNC(sys_npdrm_check_ekc)              //470 (0x1D6)  ROOT
+	null_func,//BIND_FUNC(sys_npdrm_regist_ekc)             //471 (0x1D7)  ROOT
 	null_func,//BIND_FUNC(sys_...)                          //472 (0x1D8)  ROOT
 	null_func,//BIND_FUNC(sys_...)                          //473 (0x1D9)
 	null_func,//BIND_FUNC(sys_...)                          //474 (0x1DA)

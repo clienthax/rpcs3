@@ -9,6 +9,7 @@
 #include "Utilities/StrUtil.h"
 
 logs::channel cellNetCtl("cellNetCtl");
+logs::channel netctl_main("netctl_main");
 
 template <>
 void fmt_class_string<CellNetCtlError>::format(std::string& out, u64 arg)
@@ -125,16 +126,16 @@ error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 {
 	cellNetCtl.todo("cellNetCtlGetInfo(code=0x%x (%s), info=*0x%x)", code, InfoCodeToName(code), info);
 
+	if (code == CELL_NET_CTL_INFO_DEVICE)
+	{//Called by vsh while doing connection tests
+		info->device = CELL_NET_CTL_DEVICE_WIRELESS;
+	}
+
 	if (code == CELL_NET_CTL_INFO_ETHER_ADDR)
 	{
 		// dummy values set
 		std::memset(info->ether_addr.data, 0xFF, sizeof(info->ether_addr.data));
 		return CELL_OK;
-	}
-
-	if (g_cfg.net.net_status == CELL_NET_CTL_STATE_Disconnected)
-	{
-		return CELL_NET_CTL_ERROR_NOT_CONNECTED;
 	}
 
 	if (code == CELL_NET_CTL_INFO_MTU)
@@ -154,7 +155,7 @@ error_code cellNetCtlGetInfo(s32 code, vm::ptr<CellNetCtlInfo> info)
 		}
 		else
 		{
-			strcpy_trunc(info->ip_address, g_cfg.net.ip_address);
+			strcpy_trunc(info->ip_address, "192.168.1.75");
 		}
 	}
 	else if (code == CELL_NET_CTL_INFO_NETMASK)
@@ -344,6 +345,232 @@ error_code cellGameUpdateCheckStartWithoutDialogAsyncEx(vm::ptr<CellGameUpdateCa
 	return CELL_OK;
 }
 
+
+//Vsh functions
+
+error_code sceNetApCtlConnectVsh()
+{
+	netctl_main.error("sceNetApCtlConnectVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetApCtlDisconnectVsh()
+{
+	netctl_main.error("sceNetApCtlDisconnectVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetApCtlGetInfoVsh()
+{
+	netctl_main.error("sceNetApCtlGetInfoVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetApCtlGetStateVsh()
+{
+	netctl_main.error("sceNetApCtlGetStateVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetApCtlInitVsh()
+{
+	netctl_main.error("sceNetApCtlInitVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetApCtlTermVsh()
+{
+	netctl_main.error("sceNetApCtlTermVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlAddHandlerSysUtil()
+{
+	netctl_main.error("sceNetCtlAddHandlerSysUtil(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlAddHandlerVsh()
+{
+	netctl_main.error("sceNetCtlAddHandlerVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlConnectVsh()
+{
+	netctl_main.error("sceNetCtlConnectVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlConnectWithRetryVsh()
+{
+	netctl_main.error("sceNetCtlConnectWithRetryVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlDelHandlerSysUtil()
+{
+	netctl_main.error("sceNetCtlDelHandlerSysUtil(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlDelHandlerVsh()
+{
+	netctl_main.error("sceNetCtlDelHandlerVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlDisconnectVsh()
+{
+	netctl_main.error("sceNetCtlDisconnectVsh(???)");
+	return CELL_OK;
+}
+
+//error_code sceNetCtlGetInfoVsh()
+error_code sceNetCtlGetInfoVsh(s32 code, vm::ptr<CellNetCtlInfo> info)
+{
+	netctl_main.error("sceNetCtlGetInfoVsh(???), passing to cellNetCtlGetInfo");
+	return cellNetCtlGetInfo(code, info);
+}
+
+error_code sceNetCtlGetScanInfoVsh()
+{
+	netctl_main.error("sceNetCtlGetScanInfoVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlGetStateSysUtil()
+{
+	netctl_main.error("sceNetCtlGetStateSysUtil(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlGetStateVsh(vm::ptr<u32> state)
+{
+	netctl_main.error("sceNetCtlGetStateVsh(???) passing to cellNetCtlGetState");
+	return cellNetCtlGetState(state);
+}
+
+error_code sceNetCtlInitVsh()
+{
+	netctl_main.error("sceNetCtlInitVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlScanVsh()
+{
+	netctl_main.error("sceNetCtlScanVsh(???)");
+	return CELL_OK;
+}
+
+error_code sceNetCtlTermVsh()
+{
+	netctl_main.error("sceNetCtlTermVsh(???)");
+	return CELL_OK;
+}
+
+error_code func_1237870F()
+{
+	netctl_main.error("func_1237870F(???)");
+	return CELL_OK;
+}
+
+error_code func_23C35ECE()
+{
+	netctl_main.error("func_23C35ECE(???)");
+	return CELL_OK;
+}
+
+error_code func_35A1C363()
+{
+	netctl_main.error("func_35A1C363(???)");
+	return CELL_OK;
+}
+
+error_code func_367EFAA8()
+{
+	netctl_main.error("func_367EFAA8(???)");
+	return CELL_OK;
+}
+
+error_code func_3A5CB886()
+{
+	netctl_main.error("func_3A5CB886(???)");
+	return CELL_OK;
+}
+
+error_code func_442F0E40()
+{
+	netctl_main.error("func_442F0E40(???)");
+	return CELL_OK;
+}
+
+error_code func_4E4B734D()
+{
+	netctl_main.error("func_4E4B734D(???)");
+	return CELL_OK;
+}
+
+error_code func_5101A052()
+{
+	netctl_main.error("func_5101A052(???)");
+	return CELL_OK;
+}
+
+error_code func_55D2047A()
+{
+	netctl_main.error("func_55D2047A(???)");
+	return CELL_OK;
+}
+
+error_code func_6F2D52F1()
+{
+	netctl_main.error("func_6F2D52F1(???)");
+	return CELL_OK;
+}
+
+error_code func_C67D3DB3()
+{
+	netctl_main.error("func_C67D3DB3(???)");
+	return CELL_OK;
+}
+
+DECLARE(ppu_module_manager::netctl_main)("netctl_main", []()
+{
+	REG_FUNC(netctl_main, sceNetApCtlConnectVsh);
+	REG_FUNC(netctl_main, sceNetApCtlDisconnectVsh);
+	REG_FUNC(netctl_main, sceNetApCtlGetInfoVsh).flag(MFF_FORCED_HLE);
+	REG_FUNC(netctl_main, sceNetApCtlGetStateVsh).flag(MFF_FORCED_HLE);
+	REG_FUNC(netctl_main, sceNetApCtlInitVsh);
+	REG_FUNC(netctl_main, sceNetApCtlTermVsh);
+	REG_FUNC(netctl_main, sceNetCtlAddHandlerSysUtil);
+	REG_FUNC(netctl_main, sceNetCtlAddHandlerVsh);
+	REG_FUNC(netctl_main, sceNetCtlConnectVsh);
+	REG_FUNC(netctl_main, sceNetCtlConnectWithRetryVsh);
+	REG_FUNC(netctl_main, sceNetCtlDelHandlerSysUtil);
+	REG_FUNC(netctl_main, sceNetCtlDelHandlerVsh);
+	REG_FUNC(netctl_main, sceNetCtlDisconnectVsh);
+	REG_FUNC(netctl_main, sceNetCtlGetInfoVsh).flag(MFF_FORCED_HLE);
+	REG_FUNC(netctl_main, sceNetCtlGetScanInfoVsh).flag(MFF_FORCED_HLE);
+	REG_FUNC(netctl_main, sceNetCtlGetStateSysUtil).flag(MFF_FORCED_HLE);
+	REG_FUNC(netctl_main, sceNetCtlGetStateVsh).flag(MFF_FORCED_HLE);
+	REG_FUNC(netctl_main, sceNetCtlInitVsh);
+	REG_FUNC(netctl_main, sceNetCtlScanVsh);
+	REG_FUNC(netctl_main, sceNetCtlTermVsh);
+
+	REG_FNID(netctl_main, 0x1237870F, func_1237870F);
+	REG_FNID(netctl_main, 0x23C35ECE, func_23C35ECE);
+	REG_FNID(netctl_main, 0x35A1C363, func_35A1C363);
+	REG_FNID(netctl_main, 0x367EFAA8, func_367EFAA8);
+	REG_FNID(netctl_main, 0x3A5CB886, func_3A5CB886);
+	REG_FNID(netctl_main, 0x442F0E40, func_442F0E40);
+	REG_FNID(netctl_main, 0x4E4B734D, func_4E4B734D);
+	REG_FNID(netctl_main, 0x5101A052, func_5101A052);
+	REG_FNID(netctl_main, 0x55D2047A, func_55D2047A);
+	REG_FNID(netctl_main, 0x6F2D52F1, func_6F2D52F1);
+	REG_FNID(netctl_main, 0xC67D3DB3, func_C67D3DB3);
+
+});
 
 DECLARE(ppu_module_manager::cellNetCtl)("cellNetCtl", []()
 {

@@ -353,7 +353,7 @@ error_code sys_spu_thread_group_start(ppu_thread& ppu, u32 id)
 {
 	vm::temporary_unlock(ppu);
 
-	sys_spu.warning("sys_spu_thread_group_start(id=0x%x)", id);
+//	sys_spu.warning("sys_spu_thread_group_start(id=0x%x)", id);//vsh is fucking loud
 
 	const auto group = idm::get<lv2_spu_group>(id, [](lv2_spu_group& group)
 	{
@@ -597,7 +597,7 @@ error_code sys_spu_thread_group_join(ppu_thread& ppu, u32 id, vm::ptr<u32> cause
 {
 	vm::temporary_unlock(ppu);
 
-	sys_spu.warning("sys_spu_thread_group_join(id=0x%x, cause=*0x%x, status=*0x%x)", id, cause, status);
+//	sys_spu.warning("sys_spu_thread_group_join(id=0x%x, cause=*0x%x, status=*0x%x)", id, cause, status);//VSH is fucking loud
 
 	const auto group = idm::get<lv2_spu_group>(id);
 

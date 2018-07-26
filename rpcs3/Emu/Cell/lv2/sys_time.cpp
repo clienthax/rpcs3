@@ -155,7 +155,7 @@ u64 get_system_time()
 // Functions
 s32 sys_time_get_timezone(vm::ptr<s32> timezone, vm::ptr<s32> summertime)
 {
-	sys_time.warning("sys_time_get_timezone(timezone=*0x%x, summertime=*0x%x)", timezone, summertime);
+//	sys_time.trace("sys_time_get_timezone(timezone=*0x%x, summertime=*0x%x)", timezone, summertime);//vsh is too noisy!
 
 	*timezone   = 180;
 	*summertime = 0;

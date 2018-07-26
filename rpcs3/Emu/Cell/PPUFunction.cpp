@@ -1667,6 +1667,30 @@ extern std::string ppu_get_function_name(const std::string& module, u32 fnid)
 	case 0xfffe79bf: return "_LCmulcc";
 	}
 
+	if (module == "netctl_main") switch (fnid)
+	{
+	case 0x13CD17FB: return "sceNetCtlDelHandlerSysUtil";
+	case 0x218CFBD3: return "sceNetCtlInitVsh";
+	case 0x2DCA4721: return "sceNetCtlGetStateSysUtil";
+	case 0x352EFDDF: return "sceNetCtlTermVsh";
+	case 0x38479255: return "sceNetApCtlConnectVsh";
+	case 0x4B1EE41D: return "sceNetApCtlTermVsh";
+	case 0x5AB91391: return "sceNetCtlDisconnectVsh";
+	case 0x5D1D7803: return "sceNetCtlConnectVsh";
+	case 0x5ED42691: return "sceNetApCtlGetStateVsh";
+	case 0x61E363B0: return "sceNetCtlScanVsh";
+	case 0x6F2521E0: return "sceNetCtlGetScanInfoVsh";
+	case 0x8DA844E1: return "sceNetApCtlGetInfoVsh";
+	case 0x953F1E14: return "sceNetCtlAddHandlerVsh";
+	case 0x974E50F6: return "sceNetCtlAddHandlerSysUtil";
+	case 0x9A528B81: return "sceNetCtlGetInfoVsh";
+	case 0xA111D8FB: return "sceNetCtlDelHandlerVsh";
+	case 0xB7618526: return "sceNetApCtlDisconnectVsh";
+	case 0xEC73B49D: return "sceNetCtlGetStateVsh";
+	case 0xECD37366: return "sceNetApCtlInitVsh";
+	case 0xFA020C41: return "sceNetCtlConnectWithRetryVsh";
+	}
+
 	if (module == "sys_libstdcxx") switch (fnid)
 	{
 	case 0x002c338b: return "_ZNKSt8time_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE16do_get_monthnameES3_S3_RSt8ios_baseRNSt5_IosbIiE8_IostateEPSt2tm";

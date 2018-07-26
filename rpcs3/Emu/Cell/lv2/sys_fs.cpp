@@ -209,7 +209,11 @@ error_code sys_fs_open(vm::cptr<char> path, s32 flags, vm::ptr<u32> fd, s32 mode
 
 	// TODO: other checks for path
 	if (strcmp(path.get_ptr(), "/dev_hdd0") == 0) {
-		local_path = "G:/gitrepos/rpcs3/bin/imagedump/hdd0.dsk";
+		//		local_path = "G:/gitrepos/rpcs3/bin/imagedump/hdd0.dsk";
+		local_path = "G:/ps3 hdd dump/hdd0only.bin";
+	}
+	if (strcmp(path.get_ptr(), "/dev_hdd0/BackupRestoreState.dat") == 0) {
+		//local_path = "G:/Rpcs3SRC/rpcs3-vsh/bin/BackupRestoreState.dat";
 	}
 
 
@@ -1599,6 +1603,7 @@ error_code sys_fs_truncate2(u32 fd, u64 size)
 
 error_code sys_fs_mount(vm::cptr<char> dev_name, vm::cptr<char> file_system, vm::cptr<char> path, s32 unk1, s32 prot, s32 unk3, vm::cptr<char> str1, u32 str_len)
 {
-	sys_fs.todo("sys_fs_mount(dev_name=%s, file_system=%s, path=%s, unk1=0x%x, prot=0x%x, unk3=0x%x, str1=%s, str_len=%d)", dev_name, file_system, path, unk1, prot, unk3, str1, str_len); 
+	sys_fs.todo("sys_fs_mount(dev_name=%s, file_system=%s, path=%s, unk1=0x%x, prot=0x%x, unk3=0x%x, str1=%s, str_len=%d)", dev_name, file_system, path, unk1, prot, unk3, str1, str_len);
+
 	return CELL_OK;
 }

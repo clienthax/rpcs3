@@ -85,6 +85,16 @@ s32 sys_ss_appliance_info_manager(u32 code, vm::ptr<u8> buffer)
 {
 	switch (code)
 	{
+	case 0x19002:
+	{
+		//Called by devtoolupdater
+		//U {PPU[0x1000000] Thread (main_thread) [0x00042b88]} sys_ss TODO: sys_ss_appliance_info_manager(code=0x19002, buffer=*0xd0100b60)
+		//U {PPU[0x1000000] Thread (main_thread) [0x00010c98]} sys_sm TODO: sys_console_write: buf=“Error : get product -2147290717
+		sys_ss.warning("sys_ss_appliance_info_manager(code=0x%x (DEVICE_TYPE), buffer=*0x%x)", code, buffer);
+		u8 idps[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x85};//http://www.psdevwiki.com/ps3/Target_ID
+		memcpy(buffer.get_ptr(), idps, 16);
+		break;
+	}
 	case 0x19003:
 	{
 		sys_ss.warning("sys_ss_appliance_info_manager(code=0x%x (IDPS), buffer=*0x%x)", code, buffer);
@@ -176,15 +186,57 @@ s32 sys_ss_get_boot_device(vm::ptr<u64> dev)
 s32 sys_ss_update_manager(u64 pkg_id, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6)
 {
 	sys_ss.todo("sys_ss_update_manager(pkg=0x%x, a1=0x%x, a2=0x%x, a3=0x%x, a4=0x%x, a5=0x%x, a6=0x%x)", pkg_id, a1, a2, a3, a4, a5, a6);
-	if (pkg_id == 0x600B)
+	if (pkg_id == 0x6003)
 	{
+		//Get package info
+		// uint64_t Package_Type, uint64_t *out
+		//sys_ss.error("Not implemented package_type=0x%x, out=*0x%x", a1, a2);
+
+		if (a1 == 0x1)
+		{
+			//*vm::ptr<u64>::make(a2) = 0x0003004100000000;
+			*vm::ptr<u64>::make(a2) = 0x0004008100000000;
+		}
+		else if (a1 == 0x2)
+		{
+			*vm::ptr<u64>::make(a2) = 0x0003004100000000;
+		}
+		else if (a1 == 0x3)
+		{
+			*vm::ptr<u64>::make(a2) = 0x0002003000000000;
+		}
+		else if (a1 == 0x4 || a1 == 0x5)
+		{
+			*vm::ptr<u64>::make(a2) = 0xDEADBEAFFACEBABE;
+		}
+		else if (a1 == 0x6)
+		{
+			*vm::ptr<u64>::make(a2) = 0x0003004000000000;
+		}
+		else
+		{
+			return CELL_EINVAL;
+		}
+
+
+	}
+	else if (pkg_id == 0x600B)
+	{
+		//In a standard mostly untouched ps3 the common value for this flags is 0xFF wich means not active, anything else means active (e.g. 0xFE) 
+
 		// read eeprom
 		// a1 == offset
 		// a2 == *value
-		if (a1 == 0x48C06) // fself ctrl?
+		if (a1 == 0x48C06)
+		{
+			// FSELF Control Flag / toggles release mode (fself_ctrl) 
 			*vm::ptr<u8>::make(a2) = 0xFF;
-		else if (a1 == 0x48C42) // hddcopymode
+		}
+		else if (a1 == 0x48C42)
+		{
+			// hddcopymode
 			*vm::ptr<u8>::make(a2) = 0xFF;
+		}
 		else if (a1 >= 0x48C1C && a1 <= 0x48C1F)
 		{
 			// vsh target? (seems it can be 0xFFFFFFFE, 0xFFFFFFFF, 0x00000001 default: 0x00000000 /maybe QA,Debug,Retail,Kiosk?)
@@ -196,6 +248,23 @@ s32 sys_ss_update_manager(u64 pkg_id, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u6
 			// *i think* this gives english
 			*vm::ptr<u8>::make(a2) = a1 == 0x48C1B ? 0x1 : 0;
 		}
+		else if (a1 == 0x48c60)
+		{
+			//Update status flag
+			*vm::ptr<u8>::make(a2) = 0xFF;
+		}
+		else if (a1 == 0x48c61)
+		{
+			//Recovery mode flag
+			*vm::ptr<u8>::make(a2) = 0xFF;
+		}
+		else
+		{
+			sys_ss.error("sys_ss_update_manager unhandled D:");
+		}
+		//devtool updater, U {PPU[0x1000000] Thread (main_thread) [0x00042844]} sys_ss TODO: sys_ss_update_manager(pkg=0x600b, a1=0x48c60, a2=0x1003bdf4, a3=0x0, a4=0x0, a5=0x0, a6=0x0)
+
+		//http://www.psdevwiki.com/ps3/SC_EEPROM#EEPROM_Offset_Table_-_Flags_and_Tokens
 	}
 	else if (pkg_id == 0x600C)
 	{
@@ -208,6 +277,10 @@ s32 sys_ss_update_manager(u64 pkg_id, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u6
 	else if (pkg_id == 0x600A)
 	{
 		// set seed token
+	}
+	else
+	{
+		sys_ss.error("Not implemented");
 	}
 
 	return CELL_OK;

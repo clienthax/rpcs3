@@ -408,32 +408,38 @@ s32 cellSysutilSetBgmPlaybackExtraParam()
 
 s32 cellSysutilRegisterCallbackDispatcher()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	cellSysutil.todo("cellSysutilRegisterCallbackDispatcher()");
+	return CELL_OK;
 }
 
 s32 cellSysutilUnregisterCallbackDispatcher()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	cellSysutil.todo("cellSysutilUnregisterCallbackDispatcher()");
+	return CELL_OK;
 }
 
 s32 cellSysutilPacketRead()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	cellSysutil.todo("cellSysutilPacketRead()");
+	return CELL_OK;
 }
 
 s32 cellSysutilPacketWrite()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	cellSysutil.todo("cellSysutilPacketWrite()");
+	return CELL_OK;
 }
 
 s32 cellSysutilPacketBegin()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	cellSysutil.todo("cellSysutilPacketBegin()");
+	return CELL_OK;
 }
 
 s32 cellSysutilPacketEnd()
 {
-	fmt::throw_exception("Unimplemented" HERE);
+	cellSysutil.todo("cellSysutilPacketEnd()");
+	return CELL_OK;
 }
 
 s32 cellSysutilGameDataAssignVmc()
