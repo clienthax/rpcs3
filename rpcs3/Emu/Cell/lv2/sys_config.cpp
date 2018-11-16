@@ -11,6 +11,8 @@
 
 logs::channel sys_config("sys_config");
 
+u32 padlistenderhandle;
+
 error_code sys_config_open(u32 equeue_id, vm::ptr<u32> config_id)
 {
 	sys_config.warning("sys_config_open(equeue_id=0x%x, config_id=*0x%x)", equeue_id, config_id);

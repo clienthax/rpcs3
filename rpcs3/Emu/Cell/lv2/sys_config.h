@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-u32 padlistenderhandle;
-
 struct lv2_config
 {
 	static const u32 id_base = 0x41000000;
