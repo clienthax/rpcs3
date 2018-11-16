@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Emu/Io/PadHandler.h"
 #include <array>
@@ -106,3 +106,7 @@ struct pad_t
 		port_setting.fill(CELL_PAD_SETTING_PRESS_OFF | CELL_PAD_SETTING_SENSOR_OFF);
 	}
 };
+
+s32 cellPadGetData(u32 port_no, vm::ptr<CellPadData> data);
+s32 cellPadInit(u32 max_connect);
+s32 cellPadSetPortSetting(u32 port_no, u32 port_setting);
