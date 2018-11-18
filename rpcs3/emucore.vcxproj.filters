@@ -785,6 +785,9 @@
     <ClCompile Include="Emu\Cell\lv2\sys_io.cpp">
       <Filter>Emu\Cell\lv2</Filter>
     </ClCompile>
+    <ClCompile Include="Emu\Cell\Modules\libfs_utility_init.cpp">
+      <Filter>Emu\Cell\Modules</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Crypto\aes.h">
@@ -1480,7 +1483,6 @@
     <ClInclude Include="Emu\RSX\Common\texture_cache_utils.h">
       <Filter>Emu\GPU\RSX\Common</Filter>
     </ClInclude>
-<<<<<<< HEAD
     <ClInclude Include="Emu\RSX\RSXFIFO.h">
       <Filter>Emu\GPU\RSX</Filter>
     </ClInclude>
@@ -1493,8 +1495,6 @@
     <ClInclude Include="Emu\Audio\Null\NullAudioBackend.h">
       <Filter>Emu\Audio\Null</Filter>
     </ClInclude>
-||||||| merged common ancestors
-=======
     <ClInclude Include="Emu\Cell\lv2\sys_sm.h">
       <Filter>Emu\Cell\lv2</Filter>
     </ClInclude>
@@ -1525,6 +1525,5 @@
     <ClInclude Include="Emu\Cell\lv2\sys_io.h">
       <Filter>Emu\Cell\lv2</Filter>
     </ClInclude>
->>>>>>> jarves lv2 cleanup
   </ItemGroup>
 </Project>

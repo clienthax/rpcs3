@@ -259,6 +259,7 @@ public:
 	static const ppu_static_module cellVideoUpload;
 	static const ppu_static_module cellVoice;
 	static const ppu_static_module cellVpost;
+	static const ppu_static_module libfs_utility_init;
 	static const ppu_static_module libmedi;
 	static const ppu_static_module libmixer;
 	static const ppu_static_module libsnd3;
