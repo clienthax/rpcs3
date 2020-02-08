@@ -87,6 +87,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{AC40FF01-426E-4838-A317-66354CEFAE88}</ProjectGuid>
     <RootNamespace>asmjit</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="..\common_default.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

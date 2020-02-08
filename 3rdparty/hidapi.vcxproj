@@ -14,6 +14,7 @@
     <ProjectGuid>{A107C21C-418A-4697-BB10-20C3AA60E2E4}</ProjectGuid>
     <RootNamespace>hidapi</RootNamespace>
     <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="..\common_default.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

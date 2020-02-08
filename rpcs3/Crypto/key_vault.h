@@ -1,10 +1,14 @@
-#pragma once
+﻿#pragma once
 
 #include "Utilities/types.h"
+#include "Utilities/Log.h"
 
 #include <string>
 #include <vector>
 #include <memory>
+
+
+LOG_CHANNEL(key_vault_log, "KEY_VAULT");
 
 enum SELF_KEY_TYPE {
 	KEY_LV0 = 1,
@@ -29,6 +33,8 @@ struct SELF_KEY {
 
 	SELF_KEY(u64 ver, u16 rev, u32 type, const std::string& e, const std::string& r, const std::string& pb, const std::string& pr, u32 ct);
 };
+
+static u8 PKG_AES_KEY_IDU[0x10] = {0x5d, 0xb9, 0x11, 0xe6, 0xb7, 0xe5, 0x0a, 0x7d, 0x32, 0x15, 0x38, 0xfd, 0x7c, 0x66, 0xf1, 0x7b};
 
 static u8 PKG_AES_KEY[0x10] = {
 	0x2e, 0x7b, 0x71, 0xd7, 0xc9, 0xc9, 0xa1, 0x4e, 0xa3, 0x22, 0x1f, 0x18, 0x88, 0x28, 0xb8, 0xf8

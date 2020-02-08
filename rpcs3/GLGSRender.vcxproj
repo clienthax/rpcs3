@@ -25,6 +25,7 @@
   <PropertyGroup Label="Globals">
     <RootNamespace>GLGSRender</RootNamespace>
     <ProjectGuid>{3384223A-6D97-4799-9862-359F85312892}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="..\common_default.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

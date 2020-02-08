@@ -812,18 +812,6 @@
     <ClCompile Include="QTGeneratedFiles\Debug - LLVM\moc_settings.cpp">
       <Filter>Generated Files\Debug - LLVM</Filter>
     </ClCompile>
-    <ClCompile Include="QTGeneratedFiles\Release - LLVM\moc_playtime_settings.cpp">
-      <Filter>Generated Files\Release - LLVM</Filter>
-    </ClCompile>
-    <ClCompile Include="QTGeneratedFiles\Debug\moc_playtime_settings.cpp">
-      <Filter>Generated Files\Debug</Filter>
-    </ClCompile>
-    <ClCompile Include="QTGeneratedFiles\Release\moc_playtime_settings.cpp">
-      <Filter>Generated Files\Release</Filter>
-    </ClCompile>
-    <ClCompile Include="QTGeneratedFiles\Debug - LLVM\moc_playtime_settings.cpp">
-      <Filter>Generated Files\Debug - LLVM</Filter>
-    </ClCompile>
     <ClCompile Include="QTGeneratedFiles\Release - LLVM\moc_persistent_settings.cpp">
       <Filter>Generated Files\Release - LLVM</Filter>
     </ClCompile>

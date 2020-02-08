@@ -22,21 +22,22 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 
 	std::vector<fs::file> filelist;
 	filelist.emplace_back(fs::file{path});
-	u32 cur_file = 0;
-	u64 cur_offset = 0;
+	u32 cur_file        = 0;
+	u64 cur_offset      = 0;
 	u64 cur_file_offset = 0;
 
-	auto archive_seek = [&](const s64 new_offset, const fs::seek_mode damode = fs::seek_set)
-	{
-		if(damode == fs::seek_set) cur_offset = new_offset;
-		else if (damode == fs::seek_cur) cur_offset += new_offset;
+	auto archive_seek = [&](const s64 new_offset, const fs::seek_mode damode = fs::seek_set) {
+		if (damode == fs::seek_set)
+			cur_offset = new_offset;
+		else if (damode == fs::seek_cur)
+			cur_offset += new_offset;
 
 		u64 _offset = 0;
 		for (u32 i = 0; i < filelist.size(); i++)
 		{
 			if (cur_offset < (_offset + filelist[i].size()))
 			{
-				cur_file = i;
+				cur_file        = i;
 				cur_file_offset = cur_offset - _offset;
 				filelist[i].seek(cur_file_offset);
 				break;
@@ -45,14 +46,14 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 		}
 	};
 
-	auto archive_read = [&](void* data_ptr, const u64 num_bytes)
-	{
+	auto archive_read = [&](void* data_ptr, const u64 num_bytes) {
 		u64 num_bytes_left = filelist[cur_file].size() - cur_file_offset;
-		//check if it continues in another file
+		//	check if it continues in another file
 		if (num_bytes > num_bytes_left)
 		{
 			filelist[cur_file].read(data_ptr, num_bytes_left);
-			if ((cur_file + 1) < filelist.size()) cur_file++;
+			if ((cur_file + 1) < filelist.size())
+				cur_file++;
 			else
 			{
 				cur_offset += num_bytes_left;
@@ -62,7 +63,7 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 			u64 num_read = filelist[cur_file].read(static_cast<u8*>(data_ptr) + num_bytes_left, num_bytes - num_bytes_left);
 			cur_offset += (num_read + num_bytes_left);
 			cur_file_offset = num_read;
-			return (num_read+num_bytes_left);
+			return (num_read + num_bytes_left);
 		}
 
 		u64 num_read = filelist[cur_file].read(data_ptr, num_bytes);
@@ -90,7 +91,7 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 
 	switch (const u16 type = header.pkg_type)
 	{
-	case PKG_RELEASE_TYPE_DEBUG:   break;
+	case PKG_RELEASE_TYPE_DEBUG: break;
 	case PKG_RELEASE_TYPE_RELEASE: break;
 	default:
 	{
@@ -120,7 +121,7 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 		}
 
 		std::string name_wo_number = path.substr(0, path.size() - 7);
-		u64 cursize = filelist[0].size();
+		u64 cursize                = filelist[0].size();
 		while (cursize < header.pkg_size)
 		{
 			std::string archive_filename = fmt::format("%s_%02d.pkg", name_wo_number, filelist.size());
@@ -200,7 +201,12 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 
 			break;
 		}
+		default:
+		{
+			pkg_log.error("Unknown PKG metadata type: %x", +packet.id);
 		}
+		}
+	
 
 		archive_seek(packet.size, fs::seek_cur);
 	}
@@ -220,9 +226,10 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 	// Allocate buffer with BUF_SIZE size or more if required
 	const std::unique_ptr<u128[]> buf(new u128[std::max<u64>(BUF_SIZE, sizeof(PKGEntry) * header.file_count) / sizeof(u128)]);
 
+	pkg_log.warning("PKG_TYPE: %d, DRM_TYPE: %x", header.pkg_type, drm_type);
+
 	// Define decryption subfunction (`psp` arg selects the key for specific block)
-	auto decrypt = [&](u64 offset, u64 size, const uchar* key) -> u64
-	{
+	auto decrypt = [&](u64 offset, u64 size, const uchar* key) -> u64 {
 		archive_seek(header.data_offset + offset);
 
 		// Read the data and set available size
@@ -234,12 +241,11 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 		if (header.pkg_type == PKG_RELEASE_TYPE_DEBUG)
 		{
 			// Debug key
-			be_t<u64> input[8] =
-			{
-				header.qa_digest[0],
-				header.qa_digest[0],
-				header.qa_digest[1],
-				header.qa_digest[1],
+			be_t<u64> input[8] = {
+			    header.qa_digest[0],
+			    header.qa_digest[0],
+			    header.qa_digest[1],
+			    header.qa_digest[1],
 			};
 
 			for (u64 i = 0; i < blocks; i++)
@@ -247,8 +253,7 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 				// Initialize stream cipher for current position
 				input[7] = offset / 16 + i;
 
-				union sha1_hash
-				{
+				union sha1_hash {
 					u8 data[20];
 					u128 _v128;
 				} hash;
@@ -316,7 +321,7 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 		if (entry.name_size > 256)
 		{
 			num_failures++;
-			pkg_log.error("PKG name size is too big (0x%x)", entry.name_size);
+			//pkg_log.error("PKG name size is too big (0x%x)", entry.name_size);
 			continue;
 		}
 
