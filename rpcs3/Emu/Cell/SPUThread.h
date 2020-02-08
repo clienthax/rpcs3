@@ -171,7 +171,7 @@ public:
 	{
 		const u64 old = data.fetch_op([=](u64& data)
 		{
-			if (UNLIKELY(data & bit_count))
+			if (data & bit_count) [[unlikely]]
 			{
 				data |= bit_wait;
 			}
@@ -218,7 +218,7 @@ public:
 	{
 		const u64 old = data.fetch_op([&](u64& data)
 		{
-			if (LIKELY(data & bit_count))
+			if (data & bit_count) [[likely]]
 			{
 				out = static_cast<u32>(data);
 				data = 0;
@@ -533,7 +533,22 @@ public:
 	u32 mfc_size = 0;
 	u32 mfc_barrier = -1;
 	u32 mfc_fence = -1;
+
+	// MFC proxy command data
+	spu_mfc_cmd mfc_prxy_cmd;
+	shared_mutex mfc_prxy_mtx;
 	atomic_t<u32> mfc_prxy_mask;
+
+	// Tracks writes to MFC proxy command data
+	union
+	{
+		u8 all;
+		bf_t<u8, 0, 1> lsa;
+		bf_t<u8, 1, 1> eal;
+		bf_t<u8, 2, 1> eah;
+		bf_t<u8, 3, 1> tag_size;
+		bf_t<u8, 4, 1> cmd;
+	} mfc_prxy_write_state{};
 
 	// Reservation Data
 	u64 rtime = 0;
@@ -637,7 +652,7 @@ public:
 
 	static u32 find_raw_spu(u32 id)
 	{
-		if (LIKELY(id < std::size(g_raw_spu_id)))
+		if (id < std::size(g_raw_spu_id)) [[likely]]
 		{
 			return g_raw_spu_id[id];
 		}

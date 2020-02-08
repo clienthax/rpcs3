@@ -47,11 +47,19 @@ private:
 		return thread();
 	}
 
+	void SwitchTranslator(QTranslator& translator, const QString& filename, const QString& language_code);
+	void LoadLanguage(const QString& language_code);
+	QStringList GetAvailableLanguageCodes();
+
 	void InitializeCallbacks();
 	void InitializeConnects();
 
-	void StartPlaytime();
+	void StartPlaytime(bool start_playtime);
 	void StopPlaytime();
+
+	QTranslator m_translator;
+	QTranslator m_translator_qt;
+	QString m_language_code;
 
 	QElapsedTimer m_timer_playtime;
 
@@ -67,9 +75,9 @@ private Q_SLOTS:
 	void OnEmuSettingsChange();
 
 Q_SIGNALS:
-	void OnEmulatorRun();
+	void OnEmulatorRun(bool start_playtime);
 	void OnEmulatorPause();
-	void OnEmulatorResume();
+	void OnEmulatorResume(bool start_playtime);
 	void OnEmulatorStop();
 	void OnEmulatorReady();
 

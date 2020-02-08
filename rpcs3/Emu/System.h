@@ -208,7 +208,7 @@ enum CellKbMappingType : s32;
 struct EmuCallbacks
 {
 	std::function<void(std::function<void()>)> call_after;
-	std::function<void()> on_run;
+	std::function<void(bool)> on_run; // (start_playtime) continuing or going ingame, so start the clock
 	std::function<void()> on_pause;
 	std::function<void()> on_resume;
 	std::function<void()> on_stop;
@@ -249,6 +249,7 @@ class Emulator final
 	std::string m_usr{"00000001"};
 	u32 m_usrid{1};
 
+	bool m_force_global_config = false;
 	bool m_force_boot = false;
 	bool m_has_gui = true;
 
@@ -362,7 +363,7 @@ public:
 	void SetForceBoot(bool force_boot);
 
 	void Load(const std::string& title_id = "", bool add_only = false, bool force_global_config = false);
-	void Run();
+	void Run(bool start_playtime);
 	bool Pause();
 	void Resume();
 	void Stop(bool restart = false);
@@ -404,7 +405,7 @@ struct cfg_root : cfg::node
 		cfg::_enum<spu_decoder_type> spu_decoder{this, "SPU Decoder", spu_decoder_type::llvm};
 		cfg::_bool lower_spu_priority{this, "Lower SPU thread priority"};
 		cfg::_bool spu_debug{this, "SPU Debug"};
-		cfg::_int<0, 6> preferred_spu_threads{this, "Preferred SPU Threads", 0}; //Numnber of hardware threads dedicated to heavy simultaneous spu tasks
+		cfg::_int<0, 6> preferred_spu_threads{this, "Preferred SPU Threads", 0, true}; //Numnber of hardware threads dedicated to heavy simultaneous spu tasks
 		cfg::_int<0, 16> spu_delay_penalty{this, "SPU delay penalty", 3}; //Number of milliseconds to block a thread if a virtual 'core' isn't free
 		cfg::_bool spu_loop_detection{this, "SPU loop detection", true}; //Try to detect wait loops and trigger thread yield
 		cfg::_int<0, 6> max_spurs_threads{this, "Max SPURS Threads", 6}; // HACK. If less then 6, max number of running SPURS threads in each thread group.
@@ -427,9 +428,9 @@ struct cfg_root : cfg::node
 		cfg::_int<10, 3000> clocks_scale{this, "Clocks scale", 100, true}; // Changing this from 100 (percentage) may affect game speed in unexpected ways
 		cfg::_enum<sleep_timers_accuracy_level> sleep_timers_accuracy{this, "Sleep Timers Accuracy",
 #ifdef __linux__
-		sleep_timers_accuracy_level::_as_host};
+		sleep_timers_accuracy_level::_as_host, true};
 #else
-		sleep_timers_accuracy_level::_usleep};
+		sleep_timers_accuracy_level::_usleep, true};
 #endif
 	} core{this};
 

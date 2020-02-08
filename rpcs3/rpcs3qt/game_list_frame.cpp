@@ -5,6 +5,7 @@
 #include "table_item_delegate.h"
 #include "custom_table_widget_item.h"
 #include "input_dialog.h"
+#include "localized.h"
 
 #include "Emu/Memory/vm.h"
 #include "Emu/System.h"
@@ -293,7 +294,9 @@ bool game_list_frame::IsEntryVisible(const game_info& game)
 		{
 			return m_categoryFilters.contains(qstr(game->info.category));
 		}
-		return category::CategoryInMap(game->info.category, category::cat_boot);
+
+		const auto cat_boot = Localized().category.cat_boot;
+		return cat_boot.find(qstr(game->info.category)) != cat_boot.end();
 	};
 
 	const QString serial = qstr(game->info.serial);
@@ -373,10 +376,8 @@ QString game_list_frame::GetLastPlayedBySerial(const QString& serial)
 	return m_persistent_settings->GetLastPlayed(serial);
 }
 
-QString game_list_frame::GetPlayTimeBySerial(const QString& serial)
+QString game_list_frame::GetPlayTimeByMs(int elapsed_ms)
 {
-	const qint64 elapsed_ms = m_persistent_settings->GetPlaytime(serial);
-
 	if (elapsed_ms <= 0)
 	{
 		return "";
@@ -463,15 +464,16 @@ void game_list_frame::Refresh(const bool fromDrive, const bool scrollAfter)
 {
 	if (fromDrive)
 	{
+		const Localized localized;
+
 		// Load PSF
 
 		m_game_data.clear();
 		m_notes.clear();
 
 		const std::string _hdd = Emulator::GetHddDir();
-		const std::string cat_DG = sstr(category::disc_game);
-		const std::string cat_GD = sstr(category::ps3_data);
-		const std::string cat_unknown = sstr(category::unknown);
+		const std::string cat_unknown = sstr(category::cat_unknown);
+		const std::string cat_unknown_localized = sstr(localized.category.unknown);
 
 		std::vector<std::string> path_list;
 
@@ -548,6 +550,8 @@ void game_list_frame::Refresh(const bool fromDrive, const bool scrollAfter)
 		{
 			const std::string dir = path_list[i];
 
+			const Localized thread_localized;
+
 			try
 			{
 				const std::string sfo_dir = Emulator::GetSfoDirFromGamePath(dir, Emu.GetUsr());
@@ -562,11 +566,11 @@ void game_list_frame::Refresh(const bool fromDrive, const bool scrollAfter)
 				GameInfo game;
 				game.path         = dir;
 				game.serial       = psf::get_string(psf, "TITLE_ID", "");
-				game.name         = psf::get_string(psf, "TITLE", cat_unknown);
-				game.app_ver      = psf::get_string(psf, "APP_VER", cat_unknown);
-				game.version      = psf::get_string(psf, "VERSION", cat_unknown);
+				game.name         = psf::get_string(psf, "TITLE", cat_unknown_localized);
+				game.app_ver      = psf::get_string(psf, "APP_VER", cat_unknown_localized);
+				game.version      = psf::get_string(psf, "VERSION", cat_unknown_localized);
 				game.category     = psf::get_string(psf, "CATEGORY", cat_unknown);
-				game.fw           = psf::get_string(psf, "PS3_SYSTEM_VER", cat_unknown);
+				game.fw           = psf::get_string(psf, "PS3_SYSTEM_VER", cat_unknown_localized);
 				game.parental_lvl = psf::get_integer(psf, "PARENTAL_LEVEL", 0);
 				game.resolution   = psf::get_integer(psf, "RESOLUTION", 0);
 				game.sound_format = psf::get_integer(psf, "SOUND_FORMAT", 0);
@@ -623,25 +627,27 @@ void game_list_frame::Refresh(const bool fromDrive, const bool scrollAfter)
 					m_titles.insert(serial, title);
 				}
 
-				auto cat = category::cat_boot.find(game.category);
-				if (cat != category::cat_boot.end())
+				auto qt_cat = qstr(game.category);
+				auto cat = thread_localized.category.cat_boot.find(qt_cat);
+				if (cat != thread_localized.category.cat_boot.end())
 				{
 					game.icon_path = sfo_dir + "/ICON0.PNG";
-					game.category = sstr(cat->second);
+					qt_cat = cat->second;
 				}
-				else if ((cat = category::cat_data.find(game.category)) != category::cat_data.end())
+				else if ((cat = thread_localized.category.cat_data.find(qt_cat)) != thread_localized.category.cat_data.end())
 				{
 					game.icon_path = sfo_dir + "/ICON0.PNG";
-					game.category = sstr(cat->second);
+					qt_cat = cat->second;
 				}
 				else if (game.category == cat_unknown)
 				{
 					game.icon_path = sfo_dir + "/ICON0.PNG";
+					qt_cat = localized.category.unknown;
 				}
 				else
 				{
 					game.icon_path = sfo_dir + "/ICON0.PNG";
-					game.category = sstr(category::other);
+					qt_cat = localized.category.other;
 				}
 
 				mutex_cat.unlock();
@@ -662,7 +668,7 @@ void game_list_frame::Refresh(const bool fromDrive, const bool scrollAfter)
 				const QColor color = getGridCompatibilityColor(compat.color);
 				const QPixmap pxmap = PaintedPixmap(icon, hasCustomConfig, hasCustomPadConfig, color);
 
-				games.push(std::make_shared<gui_game_info>(gui_game_info{game, compat, icon, pxmap, hasCustomConfig, hasCustomPadConfig}));
+				games.push(std::make_shared<gui_game_info>(gui_game_info{game, qt_cat, compat, icon, pxmap, hasCustomConfig, hasCustomPadConfig}));
 			}
 			catch (const std::exception& e)
 			{
@@ -679,12 +685,12 @@ void game_list_frame::Refresh(const bool fromDrive, const bool scrollAfter)
 		// Try to update the app version for disc games if there is a patch
 		for (const auto& entry : m_game_data)
 		{
-			if (entry->info.category == cat_DG)
+			if (entry->info.category == "DG")
 			{
 				for (const auto& other : m_game_data)
 				{
 					// The patch is game data and must have the same serial and an app version
-					if (entry->info.serial == other->info.serial && other->info.category == cat_GD && other->info.app_ver != cat_unknown)
+					if (entry->info.serial == other->info.serial && other->info.category == "GD" && other->info.app_ver != cat_unknown)
 					{
 						try
 						{
@@ -917,7 +923,7 @@ void game_list_frame::ShowContextMenu(const QPoint &pos)
 	hide_serial->setChecked(m_hidden_list.contains(serial));
 	myMenu.addSeparator();
 	QMenu* remove_menu = myMenu.addMenu(tr("&Remove"));
-	QAction* removeGame = remove_menu->addAction(tr("&Remove %1").arg(qstr(currGame.category)));
+	QAction* removeGame = remove_menu->addAction(tr("&Remove %1").arg(gameinfo->localized_category));
 	if (gameinfo->hasCustomConfig)
 	{
 		QAction* remove_custom_config = remove_menu->addAction(tr("&Remove Custom Configuration"));
@@ -1070,7 +1076,7 @@ void game_list_frame::ShowContextMenu(const QPoint &pos)
 			return;
 		}
 
-		QMessageBox* mb = new QMessageBox(QMessageBox::Question, tr("Confirm %1 Removal").arg(qstr(currGame.category)), tr("Permanently remove %0 from drive?\nPath: %1").arg(name).arg(qstr(currGame.path)), QMessageBox::Yes | QMessageBox::No, this);
+		QMessageBox* mb = new QMessageBox(QMessageBox::Question, tr("Confirm %1 Removal").arg(gameinfo->localized_category), tr("Permanently remove %0 from drive?\nPath: %1").arg(name).arg(qstr(currGame.path)), QMessageBox::Yes | QMessageBox::No, this);
 		mb->setCheckBox(new QCheckBox(tr("Remove caches and custom configs")));
 		mb->deleteLater();
 		if (mb->exec() == QMessageBox::Yes)
@@ -1087,12 +1093,12 @@ void game_list_frame::ShowContextMenu(const QPoint &pos)
 					RemoveCustomPadConfiguration(currGame.serial);
 				}
 				m_game_data.erase(std::remove(m_game_data.begin(), m_game_data.end(), gameinfo), m_game_data.end());
-				game_list_log.success("Removed %s %s in %s", currGame.category, currGame.name, currGame.path);
+				game_list_log.success("Removed %s %s in %s", sstr(gameinfo->localized_category), currGame.name, currGame.path);
 				Refresh(true);
 			}
 			else
 			{
-				game_list_log.error("Failed to remove %s %s in %s (%s)", currGame.category, currGame.name, currGame.path, fs::g_tls_error);
+				game_list_log.error("Failed to remove %s %s in %s (%s)", sstr(gameinfo->localized_category), currGame.name, currGame.path, fs::g_tls_error);
 				QMessageBox::critical(this, tr("Failure!"), tr(remove_caches ? "Failed to remove %0 from drive!\nPath: %1\nCaches and custom configs have been left intact." : "Failed to remove %0 from drive!\nPath: %1").arg(name).arg(qstr(currGame.path)));
 			}
 		}
@@ -1173,13 +1179,13 @@ void game_list_frame::ShowContextMenu(const QPoint &pos)
 	});
 
 	// Disable options depending on software category
-	QString category = qstr(currGame.category);
+	const QString category = qstr(currGame.category);
 
-	if (category == category::disc_game)
+	if (category == cat_disc_game)
 	{
 		removeGame->setEnabled(false);
 	}
-	else if (category != category::hdd_game)
+	else if (category != cat_hdd_game)
 	{
 		checkCompat->setEnabled(false);
 	}
@@ -1913,6 +1919,10 @@ int game_list_frame::PopulateGameList()
 	m_gameList->clearContents();
 	m_gameList->setRowCount(m_game_data.size());
 
+	// Default locale. Uses current Qt application language.
+	const QLocale locale{};
+	const Localized localized;
+
 	int row = 0, index = -1;
 	for (const auto& game : m_game_data)
 	{
@@ -1972,15 +1982,32 @@ int game_list_frame::PopulateGameList()
 		// Version
 		QString app_version = qstr(game->info.app_ver);
 
-		if (app_version == category::unknown)
+		if (app_version == localized.category.unknown)
 		{
 			// Fall back to Disc/Pkg Revision
 			app_version = qstr(game->info.version);
 		}
 
-		if (!game->compat.version.isEmpty() && (app_version == category::unknown || game->compat.version.toDouble() > app_version.toDouble()))
+		if (!game->compat.version.isEmpty() && (app_version == localized.category.unknown || game->compat.version.toDouble() > app_version.toDouble()))
 		{
 			app_version = tr("%0 (Update available: %1)").arg(app_version, game->compat.version);
+		}
+
+		// Playtimes
+		const qint64 elapsed_ms = m_persistent_settings->GetPlaytime(serial);
+
+		// Last played (support outdated values)
+		QDate last_played;
+		const QString last_played_str = GetLastPlayedBySerial(serial);
+
+		if (!last_played_str.isEmpty())
+		{
+			last_played = QDate::fromString(last_played_str, gui::persistent::last_played_date_format);
+
+			if (!last_played.isValid())
+			{
+				last_played = QDate::fromString(last_played_str, gui::persistent::last_played_date_format_old);
+			}
 		}
 
 		m_gameList->setItem(row, gui::column_icon,       icon_item);
@@ -1988,14 +2015,14 @@ int game_list_frame::PopulateGameList()
 		m_gameList->setItem(row, gui::column_serial,     serial_item);
 		m_gameList->setItem(row, gui::column_firmware,   new custom_table_widget_item(game->info.fw));
 		m_gameList->setItem(row, gui::column_version,    new custom_table_widget_item(app_version));
-		m_gameList->setItem(row, gui::column_category,   new custom_table_widget_item(game->info.category));
+		m_gameList->setItem(row, gui::column_category,   new custom_table_widget_item(game->localized_category));
 		m_gameList->setItem(row, gui::column_path,       new custom_table_widget_item(game->info.path));
 		m_gameList->setItem(row, gui::column_move,       new custom_table_widget_item(sstr(supports_move ? tr("Supported") : tr("Not Supported")), Qt::UserRole, !supports_move));
-		m_gameList->setItem(row, gui::column_resolution, new custom_table_widget_item(GetStringFromU32(game->info.resolution, resolution::mode, true)));
-		m_gameList->setItem(row, gui::column_sound,      new custom_table_widget_item(GetStringFromU32(game->info.sound_format, sound::format, true)));
-		m_gameList->setItem(row, gui::column_parental,   new custom_table_widget_item(GetStringFromU32(game->info.parental_lvl, parental::level), Qt::UserRole, game->info.parental_lvl));
-		m_gameList->setItem(row, gui::column_last_play,  new custom_table_widget_item(GetLastPlayedBySerial(serial)));
-		m_gameList->setItem(row, gui::column_playtime,   new custom_table_widget_item(GetPlayTimeBySerial(serial)));
+		m_gameList->setItem(row, gui::column_resolution, new custom_table_widget_item(GetStringFromU32(game->info.resolution, localized.resolution.mode, true)));
+		m_gameList->setItem(row, gui::column_sound,      new custom_table_widget_item(GetStringFromU32(game->info.sound_format, localized.sound.format, true)));
+		m_gameList->setItem(row, gui::column_parental,   new custom_table_widget_item(GetStringFromU32(game->info.parental_lvl, localized.parental.level), Qt::UserRole, game->info.parental_lvl));
+		m_gameList->setItem(row, gui::column_last_play,  new custom_table_widget_item(locale.toString(last_played, gui::persistent::last_played_date_format_new), Qt::UserRole, last_played));
+		m_gameList->setItem(row, gui::column_playtime,   new custom_table_widget_item(GetPlayTimeByMs(elapsed_ms), Qt::UserRole, elapsed_ms));
 		m_gameList->setItem(row, gui::column_compat,     compat_item);
 
 		if (selected_item == game->info.icon_path)
