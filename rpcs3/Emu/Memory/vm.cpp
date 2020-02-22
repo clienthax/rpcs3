@@ -328,6 +328,7 @@ namespace vm
 	};
 
 	// Memory pages
+
 	std::array<memory_page, 0x100000000 / 4096> g_pages{};
 
 	static void _page_map(u32 addr, u8 flags, u32 size, utils::shm* shm)
@@ -1127,7 +1128,7 @@ namespace vm
 		{
 			g_locations =
 			{
-				std::make_shared<block_t>(0x00010000, 0x1FFF0000, 0x200), // main
+				std::make_shared<block_t>(0x00000000, 0x1FFF0000, 0x200), // main
 				std::make_shared<block_t>(0x20000000, 0x10000000, 0x201), // user 64k pages
 				nullptr, // user 1m pages
 				nullptr, // rsx context

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/Memory/vm.h"
 #include "Emu/Cell/ErrorCodes.h"
@@ -9,7 +9,8 @@ LOG_CHANNEL(sys_rsxaudio);
 
 error_code sys_rsxaudio_initialize(vm::ptr<u32> handle)
 {
-	sys_rsxaudio.todo("sys_rsxaudio_initialize(handle=*0x%x)", handle);
+	sys_rsxaudio.todo("sys_rsxaudio_initialize()");
+	*handle = 0xcacad0d0;
 
 	return CELL_OK;
 }
@@ -24,6 +25,7 @@ error_code sys_rsxaudio_finalize(u32 handle)
 error_code sys_rsxaudio_import_shared_memory(u32 handle, vm::ptr<u64> addr)
 {
 	sys_rsxaudio.todo("sys_rsxaudio_import_shared_memory(handle=0x%x, addr=*0x%x)", handle, addr);
+	addr[0] = vm::alloc(0x40000, vm::main);
 
 	return CELL_OK;
 }

@@ -419,3 +419,4 @@ error_code sys_fs_truncate2(ppu_thread& ppu, u32 fd, u64 size);
 error_code sys_fs_mount(ppu_thread& ppu, vm::cptr<char> dev_name, vm::cptr<char> file_system, vm::cptr<char> path, s32 unk1, s32 prot, s32 unk3, vm::cptr<char> str1, u32 str_len);
 error_code sys_fs_get_mount_info_size(ppu_thread& ppu, vm::ptr<u64> len);
 error_code sys_fs_get_mount_info(ppu_thread& ppu, vm::ptr<CellFsMountInfo> info, u32 len, vm::ptr<u64> out_len);
+error_code sys_fs_unmount(ppu_thread& ppu, vm::cptr<char> dev_name, int unk1, int unk2);

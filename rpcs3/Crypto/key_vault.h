@@ -22,7 +22,8 @@ enum SELF_KEY_TYPE {
 };
 
 struct SELF_KEY {
-	u64 version;
+	u64 version_start;
+	u64 version_end;
 	u16 revision;
 	u32 self_type;
 	u8 erk[0x20];
@@ -31,7 +32,7 @@ struct SELF_KEY {
 	u8 priv[0x15];
 	u32 curve_type;
 
-	SELF_KEY(u64 ver, u16 rev, u32 type, const std::string& e, const std::string& r, const std::string& pb, const std::string& pr, u32 ct);
+	SELF_KEY(u64 ver_start, u64 ver_end, u16 rev, u32 type, const std::string& e, const std::string& r, const std::string& pb, const std::string& pr, u32 ct);
 };
 
 static u8 PKG_AES_KEY_IDU[0x10] = {0x5d, 0xb9, 0x11, 0xe6, 0xb7, 0xe5, 0x0a, 0x7d, 0x32, 0x15, 0x38, 0xfd, 0x7c, 0x66, 0xf1, 0x7b};

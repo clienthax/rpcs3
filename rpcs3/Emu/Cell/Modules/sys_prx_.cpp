@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Emu/System.h"
 #include "Emu/Cell/PPUModule.h"
 
@@ -161,7 +161,7 @@ error_code sys_prx_unload_module(ppu_thread& ppu, u32 id, u64 flags, vm::ptr<sys
 	return _sys_prx_unload_module(id, flags, pOpt);
 }
 
-error_code sys_prx_register_library(ppu_thread& ppu, vm::ptr<void> lib_entry)
+error_code sys_prx_register_library(ppu_thread& ppu, vm::ptr<sys_prx_register_library_t> lib_entry)
 {
 	sysPrxForUser.warning("sys_prx_register_library(lib_entry=*0x%x)", lib_entry);
 

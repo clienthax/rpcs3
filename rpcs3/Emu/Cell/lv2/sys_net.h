@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Utilities/bit_set.h"
 #include "Utilities/mutex.h"
@@ -389,7 +389,7 @@ error_code _sys_net_read_dump(ppu_thread&, s32 id, vm::ptr<void> buf, s32 len, v
 error_code _sys_net_close_dump(ppu_thread&, s32 id, vm::ptr<s32> pflags);
 error_code _sys_net_write_dump(ppu_thread&, s32 id, vm::cptr<void> buf, s32 len, u32 unknown);
 error_code sys_net_abort(ppu_thread&, s32 type, u64 arg, s32 flags);
-error_code sys_net_infoctl(ppu_thread&, s32 cmd, vm::ptr<void> arg);
+error_code sys_net_infoctl(ppu_thread&, u64 cmd, vm::ptr<void> arg);
 error_code sys_net_control(ppu_thread&, u32 arg1, s32 arg2, vm::ptr<void> arg3, s32 arg4);
 error_code sys_net_bnet_ioctl(ppu_thread&, s32 arg1, u32 arg2, u32 arg3);
 error_code sys_net_bnet_sysctl(ppu_thread&, u32 arg1, u32 arg2, u32 arg3, vm::ptr<void> arg4, u32 arg5, u32 arg6);

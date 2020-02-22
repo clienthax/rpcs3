@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "sys_gamepad.h"
 
 #include "Emu/System.h"
@@ -102,6 +102,9 @@ u32 sys_gamepad_ycon_if(uint8_t packet_id, vm::ptr<uint8_t> in, vm::ptr<uint8_t>
 		break;
 	case 9:
 		return sys_gamepad_ycon_is_gem(in, out);
+		break;
+	case 10:
+		return CELL_OK;
 		break;
 
 	default:

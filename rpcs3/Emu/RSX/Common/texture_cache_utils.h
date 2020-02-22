@@ -1341,7 +1341,7 @@ namespace rsx
 
 		void on_miss()
 		{
-			rsx_log.warning("Cache miss at address 0x%X. This is gonna hurt...", get_section_base());
+			//rsx_log.warning("Cache miss at address 0x%X. This is gonna hurt...", get_section_base());
 			m_tex_cache->on_miss(*derived());
 		}
 

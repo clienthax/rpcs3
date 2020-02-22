@@ -176,7 +176,7 @@ u64 get_guest_system_time()
 // Functions
 error_code sys_time_get_timezone(vm::ptr<s32> timezone, vm::ptr<s32> summertime)
 {
-	sys_time.warning("sys_time_get_timezone(timezone=*0x%x, summertime=*0x%x)", timezone, summertime);
+	sys_time.trace("sys_time_get_timezone(timezone=*0x%x, summertime=*0x%x)", timezone, summertime);
 
 	*timezone   = 180;
 	*summertime = 0;
@@ -277,6 +277,7 @@ u64 sys_time_get_timebase_frequency()
 error_code sys_time_get_rtc(vm::ptr<u64> rtc)
 {
 	sys_time.todo("sys_time_get_rtc(rtc=*0x%x)", rtc);
+	*rtc = get_timebased_time();
 
 	return CELL_OK;
 }

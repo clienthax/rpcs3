@@ -318,6 +318,31 @@ error_code cellVideoOutSetCopyControl(u32 videoOut, u32 control)
 	return CELL_OK;
 }
 
+
+error_code cellVideoOutConfigure2()
+{
+	cellAvconfExt.todo("cellVideoOutConfigure2()");
+	return CELL_OK;
+}
+
+error_code cellAudioOutGetConfiguration2()
+{
+	cellAvconfExt.todo("cellAudioOutGetConfiguration2()");
+	return CELL_OK;
+}
+
+error_code cellAudioOutConfigure2()
+{
+	cellAvconfExt.todo("cellAudioOutConfigure2()");
+	return CELL_OK;
+}
+
+error_code cellVideoOutGetResolutionAvailability2()
+{
+	cellAvconfExt.todo("cellVideoOutGetResolutionAvailability2()");
+	return CELL_OK;
+}
+
 DECLARE(ppu_module_manager::cellAvconfExt)
 ("cellSysutilAvconfExt", []() {
 	REG_FUNC(cellSysutilAvconfExt, cellAudioOutUnregisterDevice);
@@ -337,4 +362,8 @@ DECLARE(ppu_module_manager::cellAvconfExt)
 	REG_FUNC(cellSysutilAvconfExt, cellAudioInUnregisterDevice);
 	REG_FUNC(cellSysutilAvconfExt, cellVideoOutGetScreenSize);
 	REG_FUNC(cellSysutilAvconfExt, cellVideoOutSetCopyControl);
+	REG_FUNC(cellSysutilAvconfExt, cellVideoOutConfigure2);
+	REG_FUNC(cellSysutilAvconfExt, cellAudioOutGetConfiguration2);
+	REG_FUNC(cellSysutilAvconfExt, cellAudioOutConfigure2);
+	REG_FUNC(cellSysutilAvconfExt, cellVideoOutGetResolutionAvailability2);
 });

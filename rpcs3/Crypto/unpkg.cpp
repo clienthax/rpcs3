@@ -241,12 +241,29 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 		if (header.pkg_type == PKG_RELEASE_TYPE_DEBUG)
 		{
 			// Debug key
+			/*be_t<u64> input[8] = {
+				//16
+				//32
+				//48
+				//64
+			    header.qa_digest[0],
+			    header.qa_digest[0],
+			    header.qa_digest[1],
+			    header.qa_digest[1],
+			};*/
+
+			//Arcade key
 			be_t<u64> input[8] = {
-			    header.qa_digest[0],
-			    header.qa_digest[0],
-			    header.qa_digest[1],
-			    header.qa_digest[1],
+			    header.qa_digest[0],//8
+			    header.qa_digest[0],//16
+			    header.qa_digest[0],//24
+			    header.qa_digest[1],//32
+
+				0xa0a0a0a0a0a0a0a0,
+				0xa0a0a0a0a0a0a0a0,
+				0xa0a0a0a0a0a0a0a0
 			};
+
 
 			for (u64 i = 0; i < blocks; i++)
 			{
@@ -344,6 +361,7 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 		case 0x13:
 		case 0x15:
 		case 0x16:
+		case 0x19:
 		{
 			const std::string path = dir + vfs::escape(name);
 
@@ -441,7 +459,7 @@ bool pkg_install(const std::string& path, atomic_t<double>& sync)
 		default:
 		{
 			num_failures++;
-			pkg_log.error("Unknown PKG entry type (0x%x) %s", entry.type, name);
+			pkg_log.error("Unknown PKG entry type (0x%x) %s", entry.type & 0xff, name);
 		}
 		}
 	}

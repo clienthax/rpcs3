@@ -11,75 +11,36 @@
 #include "sys_fs.h"
 #include "sys_process.h"
 
-
-
 extern std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object&, const std::string&);
 extern void ppu_unload_prx(const lv2_prx& prx);
 extern void ppu_initialize(const ppu_module&);
 
 LOG_CHANNEL(sys_prx);
 
-static const std::unordered_map<std::string, int> s_prx_ignore
-{
-	{ "/dev_flash/sys/external/libaudio.sprx", 0 },
-	{ "/dev_flash/sys/external/libcamera.sprx", 0 },
-	{ "/dev_flash/sys/external/libgem.sprx", 0 },
-	{ "/dev_flash/sys/external/libio.sprx", 0 },
-	{ "/dev_flash/sys/external/libmedi.sprx", 0 },
-	{ "/dev_flash/sys/external/libmic.sprx", 0 },
-	{ "/dev_flash/sys/external/libnetctl.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_ap.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_authdialog.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_avc_ext.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_avc2.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_avconf_ext.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_bgdl.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_cross_controller.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_dec_psnvideo.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_dtcp_ip.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_game.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_game_exec.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_imejp.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_misc.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_music.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_music_decode.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_music_export.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np_clans.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np_commerce2.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np_eula.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np_installer.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np_sns.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np_trophy.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np_tus.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np_util.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_np2.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_oskdialog_ext.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_pesm.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_photo_decode.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_photo_export.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_photo_export2.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_photo_import.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_photo_network_sharing.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_print.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_rec.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_remoteplay.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_rtcalarm.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_savedata.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_savedata_psp.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_screenshot.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_search.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_storagedata.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_subdisplay.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_syschat.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_sysconf_ext.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_userinfo.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_video_export.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_video_player.sprx", 0 },
-	{ "/dev_flash/sys/external/libsysutil_video_upload.sprx", 0 },
-	{ "/dev_flash/sys/external/libvdec.sprx", 0 },
-	{ "/dev_flash/sys/external/libvoice.sprx", 0 },
+static const std::unordered_map<std::string, int> s_prx_ignore{
+    {"/dev_flash/sys/external/libaudio.sprx", 0}, {"/dev_flash/sys/external/libcamera.sprx", 0}, {"/dev_flash/sys/external/libgem.sprx", 0}, {"/dev_flash/sys/external/libio.sprx", 0},
+    {"/dev_flash/sys/external/libmedi.sprx", 0}, {"/dev_flash/sys/external/libmic.sprx", 0}, {"/dev_flash/sys/external/libnetctl.sprx", 0}, {"/dev_flash/sys/external/libsysutil.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_ap.sprx", 0}, {"/dev_flash/sys/external/libsysutil_authdialog.sprx", 0}, {"/dev_flash/sys/external/libsysutil_avc_ext.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_avc2.sprx", 0}, {"/dev_flash/sys/external/libsysutil_avconf_ext.sprx", 0}, {"/dev_flash/sys/external/libsysutil_bgdl.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_cross_controller.sprx", 0}, {"/dev_flash/sys/external/libsysutil_dec_psnvideo.sprx", 0}, {"/dev_flash/sys/external/libsysutil_dtcp_ip.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_game.sprx", 0}, {"/dev_flash/sys/external/libsysutil_game_exec.sprx", 0}, {"/dev_flash/sys/external/libsysutil_imejp.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_misc.sprx", 0}, {"/dev_flash/sys/external/libsysutil_music.sprx", 0}, {"/dev_flash/sys/external/libsysutil_music_decode.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_music_export.sprx", 0}, {"/dev_flash/sys/external/libsysutil_np.sprx", 0}, {"/dev_flash/sys/external/libsysutil_np_clans.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_np_commerce2.sprx", 0}, {"/dev_flash/sys/external/libsysutil_np_eula.sprx", 0}, {"/dev_flash/sys/external/libsysutil_np_installer.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_np_sns.sprx", 0}, {"/dev_flash/sys/external/libsysutil_np_trophy.sprx", 0}, {"/dev_flash/sys/external/libsysutil_np_tus.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_np_util.sprx", 0}, {"/dev_flash/sys/external/libsysutil_np2.sprx", 0}, {"/dev_flash/sys/external/libsysutil_oskdialog_ext.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_pesm.sprx", 0}, {"/dev_flash/sys/external/libsysutil_photo_decode.sprx", 0}, {"/dev_flash/sys/external/libsysutil_photo_export.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_photo_export2.sprx", 0}, {"/dev_flash/sys/external/libsysutil_photo_import.sprx", 0}, {"/dev_flash/sys/external/libsysutil_photo_network_sharing.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_print.sprx", 0}, {"/dev_flash/sys/external/libsysutil_rec.sprx", 0}, {"/dev_flash/sys/external/libsysutil_remoteplay.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_rtcalarm.sprx", 0}, {"/dev_flash/sys/external/libsysutil_savedata.sprx", 0}, {"/dev_flash/sys/external/libsysutil_savedata_psp.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_screenshot.sprx", 0}, {"/dev_flash/sys/external/libsysutil_search.sprx", 0}, {"/dev_flash/sys/external/libsysutil_storagedata.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_subdisplay.sprx", 0}, {"/dev_flash/sys/external/libsysutil_syschat.sprx", 0}, {"/dev_flash/sys/external/libsysutil_sysconf_ext.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_userinfo.sprx", 0}, {"/dev_flash/sys/external/libsysutil_video_export.sprx", 0}, {"/dev_flash/sys/external/libsysutil_video_player.sprx", 0},
+    {"/dev_flash/sys/external/libsysutil_video_upload.sprx", 0}, {"/dev_flash/sys/external/libvdec.sprx", 0}, {"/dev_flash/sys/external/libvoice.sprx", 0},
+    //    {"/dev_flash/sys/internal/libfs_utility2.sprx", 0},//Loaded in arcade firmwares during vsh start
+    {"/dev_flash/sys/internal/libfs_utility_init.sprx", 0}, // Trys to perform FSCK on devices..
+    //{"/dev_flash/vsh/module/software_update_plugin.sprx", 0} // Trys to mount device as raw
+
 };
 
 static error_code prx_load_module(const std::string& vpath, u64 flags, vm::ptr<sys_prx_load_module_option_t> pOpt, fs::file src = {})
@@ -102,8 +63,7 @@ static error_code prx_load_module(const std::string& vpath, u64 flags, vm::ptr<s
 	std::string name = vpath.substr(vpath.find_last_of('/') + 1);
 	std::string path = vfs::get(vpath);
 
-	const auto existing = idm::select<lv2_obj, lv2_prx>([&](u32, lv2_prx& prx)
-	{
+	const auto existing = idm::select<lv2_obj, lv2_prx>([&](u32, lv2_prx& prx) {
 		if (prx.name == name && prx.path == path)
 		{
 			return true;
@@ -311,14 +271,42 @@ error_code _sys_prx_unload_module(u32 id, u64 flags, vm::ptr<sys_prx_unload_modu
 
 	ppu_unload_prx(*prx);
 
-	//s32 result = prx->exit ? prx->exit() : CELL_OK;
+	//	s32 result = prx->exit ? prx->exit() : CELL_OK;
 
 	return CELL_OK;
 }
 
-error_code _sys_prx_register_module()
+error_code _sys_prx_register_module(vm::cptr<char> name, vm::ptr<void> opt)
 {
-	sys_prx.todo("_sys_prx_register_module()");
+	sys_prx.todo("_sys_prx_register_module(name=%s, opt=*0x%x)", name, opt);
+
+	if (!opt)
+	{
+		return CELL_EINVAL;
+	}
+
+	const auto size_check = vm::static_ptr_cast<u64>(opt);
+	if (*size_check == 0x20)
+	{
+		const auto info = vm::static_ptr_cast<sys_prx_register_module_0x20_t>(opt);
+		sys_prx.todo("opt: sys_prx_register_module_t");
+		sys_prx.todo("_____size=0x%llx, toc=0x%x, toc_size=0x%x", info->size, info->toc, info->toc_size);
+		sys_prx.todo("_____stubs_ea=0x%x, stubs_size=0x%x, error_handler=0x%x", info->stubs_ea, info->stubs_size, info->error_handler_opd);
+	}
+	else if (*size_check == 0x30)
+	{
+		const auto info = vm::static_ptr_cast<sys_prx_register_module_0x30_t>(opt);
+		sys_prx.todo("opt: sys_prx_register_module_t");
+		sys_prx.todo("_____size=0x%llx, unk2=0x%x, unk3=0x%x, unk4=0x%x", info->size, info->unk2, info->unk3, info->unk4);
+		sys_prx.todo("_____lib_entries_ea=0x%llx, lib_entries_size=0x%x", info->lib_entries_ea, info->lib_entries_size);
+		sys_prx.todo("_____lib_stub_ea=0x%x, lib_stub_size=0x%x, error_handler=0x%x", info->lib_stub_ea, info->lib_stub_size, info->error_handler_opd);
+	}
+	else
+	{
+		sys_prx.todo("Unknown size:%d", *size_check);
+		Emu.Pause();
+	}
+
 	return CELL_OK;
 }
 
@@ -328,9 +316,15 @@ error_code _sys_prx_query_module()
 	return CELL_OK;
 }
 
-error_code _sys_prx_register_library(vm::ptr<void> library)
+error_code _sys_prx_register_library(vm::ptr<sys_prx_register_library_t> library)
 {
 	sys_prx.todo("_sys_prx_register_library(library=*0x%x)", library);
+	sys_prx.todo("opt: sys_prx_register_library_t");
+	sys_prx.todo("_____size=0x%x, ver=0x%x, attr=0x%x", library->size, library->ver, library->attr);
+	sys_prx.todo("_____num_func=0x%x, num_var=0x%x, num_tlsvar=0x%x", library->num_func, library->num_var, library->num_tlsvar);
+	sys_prx.todo("_____info_hash=0x%x, info_tlshash=0x%x", library->info_hash, library->info_tlshash);
+	sys_prx.todo("_____name_ea=0x%x, fnid_ea=0x%x, fstub_ea=0x%x", library->name_ea, library->fnid_ea, library->fstub_ea);
+
 	return CELL_OK;
 }
 
@@ -387,11 +381,11 @@ error_code _sys_prx_get_module_info(u32 id, u64 flags, vm::ptr<sys_prx_module_in
 
 	std::memset(pOpt->info->name, 0, 30);
 	std::memcpy(pOpt->info->name, prx->module_info_name, 28);
-	pOpt->info->version[0] = prx->module_info_version[0];
-	pOpt->info->version[1] = prx->module_info_version[1];
-	pOpt->info->modattribute = prx->module_info_attributes;
-	pOpt->info->start_entry = prx->start.addr();
-	pOpt->info->stop_entry = prx->stop.addr();
+	pOpt->info->version[0]       = prx->module_info_version[0];
+	pOpt->info->version[1]       = prx->module_info_version[1];
+	pOpt->info->modattribute     = prx->module_info_attributes;
+	pOpt->info->start_entry      = prx->start.addr();
+	pOpt->info->stop_entry       = prx->stop.addr();
 	pOpt->info->all_segments_num = ::size32(prx->segs);
 	if (pOpt->info->filename)
 	{
@@ -404,11 +398,11 @@ error_code _sys_prx_get_module_info(u32 id, u64 flags, vm::ptr<sys_prx_module_in
 		u32 i = 0;
 		for (; i < prx->segs.size() && i < pOpt->info->segments_num; i++)
 		{
-			pOpt->info->segments[i].index = i;
-			pOpt->info->segments[i].base = prx->segs[i].addr;
+			pOpt->info->segments[i].index  = i;
+			pOpt->info->segments[i].base   = prx->segs[i].addr;
 			pOpt->info->segments[i].filesz = prx->segs[i].filesz;
-			pOpt->info->segments[i].memsz = prx->segs[i].size;
-			pOpt->info->segments[i].type = prx->segs[i].type;
+			pOpt->info->segments[i].memsz  = prx->segs[i].size;
+			pOpt->info->segments[i].type   = prx->segs[i].type;
 		}
 		pOpt->info->segments_num = i;
 	}
@@ -420,7 +414,7 @@ error_code _sys_prx_get_module_id_by_name(vm::cptr<char> name, u64 flags, vm::pt
 {
 	sys_prx.todo("_sys_prx_get_module_id_by_name(name=%s, flags=%d, pOpt=*0x%x)", name, flags, pOpt);
 
-	//if (realName == "?") ...
+	//	if (realName == "?") ...
 
 	return CELL_PRX_ERROR_UNKNOWN_MODULE;
 }
@@ -446,33 +440,32 @@ error_code _sys_prx_stop()
 template <>
 void fmt_class_string<CellPrxError>::format(std::string& out, u64 arg)
 {
-	format_enum(out, arg, [](CellPrxError value)
-	{
+	format_enum(out, arg, [](CellPrxError value) {
 		switch (value)
 		{
-		STR_CASE(CELL_PRX_ERROR_ERROR);
-		STR_CASE(CELL_PRX_ERROR_ILLEGAL_PERM);
-		STR_CASE(CELL_PRX_ERROR_UNKNOWN_MODULE);
-		STR_CASE(CELL_PRX_ERROR_ALREADY_STARTED);
-		STR_CASE(CELL_PRX_ERROR_NOT_STARTED);
-		STR_CASE(CELL_PRX_ERROR_ALREADY_STOPPED);
-		STR_CASE(CELL_PRX_ERROR_CAN_NOT_STOP);
-		STR_CASE(CELL_PRX_ERROR_NOT_REMOVABLE);
-		STR_CASE(CELL_PRX_ERROR_LIBRARY_NOT_YET_LINKED);
-		STR_CASE(CELL_PRX_ERROR_LIBRARY_FOUND);
-		STR_CASE(CELL_PRX_ERROR_LIBRARY_NOTFOUND);
-		STR_CASE(CELL_PRX_ERROR_ILLEGAL_LIBRARY);
-		STR_CASE(CELL_PRX_ERROR_LIBRARY_INUSE);
-		STR_CASE(CELL_PRX_ERROR_ALREADY_STOPPING);
-		STR_CASE(CELL_PRX_ERROR_UNSUPPORTED_PRX_TYPE);
-		STR_CASE(CELL_PRX_ERROR_INVAL);
-		STR_CASE(CELL_PRX_ERROR_ILLEGAL_PROCESS);
-		STR_CASE(CELL_PRX_ERROR_NO_LIBLV2);
-		STR_CASE(CELL_PRX_ERROR_UNSUPPORTED_ELF_TYPE);
-		STR_CASE(CELL_PRX_ERROR_UNSUPPORTED_ELF_CLASS);
-		STR_CASE(CELL_PRX_ERROR_UNDEFINED_SYMBOL);
-		STR_CASE(CELL_PRX_ERROR_UNSUPPORTED_RELOCATION_TYPE);
-		STR_CASE(CELL_PRX_ERROR_ELF_IS_REGISTERED);
+			STR_CASE(CELL_PRX_ERROR_ERROR);
+			STR_CASE(CELL_PRX_ERROR_ILLEGAL_PERM);
+			STR_CASE(CELL_PRX_ERROR_UNKNOWN_MODULE);
+			STR_CASE(CELL_PRX_ERROR_ALREADY_STARTED);
+			STR_CASE(CELL_PRX_ERROR_NOT_STARTED);
+			STR_CASE(CELL_PRX_ERROR_ALREADY_STOPPED);
+			STR_CASE(CELL_PRX_ERROR_CAN_NOT_STOP);
+			STR_CASE(CELL_PRX_ERROR_NOT_REMOVABLE);
+			STR_CASE(CELL_PRX_ERROR_LIBRARY_NOT_YET_LINKED);
+			STR_CASE(CELL_PRX_ERROR_LIBRARY_FOUND);
+			STR_CASE(CELL_PRX_ERROR_LIBRARY_NOTFOUND);
+			STR_CASE(CELL_PRX_ERROR_ILLEGAL_LIBRARY);
+			STR_CASE(CELL_PRX_ERROR_LIBRARY_INUSE);
+			STR_CASE(CELL_PRX_ERROR_ALREADY_STOPPING);
+			STR_CASE(CELL_PRX_ERROR_UNSUPPORTED_PRX_TYPE);
+			STR_CASE(CELL_PRX_ERROR_INVAL);
+			STR_CASE(CELL_PRX_ERROR_ILLEGAL_PROCESS);
+			STR_CASE(CELL_PRX_ERROR_NO_LIBLV2);
+			STR_CASE(CELL_PRX_ERROR_UNSUPPORTED_ELF_TYPE);
+			STR_CASE(CELL_PRX_ERROR_UNSUPPORTED_ELF_CLASS);
+			STR_CASE(CELL_PRX_ERROR_UNDEFINED_SYMBOL);
+			STR_CASE(CELL_PRX_ERROR_UNSUPPORTED_RELOCATION_TYPE);
+			STR_CASE(CELL_PRX_ERROR_ELF_IS_REGISTERED);
 		}
 
 		return unknown;
