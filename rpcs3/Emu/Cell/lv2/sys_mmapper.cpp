@@ -458,7 +458,7 @@ error_code sys_mmapper_free_address(ppu_thread& ppu, u32 addr)
 
 	if (addr < 0x20000000 || addr >= 0xC0000000)
 	{
-		return {CELL_EINVAL, addr};
+		return { CELL_EINVAL, addr };
 	}
 
 	// If page fault notify exists and an address in this area is faulted, we can't free the memory.
@@ -479,7 +479,7 @@ error_code sys_mmapper_free_address(ppu_thread& ppu, u32 addr)
 
 	if (!area)
 	{
-		return {CELL_EINVAL, addr};
+		return { CELL_EINVAL, addr };
 	}
 
 	if (area.use_count() != 1)
@@ -600,7 +600,7 @@ error_code sys_mmapper_search_and_map(ppu_thread& ppu, u32 start_addr, u32 mem_i
 
 	if (!area || start_addr != area->addr || start_addr < 0x20000000 || start_addr >= 0xC0000000)
 	{
-		return {CELL_EINVAL, start_addr};
+		return { CELL_EINVAL, start_addr };
 	}
 
 	const auto mem = idm::get<lv2_obj, lv2_memory>(mem_id, [&](lv2_memory& mem) -> CellError
@@ -648,14 +648,14 @@ error_code sys_mmapper_unmap_shared_memory(ppu_thread& ppu, u32 addr, vm::ptr<u3
 
 	if (!area || addr < 0x20000000 || addr >= 0xC0000000)
 	{
-		return {CELL_EINVAL, addr};
+		return { CELL_EINVAL, addr };
 	}
 
 	const auto shm = area->get(addr);
 
 	if (!shm.second)
 	{
-		return {CELL_EINVAL, addr};
+		return { CELL_EINVAL, addr };
 	}
 
 	const auto mem = idm::select<lv2_obj, lv2_memory>([&](u32 id, lv2_memory& mem) -> u32
@@ -670,12 +670,12 @@ error_code sys_mmapper_unmap_shared_memory(ppu_thread& ppu, u32 addr, vm::ptr<u3
 
 	if (!mem)
 	{
-		return {CELL_EINVAL, addr};
+		return { CELL_EINVAL, addr };
 	}
 
 	if (!area->dealloc(addr, &shm.second))
 	{
-		return {CELL_EINVAL, addr};
+		return { CELL_EINVAL, addr };
 	}
 
 	// Write out the ID
@@ -696,7 +696,7 @@ error_code sys_mmapper_enable_page_fault_notification(ppu_thread& ppu, u32 start
 	auto mem = vm::get(vm::any, start_addr);
 	if (!mem || start_addr != mem->addr || start_addr < 0x20000000 || start_addr >= 0xC0000000)
 	{
-		return {CELL_EINVAL, start_addr};
+		return { CELL_EINVAL, start_addr };
 	}
 
 	// TODO: Check memory region's flags to make sure the memory can be used for page faults.

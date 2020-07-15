@@ -467,7 +467,7 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	uns_func,                                               //459 (0x1CB)  UNS
 	null_func,//BIND_FUNC(sys_prx_dbg_get_module_id_list)   //460 (0x1CC)  ROOT
 	BIND_FUNC(_sys_prx_get_module_id_by_address),           //461 (0x1CD)
-	uns_func,                                               //462 (0x1CE)  DEX
+	null_func,                                               //462 (0x1CE)  DEX
 	BIND_FUNC(_sys_prx_load_module_by_fd),                  //463 (0x1CF)
 	BIND_FUNC(_sys_prx_load_module_on_memcontainer_by_fd),  //464 (0x1D0)
 	BIND_FUNC(_sys_prx_load_module_list),                   //465 (0x1D1)
@@ -774,12 +774,12 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 	BIND_FUNC(sys_fs_chmod),                                //834 (0x342)
 	BIND_FUNC(sys_fs_chown),                                //835 (0x343)
 	null_func,//BIND_FUNC(sys_fs_newfs),                    //836 (0x344)
-	null_func,//BIND_FUNC(sys_fs_mount),                    //837 (0x345)
+	BIND_FUNC(sys_fs_mount),                    //837 (0x345)
 	null_func,//BIND_FUNC(sys_fs_unmount),                  //838 (0x346)
 	null_func,//BIND_FUNC(sys_fs_sync),                     //839 (0x347)
 	BIND_FUNC(sys_fs_disk_free),                            //840 (0x348)
-	null_func,//BIND_FUNC(sys_fs_get_mount_info_size),      //841 (0x349)
-	null_func,//BIND_FUNC(sys_fs_get_mount_info),           //842 (0x34A)
+	BIND_FUNC(sys_fs_get_mount_info_size),      //841 (0x349)
+	BIND_FUNC(sys_fs_get_mount_info),           //842 (0x34A)
 	null_func,//BIND_FUNC(sys_fs_get_fs_info_size),         //843 (0x34B)
 	null_func,//BIND_FUNC(sys_fs_get_fs_info),              //844 (0x34C)
 	BIND_FUNC(sys_fs_mapped_allocate),                      //845 (0x34D)
@@ -791,20 +791,20 @@ const std::array<ppu_function_t, 1024> s_ppu_syscall_table
 
 	null_func,//BIND_FUNC(syscall_sys_ss_get_cache_of_analog_sunset_flag), //860 (0x35C)  AUTHID
 	null_func,//BIND_FUNC(sys_ss_protected_file_db)         //861  ROOT
-	null_func,//BIND_FUNC(sys_ss_virtual_trm_manager)       //862  ROOT
-	null_func,//BIND_FUNC(sys_ss_update_manager)            //863  ROOT
+	BIND_FUNC(sys_ss_virtual_trm_manager),       //862  ROOT
+	BIND_FUNC(sys_ss_update_manager),            //863  ROOT
 	null_func,//BIND_FUNC(sys_ss_sec_hw_framework)          //864  DBG
 	BIND_FUNC(sys_ss_random_number_generator),              //865 (0x361)
 	BIND_FUNC(sys_ss_secure_rtc),                           //866  ROOT
-	null_func,//BIND_FUNC(sys_ss_appliance_info_manager)    //867  ROOT
+	BIND_FUNC(sys_ss_appliance_info_manager),    //867  ROOT
 	BIND_FUNC(sys_ss_individual_info_manager),              //868  ROOT / DBG  AUTHID
 	null_func,//BIND_FUNC(sys_ss_factory_data_manager)      //869  ROOT
 	BIND_FUNC(sys_ss_get_console_id),                       //870 (0x366)
 	BIND_FUNC(sys_ss_access_control_engine),                //871 (0x367)  DBG
 	BIND_FUNC(sys_ss_get_open_psid),                        //872 (0x368)
-	null_func,//BIND_FUNC(sys_ss_get_cache_of_product_mode), //873 (0x369)
-	null_func,//BIND_FUNC(sys_ss_get_cache_of_flash_ext_flag), //874 (0x36A)
-	null_func,//BIND_FUNC(sys_ss_get_boot_device)           //875 (0x36B)
+	BIND_FUNC(sys_ss_get_cache_of_product_mode),			//873 (0x369)
+	BIND_FUNC(sys_ss_get_cache_of_flash_ext_flag), //874 (0x36A)
+	BIND_FUNC(sys_ss_get_boot_device),           //875 (0x36B)
 	null_func,//BIND_FUNC(sys_ss_disc_access_control)       //876 (0x36C)
 	null_func,//BIND_FUNC(sys_ss_~utoken_if)                //877 (0x36D)  ROOT
 	null_func,//BIND_FUNC(sys_ss_ad_sign)                   //878 (0x36E)

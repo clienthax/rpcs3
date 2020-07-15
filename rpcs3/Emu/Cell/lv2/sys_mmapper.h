@@ -18,14 +18,14 @@ struct lv2_memory : lv2_obj
 	lv2_memory_container* const ct; // Associated memory container
 	const std::shared_ptr<utils::shm> shm;
 
-	atomic_t<u32> counter{0};
+	atomic_t<u32> counter{ 0 };
 
 	lv2_memory(u32 size, u32 align, u64 flags, lv2_memory_container* ct);
 };
 
 enum : u64
 {
-	SYS_MEMORY_PAGE_FAULT_EVENT_KEY	       = 0xfffe000000000000ULL,
+	SYS_MEMORY_PAGE_FAULT_EVENT_KEY = 0xfffe000000000000ULL,
 };
 
 enum : u64
@@ -36,10 +36,10 @@ enum : u64
 enum : u64
 {
 	SYS_MEMORY_PAGE_FAULT_CAUSE_NON_MAPPED = 0x2ULL,
-	SYS_MEMORY_PAGE_FAULT_CAUSE_READ_ONLY  = 0x1ULL,
-	SYS_MEMORY_PAGE_FAULT_TYPE_PPU_THREAD  = 0x0ULL,
-	SYS_MEMORY_PAGE_FAULT_TYPE_SPU_THREAD  = 0x1ULL,
-	SYS_MEMORY_PAGE_FAULT_TYPE_RAW_SPU     = 0x2ULL,
+	SYS_MEMORY_PAGE_FAULT_CAUSE_READ_ONLY = 0x1ULL,
+	SYS_MEMORY_PAGE_FAULT_TYPE_PPU_THREAD = 0x0ULL,
+	SYS_MEMORY_PAGE_FAULT_TYPE_SPU_THREAD = 0x1ULL,
+	SYS_MEMORY_PAGE_FAULT_TYPE_RAW_SPU = 0x2ULL,
 };
 
 struct page_fault_notification_entry
