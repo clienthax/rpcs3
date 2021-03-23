@@ -899,7 +899,7 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 			}
 			else
 			{
-				prx->segs.emplace_back(ppu_segment{});
+				//prx->segs.emplace_back(ppu_segment{});
 			}
 
 			break;
