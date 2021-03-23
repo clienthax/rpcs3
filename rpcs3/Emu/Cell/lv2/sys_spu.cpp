@@ -358,6 +358,7 @@ error_code sys_spu_thread_initialize(ppu_thread& ppu, vm::ptr<u32> thread, u32 g
 	{
 		if (img->entry_point > 0x3fffc || img->nsegs <= 0 || img->nsegs > 0x20)
 		{
+			sys_spu.error("sys_spu_thread_initialize CELL_EINVAL entry_point: 0x%x nsegs: %d", img->entry_point, img->nsegs);
 			return CELL_EINVAL;
 		}
 

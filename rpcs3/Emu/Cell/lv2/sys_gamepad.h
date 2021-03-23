@@ -4,4 +4,4 @@
 
 //Syscalls
 
-u32 sys_gamepad_ycon_if(u8 packet_id, vm::ptr<u8> in, vm::ptr<u8> out);
+u32 sys_gamepad_ycon_if(u64 packet_id, vm::ptr<u8> in, vm::ptr<u8> out);

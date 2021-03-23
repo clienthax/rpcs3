@@ -65,7 +65,7 @@ u32 sys_gamepad_ycon_is_gem(vm::ptr<u8> in, vm::ptr<u8> out)
 }
 
 // syscall(621,packet_id,u8 *in,u8 *out) Talk:LV2_Functions_and_Syscalls#Syscall_621_.280x26D.29 gamepad_if usage
-u32 sys_gamepad_ycon_if(u8 packet_id, vm::ptr<u8> in, vm::ptr<u8> out)
+u32 sys_gamepad_ycon_if(u64 packet_id, vm::ptr<u8> in, vm::ptr<u8> out)
 {
 
 	switch (packet_id)
@@ -100,9 +100,14 @@ u32 sys_gamepad_ycon_if(u8 packet_id, vm::ptr<u8> in, vm::ptr<u8> out)
 	case 9:
 		return sys_gamepad_ycon_is_gem(in, out);
 		break;
+	case 10:
+		// if not initalized, return einval.. in/out is null
+		// maybe just a second init?
+		return CELL_OK;
+		break;
 
 	default:
-		sys_gamepad.error("sys_gamepad_ycon_if(packet_id=*%d, in=%d, out=%d), unknown packet id", packet_id, in, out);
+		sys_gamepad.error("sys_gamepad_ycon_if(packet_id=0x%x, in=%d, out=%d), unknown packet id", packet_id, in, out);
 		break;
 	}
 

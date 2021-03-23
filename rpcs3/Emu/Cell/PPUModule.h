@@ -50,6 +50,29 @@ struct ppu_static_function
 	}
 };
 
+struct GlobalSymbolTable {
+	GlobalSymbolTable() = default;
+
+	GlobalSymbolTable(const GlobalSymbolTable&) = delete;
+
+	GlobalSymbolTable(GlobalSymbolTable&&) = default;
+
+	GlobalSymbolTable& operator=(const GlobalSymbolTable&) = delete;
+
+	GlobalSymbolTable& operator=(GlobalSymbolTable&&) = default;
+
+	std::unordered_map<std::string, u32> symmap;
+};
+
+struct elf64_sym {
+	be_t<u32> name;
+	u8 info;
+	u8 other;
+	be_t<u16> shndx;
+	be_t<u64> value;
+	be_t<u64> size;
+};
+
 // HLE variable information
 struct ppu_static_variable
 {
@@ -248,6 +271,7 @@ public:
 	static const ppu_static_module cellVpost;
 	static const ppu_static_module libad_async;
 	static const ppu_static_module libad_core;
+	static const ppu_static_module libfs_utility_init;
 	static const ppu_static_module libmedi;
 	static const ppu_static_module libmixer;
 	static const ppu_static_module libsnd3;
