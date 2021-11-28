@@ -105,7 +105,7 @@ static u8* add_jit_memory(usz size, uint align)
 }
 
 jit_runtime::jit_runtime()
-	: HostRuntime()
+	: JitRuntime()
 {
 }
 
@@ -115,7 +115,7 @@ jit_runtime::~jit_runtime()
 
 asmjit::Error jit_runtime::_add(void** dst, asmjit::CodeHolder* code) noexcept
 {
-	usz codeSize = code->getCodeSize();
+	usz codeSize = code->codeSize();
 	if (!codeSize) [[unlikely]]
 	{
 		*dst = nullptr;
@@ -126,10 +126,10 @@ asmjit::Error jit_runtime::_add(void** dst, asmjit::CodeHolder* code) noexcept
 	if (!p) [[unlikely]]
 	{
 		*dst = nullptr;
-		return asmjit::kErrorNoVirtualMemory;
+		return asmjit::kErrorOutOfMemory;
 	}
 
-	usz relocSize = code->relocate(p);
+	usz relocSize = code->relocateToBase(uintptr_t(p)); // TODO seems sketchy
 	if (!relocSize) [[unlikely]]
 	{
 		*dst = nullptr;
@@ -191,12 +191,12 @@ void jit_runtime::finalize() noexcept
 	std::memcpy(alloc(s_data_init.size(), 1, false), s_data_init.data(), s_data_init.size());
 }
 
-asmjit::Runtime& asmjit::get_global_runtime()
+asmjit::JitRuntime& asmjit::get_global_runtime()
 {
 	// 16 MiB for internal needs
 	static constexpr u64 size = 1024 * 1024 * 16;
 
-	struct custom_runtime final : asmjit::HostRuntime
+	struct custom_runtime final : asmjit::JitRuntime
 	{
 		custom_runtime() noexcept
 		{
@@ -223,7 +223,7 @@ asmjit::Runtime& asmjit::get_global_runtime()
 
 		asmjit::Error _add(void** dst, asmjit::CodeHolder* code) noexcept override
 		{
-			usz codeSize = code->getCodeSize();
+			usz codeSize = code->codeSize();
 			if (!codeSize) [[unlikely]]
 			{
 				*dst = nullptr;
@@ -235,10 +235,10 @@ asmjit::Runtime& asmjit::get_global_runtime()
 			{
 				*dst = nullptr;
 				jit_log.fatal("Out of memory (static asmjit)");
-				return asmjit::kErrorNoVirtualMemory;
+				return asmjit::kErrorOutOfMemory;
 			}
 
-			usz relocSize = code->relocate(p);
+			usz relocSize = code->relocateToBase(uintptr_t(p)); // TODO seems sketchy
 			if (!relocSize) [[unlikely]]
 			{
 				*dst = nullptr;
@@ -348,11 +348,11 @@ static u64 make_null_function(const std::string& name)
 		using namespace asmjit;
 
 		// Build a "null" function that contains its name
-		const auto func = build_function_asm<void (*)()>([&](X86Assembler& c, auto& args)
+		const auto func = build_function_asm<void (*)()>([&](x86::Assembler& c, auto& args)
 		{
 			Label data = c.newLabel();
 			c.lea(args[0], x86::qword_ptr(data, 0));
-			c.jmp(imm_ptr(&null));
+			c.jmp(imm(&null));
 			c.align(kAlignCode, 16);
 			c.bind(data);
 

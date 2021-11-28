@@ -160,7 +160,7 @@ DECLARE(spu_runtime::tr_all) = []
 	return reinterpret_cast<spu_function_t>(trptr);
 }();
 
-DECLARE(spu_runtime::g_gateway) = build_function_asm<spu_function_t>([](asmjit::X86Assembler& c, auto& args)
+DECLARE(spu_runtime::g_gateway) = build_function_asm<spu_function_t>([](asmjit::x86::Assembler& c, auto& args)
 {
 	// Gateway for SPU dispatcher, converts from native to GHC calling convention, also saves RSP value for spu_escape
 	using namespace asmjit;
@@ -209,7 +209,7 @@ DECLARE(spu_runtime::g_gateway) = build_function_asm<spu_function_t>([](asmjit::
 		c.vzeroupper();
 	}
 
-	c.call(asmjit::imm_ptr(spu_runtime::tr_all));
+	c.call(asmjit::imm(spu_runtime::tr_all));
 
 	if (utils::has_avx())
 	{
@@ -249,7 +249,7 @@ DECLARE(spu_runtime::g_gateway) = build_function_asm<spu_function_t>([](asmjit::
 	c.ret();
 });
 
-DECLARE(spu_runtime::g_escape) = build_function_asm<void(*)(spu_thread*)>([](asmjit::X86Assembler& c, auto& args)
+DECLARE(spu_runtime::g_escape) = build_function_asm<void(*)(spu_thread*)>([](asmjit::x86::Assembler& c, auto& args)
 {
 	using namespace asmjit;
 
@@ -260,7 +260,7 @@ DECLARE(spu_runtime::g_escape) = build_function_asm<void(*)(spu_thread*)>([](asm
 	c.jmp(x86::qword_ptr(x86::rsp, -8));
 });
 
-DECLARE(spu_runtime::g_tail_escape) = build_function_asm<void(*)(spu_thread*, spu_function_t, u8*)>([](asmjit::X86Assembler& c, auto& args)
+DECLARE(spu_runtime::g_tail_escape) = build_function_asm<void(*)(spu_thread*, spu_function_t, u8*)>([](asmjit::x86::Assembler& c, auto& args)
 {
 	using namespace asmjit;
 

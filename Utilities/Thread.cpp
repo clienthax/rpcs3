@@ -2182,7 +2182,7 @@ thread_base::native_entry thread_base::finalize(u64 _self) noexcept
 
 thread_base::native_entry thread_base::make_trampoline(u64(*entry)(thread_base* _base))
 {
-	return build_function_asm<native_entry>([&](asmjit::X86Assembler& c, auto& args)
+	return build_function_asm<native_entry>([&](asmjit::x86::Assembler& c, auto& args)
 	{
 		using namespace asmjit;
 
@@ -2191,17 +2191,17 @@ thread_base::native_entry thread_base::make_trampoline(u64(*entry)(thread_base* 
 		c.sub(x86::rsp, 0x20);
 
 		// Call entry point (TODO: support for detached threads missing?)
-		c.call(imm_ptr(entry));
+		c.call(imm(entry));
 
 		// Call finalize, return if zero
 		c.mov(args[0], x86::rax);
-		c.call(imm_ptr<native_entry(*)(u64)>(finalize));
+		c.call(imm<native_entry(*)(u64)>(finalize));
 		c.test(x86::rax, x86::rax);
 		c.jz(_ret);
 
 		// Otherwise, call it as an entry point with first arg = new current thread
 		c.mov(x86::rbp, x86::rax);
-		c.call(imm_ptr(thread_ctrl::get_current));
+		c.call(imm(thread_ctrl::get_current));
 		c.mov(args[0], x86::rax);
 		c.add(x86::rsp, 0x28);
 		c.jmp(x86::rbp);

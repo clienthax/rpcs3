@@ -2,7 +2,9 @@
 
 // Include asmjit with warnings ignored
 #define ASMJIT_EMBED
-#define ASMJIT_DEBUG
+#define ASMJIT_STATIC
+//#define ASMJIT_DEBUG
+#define ASMJIT_BUILD_DEBUG
 
 #ifdef _MSC_VER
 #pragma warning(push, 0)
@@ -37,7 +39,7 @@ enum class jit_class
 };
 
 // ASMJIT runtime for emitting code in a single 2G region
-struct jit_runtime final : asmjit::HostRuntime
+struct jit_runtime final : asmjit::JitRuntime
 {
 	jit_runtime();
 	~jit_runtime() override;
@@ -61,11 +63,11 @@ struct jit_runtime final : asmjit::HostRuntime
 namespace asmjit
 {
 	// Should only be used to build global functions
-	asmjit::Runtime& get_global_runtime();
+	asmjit::JitRuntime& get_global_runtime();
 
 	// Emit xbegin and adjacent loop, return label at xbegin (don't use xabort please)
 	template <typename F>
-	[[nodiscard]] inline asmjit::Label build_transaction_enter(asmjit::X86Assembler& c, asmjit::Label fallback, F func)
+	[[nodiscard]] inline asmjit::Label build_transaction_enter(asmjit::x86::Assembler& c, asmjit::Label fallback, F func)
 	{
 		Label fall = c.newLabel();
 		Label begin = c.newLabel();
@@ -88,7 +90,7 @@ namespace asmjit
 	}
 
 	// Helper to spill RDX (EDX) register for RDTSC
-	inline void build_swap_rdx_with(asmjit::X86Assembler& c, std::array<X86Gp, 4>& args, const asmjit::X86Gp& with)
+	inline void build_swap_rdx_with(asmjit::x86::Assembler& c, std::array<x86::Gp, 4>& args, const asmjit::x86::Gp& with)
 	{
 #ifdef _WIN32
 		c.xchg(args[1], with);
@@ -100,7 +102,7 @@ namespace asmjit
 	}
 
 	// Get full RDTSC value into chosen register (clobbers rax/rdx or saves only rax with other target)
-	inline void build_get_tsc(asmjit::X86Assembler& c, const asmjit::X86Gp& to = asmjit::x86::rax)
+	inline void build_get_tsc(asmjit::x86::Assembler& c, const asmjit::x86::Gp& to = asmjit::x86::rax)
 	{
 		if (&to != &x86::rax && &to != &x86::rdx)
 		{
@@ -138,10 +140,9 @@ inline FT build_function_asm(F&& builder)
 	auto& rt = get_global_runtime();
 
 	CodeHolder code;
-	code.init(rt.getCodeInfo());
-	code._globalHints = asmjit::CodeEmitter::kHintOptimizedAlign;
+	code.init(rt.environment());
 
-	std::array<X86Gp, 4> args;
+	std::array<x86::Gp, 4> args;
 #ifdef _WIN32
 	args[0] = x86::rcx;
 	args[1] = x86::rdx;
@@ -154,9 +155,11 @@ inline FT build_function_asm(F&& builder)
 	args[3] = x86::rcx;
 #endif
 
-	X86Assembler compiler(&code);
+	x86::Assembler compiler(&code);
+	compiler.addEncodingOptions(asmjit::BaseEmitter::kEncodingOptionOptimizedAlign);
+
 	builder(std::ref(compiler), args);
-	ensure(compiler.getLastError() == 0);
+	// TODO ensure(compiler.getLastError() == 0);
 
 	FT result;
 

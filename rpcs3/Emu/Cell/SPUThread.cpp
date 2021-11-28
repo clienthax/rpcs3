@@ -405,7 +405,7 @@ std::array<u32, 2> op_branch_targets(u32 pc, spu_opcode_t op)
 	return res;
 }
 
-const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void* _old, const void* _new)>([](asmjit::X86Assembler& c, auto& args)
+const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void* _old, const void* _new)>([](asmjit::x86::Assembler& c, auto& args)
 {
 	using namespace asmjit;
 
@@ -463,14 +463,14 @@ const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void*
 	// Prepare data
 	if (s_tsx_avx)
 	{
-		c.vmovups(x86::ymm0, x86::yword_ptr(args[2], 0));
-		c.vmovups(x86::ymm1, x86::yword_ptr(args[2], 32));
-		c.vmovups(x86::ymm2, x86::yword_ptr(args[2], 64));
-		c.vmovups(x86::ymm3, x86::yword_ptr(args[2], 96));
-		c.vmovups(x86::ymm4, x86::yword_ptr(args[3], 0));
-		c.vmovups(x86::ymm5, x86::yword_ptr(args[3], 32));
-		c.vmovups(x86::ymm6, x86::yword_ptr(args[3], 64));
-		c.vmovups(x86::ymm7, x86::yword_ptr(args[3], 96));
+		c.vmovups(x86::ymm0, x86::ymmword_ptr(args[2], 0));
+		c.vmovups(x86::ymm1, x86::ymmword_ptr(args[2], 32));
+		c.vmovups(x86::ymm2, x86::ymmword_ptr(args[2], 64));
+		c.vmovups(x86::ymm3, x86::ymmword_ptr(args[2], 96));
+		c.vmovups(x86::ymm4, x86::ymmword_ptr(args[3], 0));
+		c.vmovups(x86::ymm5, x86::ymmword_ptr(args[3], 32));
+		c.vmovups(x86::ymm6, x86::ymmword_ptr(args[3], 64));
+		c.vmovups(x86::ymm7, x86::ymmword_ptr(args[3], 96));
 	}
 	else
 	{
@@ -519,10 +519,10 @@ const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void*
 
 	if (s_tsx_avx)
 	{
-		c.vxorps(x86::ymm0, x86::ymm0, x86::yword_ptr(x86::rbp, 0));
-		c.vxorps(x86::ymm1, x86::ymm1, x86::yword_ptr(x86::rbp, 32));
-		c.vxorps(x86::ymm2, x86::ymm2, x86::yword_ptr(x86::rbp, 64));
-		c.vxorps(x86::ymm3, x86::ymm3, x86::yword_ptr(x86::rbp, 96));
+		c.vxorps(x86::ymm0, x86::ymm0, x86::ymmword_ptr(x86::rbp, 0));
+		c.vxorps(x86::ymm1, x86::ymm1, x86::ymmword_ptr(x86::rbp, 32));
+		c.vxorps(x86::ymm2, x86::ymm2, x86::ymmword_ptr(x86::rbp, 64));
+		c.vxorps(x86::ymm3, x86::ymm3, x86::ymmword_ptr(x86::rbp, 96));
 		c.vorps(x86::ymm0, x86::ymm0, x86::ymm1);
 		c.vorps(x86::ymm1, x86::ymm2, x86::ymm3);
 		c.vorps(x86::ymm0, x86::ymm1, x86::ymm0);
@@ -552,10 +552,10 @@ const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void*
 
 	if (s_tsx_avx)
 	{
-		c.vmovaps(x86::yword_ptr(x86::rbp, 0), x86::ymm4);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 32), x86::ymm5);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 64), x86::ymm6);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 96), x86::ymm7);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 0), x86::ymm4);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 32), x86::ymm5);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 64), x86::ymm6);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 96), x86::ymm7);
 	}
 	else
 	{
@@ -582,10 +582,10 @@ const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void*
 	// Load old data to store back in rdata
 	if (s_tsx_avx)
 	{
-		c.vmovaps(x86::ymm0, x86::yword_ptr(x86::rbp, 0));
-		c.vmovaps(x86::ymm1, x86::yword_ptr(x86::rbp, 32));
-		c.vmovaps(x86::ymm2, x86::yword_ptr(x86::rbp, 64));
-		c.vmovaps(x86::ymm3, x86::yword_ptr(x86::rbp, 96));
+		c.vmovaps(x86::ymm0, x86::ymmword_ptr(x86::rbp, 0));
+		c.vmovaps(x86::ymm1, x86::ymmword_ptr(x86::rbp, 32));
+		c.vmovaps(x86::ymm2, x86::ymmword_ptr(x86::rbp, 64));
+		c.vmovaps(x86::ymm3, x86::ymmword_ptr(x86::rbp, 96));
 	}
 	else
 	{
@@ -661,10 +661,10 @@ const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void*
 
 	if (s_tsx_avx)
 	{
-		c.vxorps(x86::ymm0, x86::ymm0, x86::yword_ptr(x86::rbp, 0));
-		c.vxorps(x86::ymm1, x86::ymm1, x86::yword_ptr(x86::rbp, 32));
-		c.vxorps(x86::ymm2, x86::ymm2, x86::yword_ptr(x86::rbp, 64));
-		c.vxorps(x86::ymm3, x86::ymm3, x86::yword_ptr(x86::rbp, 96));
+		c.vxorps(x86::ymm0, x86::ymm0, x86::ymmword_ptr(x86::rbp, 0));
+		c.vxorps(x86::ymm1, x86::ymm1, x86::ymmword_ptr(x86::rbp, 32));
+		c.vxorps(x86::ymm2, x86::ymm2, x86::ymmword_ptr(x86::rbp, 64));
+		c.vxorps(x86::ymm3, x86::ymm3, x86::ymmword_ptr(x86::rbp, 96));
 		c.vorps(x86::ymm0, x86::ymm0, x86::ymm1);
 		c.vorps(x86::ymm1, x86::ymm2, x86::ymm3);
 		c.vorps(x86::ymm0, x86::ymm1, x86::ymm0);
@@ -694,10 +694,10 @@ const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void*
 
 	if (s_tsx_avx)
 	{
-		c.vmovaps(x86::yword_ptr(x86::rbp, 0), x86::ymm4);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 32), x86::ymm5);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 64), x86::ymm6);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 96), x86::ymm7);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 0), x86::ymm4);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 32), x86::ymm5);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 64), x86::ymm6);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 96), x86::ymm7);
 	}
 	else
 	{
@@ -724,10 +724,10 @@ const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void*
 	// Load previous data to store back to rdata
 	if (s_tsx_avx)
 	{
-		c.vmovaps(x86::ymm0, x86::yword_ptr(x86::rbp, 0));
-		c.vmovaps(x86::ymm1, x86::yword_ptr(x86::rbp, 32));
-		c.vmovaps(x86::ymm2, x86::yword_ptr(x86::rbp, 64));
-		c.vmovaps(x86::ymm3, x86::yword_ptr(x86::rbp, 96));
+		c.vmovaps(x86::ymm0, x86::ymmword_ptr(x86::rbp, 0));
+		c.vmovaps(x86::ymm1, x86::ymmword_ptr(x86::rbp, 32));
+		c.vmovaps(x86::ymm2, x86::ymmword_ptr(x86::rbp, 64));
+		c.vmovaps(x86::ymm3, x86::ymmword_ptr(x86::rbp, 96));
 	}
 	else
 	{
@@ -756,10 +756,10 @@ const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void*
 	// Store previous data back to rdata
 	if (s_tsx_avx)
 	{
-		c.vmovaps(x86::yword_ptr(args[2], 0), x86::ymm0);
-		c.vmovaps(x86::yword_ptr(args[2], 32), x86::ymm1);
-		c.vmovaps(x86::yword_ptr(args[2], 64), x86::ymm2);
-		c.vmovaps(x86::yword_ptr(args[2], 96), x86::ymm3);
+		c.vmovaps(x86::ymmword_ptr(args[2], 0), x86::ymm0);
+		c.vmovaps(x86::ymmword_ptr(args[2], 32), x86::ymm1);
+		c.vmovaps(x86::ymmword_ptr(args[2], 64), x86::ymm2);
+		c.vmovaps(x86::ymmword_ptr(args[2], 96), x86::ymm3);
 	}
 	else
 	{
@@ -814,7 +814,7 @@ const auto spu_putllc_tx = build_function_asm<u64(*)(u32 raddr, u64 rtime, void*
 	c.ret();
 });
 
-const auto spu_putlluc_tx = build_function_asm<u64(*)(u32 raddr, const void* rdata, cpu_thread* _spu)>([](asmjit::X86Assembler& c, auto& args)
+const auto spu_putlluc_tx = build_function_asm<u64(*)(u32 raddr, const void* rdata, cpu_thread* _spu)>([](asmjit::x86::Assembler& c, auto& args)
 {
 	using namespace asmjit;
 
@@ -857,10 +857,10 @@ const auto spu_putlluc_tx = build_function_asm<u64(*)(u32 raddr, const void* rda
 	// Prepare data
 	if (s_tsx_avx)
 	{
-		c.vmovups(x86::ymm0, x86::yword_ptr(args[1], 0));
-		c.vmovups(x86::ymm1, x86::yword_ptr(args[1], 32));
-		c.vmovups(x86::ymm2, x86::yword_ptr(args[1], 64));
-		c.vmovups(x86::ymm3, x86::yword_ptr(args[1], 96));
+		c.vmovups(x86::ymm0, x86::ymmword_ptr(args[1], 0));
+		c.vmovups(x86::ymm1, x86::ymmword_ptr(args[1], 32));
+		c.vmovups(x86::ymm2, x86::ymmword_ptr(args[1], 64));
+		c.vmovups(x86::ymm3, x86::ymmword_ptr(args[1], 96));
 	}
 	else
 	{
@@ -895,10 +895,10 @@ const auto spu_putlluc_tx = build_function_asm<u64(*)(u32 raddr, const void* rda
 
 	if (s_tsx_avx)
 	{
-		c.vmovaps(x86::yword_ptr(x86::rbp, 0), x86::ymm0);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 32), x86::ymm1);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 64), x86::ymm2);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 96), x86::ymm3);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 0), x86::ymm0);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 32), x86::ymm1);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 64), x86::ymm2);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 96), x86::ymm3);
 	}
 	else
 	{
@@ -968,10 +968,10 @@ const auto spu_putlluc_tx = build_function_asm<u64(*)(u32 raddr, const void* rda
 
 	if (s_tsx_avx)
 	{
-		c.vmovaps(x86::yword_ptr(x86::rbp, 0), x86::ymm0);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 32), x86::ymm1);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 64), x86::ymm2);
-		c.vmovaps(x86::yword_ptr(x86::rbp, 96), x86::ymm3);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 0), x86::ymm0);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 32), x86::ymm1);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 64), x86::ymm2);
+		c.vmovaps(x86::ymmword_ptr(x86::rbp, 96), x86::ymm3);
 	}
 	else
 	{
@@ -1019,7 +1019,7 @@ const auto spu_putlluc_tx = build_function_asm<u64(*)(u32 raddr, const void* rda
 	c.ret();
 });
 
-const extern auto spu_getllar_tx = build_function_asm<u64(*)(u32 raddr, void* rdata, cpu_thread* _cpu, u64 rtime)>([](asmjit::X86Assembler& c, auto& args)
+const extern auto spu_getllar_tx = build_function_asm<u64(*)(u32 raddr, void* rdata, cpu_thread* _cpu, u64 rtime)>([](asmjit::x86::Assembler& c, auto& args)
 {
 	using namespace asmjit;
 
@@ -1080,10 +1080,10 @@ const extern auto spu_getllar_tx = build_function_asm<u64(*)(u32 raddr, void* rd
 	// Just read data to registers
 	if (s_tsx_avx)
 	{
-		c.vmovups(x86::ymm0, x86::yword_ptr(x86::rbp, 0));
-		c.vmovups(x86::ymm1, x86::yword_ptr(x86::rbp, 32));
-		c.vmovups(x86::ymm2, x86::yword_ptr(x86::rbp, 64));
-		c.vmovups(x86::ymm3, x86::yword_ptr(x86::rbp, 96));
+		c.vmovups(x86::ymm0, x86::ymmword_ptr(x86::rbp, 0));
+		c.vmovups(x86::ymm1, x86::ymmword_ptr(x86::rbp, 32));
+		c.vmovups(x86::ymm2, x86::ymmword_ptr(x86::rbp, 64));
+		c.vmovups(x86::ymm3, x86::ymmword_ptr(x86::rbp, 96));
 	}
 	else
 	{
@@ -1105,10 +1105,10 @@ const extern auto spu_getllar_tx = build_function_asm<u64(*)(u32 raddr, void* rd
 	// Store data
 	if (s_tsx_avx)
 	{
-		c.vmovaps(x86::yword_ptr(args[1], 0), x86::ymm0);
-		c.vmovaps(x86::yword_ptr(args[1], 32), x86::ymm1);
-		c.vmovaps(x86::yword_ptr(args[1], 64), x86::ymm2);
-		c.vmovaps(x86::yword_ptr(args[1], 96), x86::ymm3);
+		c.vmovaps(x86::ymmword_ptr(args[1], 0), x86::ymm0);
+		c.vmovaps(x86::ymmword_ptr(args[1], 32), x86::ymm1);
+		c.vmovaps(x86::ymmword_ptr(args[1], 64), x86::ymm2);
+		c.vmovaps(x86::ymmword_ptr(args[1], 96), x86::ymm3);
 	}
 	else
 	{
