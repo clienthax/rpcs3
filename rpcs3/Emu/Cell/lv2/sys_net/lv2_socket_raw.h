@@ -34,4 +34,6 @@ public:
 
 	void poll(sys_net_pollfd& sn_pfd, pollfd& native_pfd) override;
 	std::tuple<bool, bool, bool> select(bs_t<poll_t> selected, pollfd& native_pfd) override;
+
+	atomic_t<bool> route_msg_sent{false};
 };

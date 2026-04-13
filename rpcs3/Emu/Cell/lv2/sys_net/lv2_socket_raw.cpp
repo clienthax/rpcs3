@@ -99,17 +99,57 @@ s32 lv2_socket_raw::setsockopt(s32 level, s32 optname, const std::vector<u8>& op
 	return {};
 }
 
-std::optional<std::tuple<s32, std::vector<u8>, sys_net_sockaddr>> lv2_socket_raw::recvfrom(s32 flags, [[maybe_unused]] u32 len, [[maybe_unused]] bool is_lock)
-{
-	LOG_ONCE(raw_recvfrom, "lv2_socket_raw::recvfrom");
+  std::optional<std::tuple<s32, std::vector<u8>, sys_net_sockaddr>> lv2_socket_raw::recvfrom(s32 flags, u32 len,
+  [[maybe_unused]] bool is_lock)
+  {
+      // AF_ROUTE socket: inject a fake RTM_IFINFO once to signal eth0 is up.
+      // Layout from sys_net_rt_ifmsg (lv2_446):
+      //   +0x00: be_u16 ifm_msglen  = 0x98
+      //   +0x02: u8     ifm_version = 5
+      //   +0x03: u8     ifm_type    = 0xf (RTM_IFINFO)
+      //   +0x04: be_s32 ifm_addrs   = 0
+      //   +0x08: be_s32 ifm_flags   = IFF_UP | IFF_DRV_RUNNING (0x41)
+      //   +0x0c: be_u16 ifm_index   = 1 (eth0)
+      //   +0x0e: u16    _pad        = 0
+      //   +0x10: u8[0x88] ifm_data  = zeroes
+      if (family == SYS_NET_AF_ROUTE)
+      {
+          if (route_msg_sent.exchange(true))
+          {
+              // already delivered — socket will be closed and reopened by netctl,
+              // but we don't want to spam it on every reopen either
+              if (so_nbio || (flags & SYS_NET_MSG_DONTWAIT))
+                  return {{-SYS_NET_EWOULDBLOCK, {}, {}}};
+              return {};
+          }
 
-	if (so_nbio || (flags & SYS_NET_MSG_DONTWAIT))
-	{
-		return {{-SYS_NET_EWOULDBLOCK, {}, {}}};
-	}
+          constexpr u32 msg_len = 0x98;
+          std::vector<u8> msg(msg_len, 0);
 
-	return {};
-}
+          // ifm_msglen
+          *reinterpret_cast<be_t<u16>*>(&msg[0x00]) = msg_len;
+          // ifm_version = 3 (confirmed: rt_msg2 @ 0x141f30 does stb r0,0x2(r23) where r0=3)
+          msg[0x02] = 3;
+          // ifm_type = RTM_IFINFO
+          msg[0x03] = 0xf;
+          // ifm_addrs = 0 (already zeroed)
+          // ifm_flags = IFF_UP | IFF_DRV_RUNNING
+          *reinterpret_cast<be_t<s32>*>(&msg[0x08]) = 0x41;
+          // ifm_index = 1 (eth0)
+          *reinterpret_cast<be_t<u16>*>(&msg[0x0c]) = 1;
+          // ifm_data[0x88] at +0x10 — zeroes fine for link-up notification
+
+          sys_net.notice("lv2_socket_raw AF_ROUTE: injecting RTM_IFINFO (eth0 up)");
+          return {{static_cast<s32>(msg_len), std::move(msg), {}}};
+      }
+
+      LOG_ONCE(raw_recvfrom, "lv2_socket_raw::recvfrom");
+
+      if (so_nbio || (flags & SYS_NET_MSG_DONTWAIT))
+          return {{-SYS_NET_EWOULDBLOCK, {}, {}}};
+
+      return {};
+  }
 
 std::optional<s32> lv2_socket_raw::sendto([[maybe_unused]] s32 flags, [[maybe_unused]] const std::vector<u8>& buf, [[maybe_unused]] std::optional<sys_net_sockaddr> opt_sn_addr, [[maybe_unused]] bool is_lock)
 {
@@ -134,13 +174,31 @@ s32 lv2_socket_raw::shutdown([[maybe_unused]] s32 how)
 	return {};
 }
 
-void lv2_socket_raw::poll([[maybe_unused]] sys_net_pollfd& sn_pfd, [[maybe_unused]] pollfd& native_pfd)
+void lv2_socket_raw::poll(sys_net_pollfd& sn_pfd, [[maybe_unused]] pollfd& native_pfd)
 {
+	if (family == SYS_NET_AF_ROUTE)
+	{
+		if (!route_msg_sent && (sn_pfd.events & SYS_NET_POLLIN))
+			sn_pfd.revents |= SYS_NET_POLLIN;
+		return;
+	}
+
 	LOG_ONCE(raw_poll, "lv2_socket_raw::poll");
 }
 
-std::tuple<bool, bool, bool> lv2_socket_raw::select([[maybe_unused]] bs_t<lv2_socket::poll_t> selected, [[maybe_unused]] pollfd& native_pfd)
+std::tuple<bool, bool, bool> lv2_socket_raw::select(bs_t<lv2_socket::poll_t> selected, [[maybe_unused]] pollfd&
+native_pfd)
 {
+	if (family == SYS_NET_AF_ROUTE)
+	{
+		// Signal readable until we've delivered the RTM_IFINFO message.
+		// This causes the caller's poll/select to return immediately,
+		// triggering the recvfrom where we inject the message.
+		const bool readable = !route_msg_sent;
+		return {readable, false, false};
+	}
+
 	LOG_ONCE(raw_select, "lv2_socket_raw::select");
 	return {};
 }
+

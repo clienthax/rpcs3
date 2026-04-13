@@ -3416,6 +3416,12 @@ error_code sys_fs_mount(ppu_thread& ppu, vm::cptr<char> dev_name, vm::cptr<char>
 	if (vfs_path.empty())
 		return {CELL_ENOTSUP, device_name};
 
+	if (vpath == "/dev_hdd0")
+	{
+		// VSH would normally mount this.. but it errors, wonder if this breaks anything?
+		return CELL_OK;
+	}
+
 	if (vpath.find_first_not_of('/') == umax || !vfs::get(vpath).empty())
 		return {CELL_EEXIST, vpath};
 

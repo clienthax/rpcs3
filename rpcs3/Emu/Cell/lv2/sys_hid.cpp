@@ -42,8 +42,6 @@ error_code sys_hid_manager_open(ppu_thread& ppu, u64 device_type, u64 port_no, v
 
 error_code sys_hid_manager_ioctl(u32 hid_handle, u32 pkg_id, vm::ptr<void> buf, u64 buf_size)
 {
-	sys_hid.todo("sys_hid_manager_ioctl(hid_handle=0x%x, pkg_id=0x%llx, buf=*0x%x, buf_size=0x%llx)", hid_handle, pkg_id, buf, buf_size);
-
 	// From realhw syscall dump when vsh boots
 	// SC count | handle | pkg_id | *buf (in)                                                                 | *buf (out)                                                                | size -> ret
 	// ---------|--------|--------|---------------------------------------------------------------------------|---------------------------------------------------------------------------|------------
@@ -66,7 +64,14 @@ error_code sys_hid_manager_ioctl(u32 hid_handle, u32 pkg_id, vm::ptr<void> buf, 
 	//          |        |        | 000003200000032000000320000003200002710000027100000271000002710           | 000003200000032000000320000003200002710000027100000271000002710           |
 	// *** more 0x4 that have buf(in)=00 and buf(out)=ee ***
 
-	if (pkg_id == 2)
+	// These vary per device type!!, how get device type from handle?
+
+
+	if (pkg_id == 0x0)
+	{
+		// BT Report
+	}
+	else if (pkg_id == 2)
 	{
 		// Return what realhw seems to return
 		// TODO: Figure out what this corresponds to
@@ -77,17 +82,47 @@ error_code sys_hid_manager_ioctl(u32 hid_handle, u32 pkg_id, vm::ptr<void> buf, 
 		u8 realhw[17] = { 0x01, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x03, 0x50, 0x00, 0x00, 0x1c, 0x1f };
 		memcpy(info->unk, &realhw, 17);
 	}
-	else if (pkg_id == 5)
+	else if (pkg_id == 0x3)
+	{
+		// Check if vibration is supported
+		// 0 = always supported
+		// 1 = some depend state
+		// else 0x80010002
+	}
+	else if (pkg_id == 0x4)
+	{
+		// Read battery state
+		// Think this is charging / not charging
+		// 0x01 makes the low battery warning appear
+		u8 tmp[1] = { 0xee}; // might be 0xee instead?
+		memcpy(buf.get_ptr(), tmp, 1);
+	}
+	else if (pkg_id == 0x5)
 	{
 		auto info = vm::static_ptr_cast<sys_hid_info_5>(buf);
 		info->vid = 0x054C;
 		info->pid = 0x0268;
 	}
+	else if (pkg_id == 0x64)
+	{
+		// Set actuator config
+		// Set actuator config. Writes 4-byte actuator (rumble) config word to pad_manager state, then passes to port.
+	}
+	else if (pkg_id == 0x65)
+	{
+		// Set actuator config (alt)
+		// Does not handle sony devices
+	}
 	// pkg_id == 6 == setpressmode?
 	else if (pkg_id == 0x68)
 	{
+		// Get Pad data
 		[[maybe_unused]] auto info = vm::static_ptr_cast<sys_hid_ioctl_68>(buf);
 		//info->unk2 = 0;
+	}
+	else
+	{
+		sys_hid.todo("sys_hid_manager_ioctl(hid_handle=0x%x, pkg_id=0x%llx, buf=*0x%x, buf_size=0x%llx)", hid_handle, pkg_id, buf, buf_size);
 	}
 
 	return CELL_OK;

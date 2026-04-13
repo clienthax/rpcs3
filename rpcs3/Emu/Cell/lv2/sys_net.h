@@ -66,6 +66,7 @@ enum lv2_socket_type : s32
 	SYS_NET_SOCK_DGRAM      = 2,
 	SYS_NET_SOCK_RAW        = 3,
 	SYS_NET_SOCK_DGRAM_P2P  = 6,
+	SYS_NET_SOCK_DGRAM_ETHER = 7, // used by PS3 DHCP client (socket(AF_INET,7,0))
 	SYS_NET_SOCK_STREAM_P2P = 10,
 };
 
@@ -119,6 +120,7 @@ enum lv2_socket_family : s32
 	SYS_NET_AF_LOCAL        = 1,
 	SYS_NET_AF_UNIX         = SYS_NET_AF_LOCAL,
 	SYS_NET_AF_INET         = 2,
+	SYS_NET_AF_ROUTE        = 17,
 	SYS_NET_AF_INET6        = 24,
 };
 
@@ -362,7 +364,7 @@ error_code _sys_net_close_dump(ppu_thread&, s32 id, vm::ptr<s32> pflags);
 error_code _sys_net_write_dump(ppu_thread&, s32 id, vm::cptr<void> buf, s32 len, u32 unknown);
 error_code sys_net_abort(ppu_thread&, s32 type, u64 arg, s32 flags);
 error_code sys_net_infoctl(ppu_thread&, s32 cmd, vm::ptr<void> arg);
-error_code sys_net_control(ppu_thread&, u32 arg1, s32 arg2, vm::ptr<void> arg3, s32 arg4);
-error_code sys_net_bnet_ioctl(ppu_thread&, s32 arg1, u32 arg2, u32 arg3);
-error_code sys_net_bnet_sysctl(ppu_thread&, u32 arg1, u32 arg2, u32 arg3, vm::ptr<void> arg4, u32 arg5, u32 arg6);
-error_code sys_net_eurus_post_command(ppu_thread&, s32 arg1, u32 arg2, u32 arg3);
+error_code sys_net_control(ppu_thread&, vm::cptr<char> ifr_name, s32 cmd, vm::ptr<void> cmdbuf, s32 bufsize);
+error_code sys_net_bnet_ioctl(ppu_thread& ppu, s32 socket_id, u32 cmd, vm::ptr<struct ifreq> ifr);
+error_code sys_net_bnet_sysctl(ppu_thread&, vm::cptr<be_t<s32>> ops, u32 ops_count, u32 oldp, vm::ptr<be_t<u64>> oldlenp, u32 newp, u32 newlen);
+error_code sys_net_eurus_post_command(ppu_thread& ppu, u16 cmd, vm::ptr<u8> cmdbuf, u32 cmdbuf_size);

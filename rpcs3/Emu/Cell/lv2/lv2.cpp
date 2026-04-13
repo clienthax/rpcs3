@@ -42,6 +42,7 @@
 #include "sys_gpio.h"
 #include "sys_config.h"
 #include "sys_bdemu.h"
+#include "sys_bt.h"
 #include "sys_btsetting.h"
 #include "sys_console.h"
 #include "sys_hid.h"
@@ -622,7 +623,7 @@ const std::array<std::pair<ppu_intrp_func_t, std::string_view>, 1024> g_ppu_sysc
 	uns_func,                                               //576 (0x240)  UNS
 	null_func,//BIND_SYSC(sys_pad_manager_...),             //577 (0x241)  ROOT  PM
 	null_func,//BIND_SYSC(sys_bluetooth_...),               //578 (0x242)
-	null_func,//BIND_SYSC(sys_bluetooth_aud_serial_...),    //579 (0x243)
+	BIND_SYSC(sys_bluetooth_aud_serial_579),                //579 (0x243)
 	null_func,//BIND_SYSC(sys_bluetooth_...),               //580 (0x244)  ROOT
 	null_func,//BIND_SYSC(sys_bluetooth_...),               //581 (0x245)  ROOT
 	null_func,//BIND_SYSC(sys_bluetooth_...),               //582 (0x246)  ROOT
@@ -680,7 +681,7 @@ const std::array<std::pair<ppu_intrp_func_t, std::string_view>, 1024> g_ppu_sysc
 	BIND_SYSC(sys_btsetting_if),                            //635 (0x27B)
 	null_func,//BIND_SYSC(sys_...),                         //636 (0x27C)
 	null_func,//BIND_SYSC(sys_...),                         //637 (0x27D)
-	null_func,//BIND_SYSC(sys_...),                         //638 (0x27E)
+	BIND_SYSC(sys_bluetooth_638_if),                        //638 (0x27E)
 
 	null_func,//BIND_SYSC(sys...),                          //639  DEPRECATED
 	NULL_FUNC(sys_usbbtaudio_initialize),                   //640  DEPRECATED
@@ -691,7 +692,7 @@ const std::array<std::pair<ppu_intrp_func_t, std::string_view>, 1024> g_ppu_sysc
 	NULL_FUNC(sys_usbbtaudio_set_passkey),                  //645  DEPRECATED
 	NULL_FUNC(sys_usbbtaudio_connect),                      //646  DEPRECATED
 	NULL_FUNC(sys_usbbtaudio_disconnect),                   //647  DEPRECATED
-	null_func,//BIND_SYSC(sys_...),                         //648  DEPRECATED
+	BIND_SYSC(sys_bt_something_648),                        //648  DEPRECATED
 	null_func,//BIND_SYSC(sys_...),                         //649  DEPRECATED
 
 	BIND_SYSC(sys_rsxaudio_initialize),                     //650 (0x28A)
@@ -1184,6 +1185,13 @@ public:
 
 	void print_stats(bool force_print) noexcept
 	{
+
+		if (1 == 1)
+		{
+			// Can you fucking don't?
+			return;
+		}
+
 		std::multimap<u64, u64, std::greater<u64>> usage;
 
 		for (u32 i = 0; i < 1024; i++)
@@ -2276,7 +2284,7 @@ void lv2_obj::notify_all() noexcept
 	u32 notifies[total_waiters]{};
 	u64 notifies_time[total_waiters]{};
 
-	// There may be 6 waiters, but checking them all may be performance expensive 
+	// There may be 6 waiters, but checking them all may be performance expensive
 	// Instead, check 2 at max, but use the CPU ID index to tell which index to start checking so the work would be distributed across all threads
 
 	atomic_t<u64, 128>* range_lock = nullptr;
