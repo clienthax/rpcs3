@@ -819,55 +819,94 @@ bool gdb_thread::cmd_continue_support(gdb_cmd&)
 
 bool gdb_thread::cmd_vcont(gdb_cmd& cmd)
 {
-	//todo: handle multiple actions and thread ids
 	this->from_breakpoint = false;
-	if (cmd.data[1] == 'c' || cmd.data[1] == 's')
+
+	if (cmd.data.size() < 2)
 	{
-		select_thread(continue_ops_thread_id);
-
-		auto ppu = !selected_thread || selected_thread->state & cpu_flag::exit ? nullptr : selected_thread->try_get<named_thread<ppu_thread>>();
-
-		paused = false;
-
-		if (ppu)
-		{
-			bs_t<cpu_flag> add_flags{};
-
-			if (cmd.data[1] == 's')
-			{
-				add_flags += cpu_flag::dbg_step;
-			}
-
-			ppu->add_remove_flags(add_flags, cpu_flag::dbg_pause);
-		}
-
-		//special case if app didn't start yet (only loaded)
-		if (Emu.IsReady())
-		{
-			Emu.Run(true);
-		}
-		else if (Emu.IsPaused())
-		{
-			Emu.Resume();
-		}
-
-		wait_with_interrupts();
-		//we are in all-stop mode
-		Emu.Pause();
-		select_thread(pausedBy);
-		// we have to remove dbg_pause from thread that paused execution, otherwise
-		// it will be paused forever (Emu.Resume only removes dbg_global_pause)
-
-		ppu = !selected_thread || selected_thread->state & cpu_flag::exit ? nullptr : selected_thread->try_get<named_thread<ppu_thread>>();
-
-		if (ppu)
-		{
-			ppu->add_remove_flags({}, cpu_flag::dbg_pause);
-		}
-
-		return send_reason();
+		return send_cmd_ack("");
 	}
-	return send_cmd_ack("");
+
+	// cmd.data format: ";action[:pid.tid]" possibly followed by more ";action[:tid]" clauses
+	const char action = cmd.data[1];
+
+	if (action != 'c' && action != 's')
+	{
+		return send_cmd_ack("");
+	}
+
+	// Parse optional embedded thread ID: ";s:0000000001000001"
+	u64 op_thread_id = continue_ops_thread_id;
+	if (cmd.data.size() > 2 && cmd.data[2] == ':')
+	{
+		// Extract thread id string — ends at next ';' or end of data
+		const usz start = 3;
+		const usz semi = cmd.data.find(';', start);
+		std::string tid_str = cmd.data.substr(start, semi == umax ? umax : semi - start);
+
+		// Handle "pid.tid" format — take only the tid part
+		const usz dot = tid_str.find('.');
+		if (dot != umax)
+		{
+			tid_str = tid_str.substr(dot + 1);
+		}
+
+		if (!tid_str.empty())
+		{
+			try
+			{
+				op_thread_id = hex_to_u64(tid_str);
+			}
+			catch (...)
+			{
+				// keep continue_ops_thread_id on parse failure
+			}
+		}
+	}
+
+	select_thread(op_thread_id);
+
+	auto ppu = !selected_thread || selected_thread->state & cpu_flag::exit
+		? nullptr
+		: selected_thread->try_get<named_thread<ppu_thread>>();
+
+	paused = false;
+
+	if (ppu)
+	{
+		bs_t<cpu_flag> add_flags{};
+
+		if (action == 's')
+		{
+			add_flags += cpu_flag::dbg_step;
+		}
+
+		ppu->add_remove_flags(add_flags, cpu_flag::dbg_pause);
+	}
+
+	if (Emu.IsReady())
+	{
+		Emu.Run(true);
+	}
+	else if (Emu.IsPaused())
+	{
+		Emu.Resume();
+	}
+
+	wait_with_interrupts();
+	// all-stop mode: pause everything
+	Emu.Pause();
+	select_thread(pausedBy);
+
+	ppu = !selected_thread || selected_thread->state & cpu_flag::exit
+		? nullptr
+		: selected_thread->try_get<named_thread<ppu_thread>>();
+
+	if (ppu)
+	{
+		ppu->add_remove_flags({}, cpu_flag::dbg_pause);
+	}
+
+	return send_reason();
 }
 
 static const u32 INVALID_PTR = 0xffffffff;
