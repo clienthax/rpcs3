@@ -9,6 +9,7 @@
 #include "Emu/IdManager.h"
 #include "Emu/CPU/CPUThread.h"
 #include "Emu/Cell/PPUThread.h"
+#include "Emu/Cell/SPUThread.h"
 
 #ifdef _WIN32
 #include <WinSock2.h>
@@ -583,22 +584,58 @@ bool gdb_thread::cmd_supported(gdb_cmd&)
 
 bool gdb_thread::cmd_thread_info(gdb_cmd&)
 {
-	std::string result;
+	// Build full list of thread IDs
+	thread_info_buf.clear();
 	const auto on_select = [&](u32, cpu_thread& cpu)
 	{
-		if (!result.empty())
+		if (!thread_info_buf.empty())
 		{
-			result += ",";
+			thread_info_buf += ',';
 		}
-		result += u64_to_padded_hex(static_cast<u64>(cpu.id));
+		thread_info_buf += u64_to_padded_hex(static_cast<u64>(cpu.id));
 	};
 	idm::select<named_thread<ppu_thread>>(on_select);
-	//idm::select<named_thread<spu_thread>>(on_select);
+	idm::select<named_thread<spu_thread>>(on_select);
 
-	//todo: this may exceed max command length
-	result = "m" + result + "l";
+	// Send first chunk: "m<ids>" — up to 1190 chars of IDs
+	constexpr usz max_chunk = 1190;
+	if (thread_info_buf.size() <= max_chunk)
+	{
+		std::string result = "m" + thread_info_buf + "l";
+		thread_info_buf.clear();
+		return send_cmd_ack(result);
+	}
 
-	return send_cmd_ack(result);
+	// Find a safe split point (last ',' within limit)
+	usz split = thread_info_buf.rfind(',', max_chunk);
+	if (split == umax) split = max_chunk;
+
+	std::string chunk = "m" + thread_info_buf.substr(0, split);
+	thread_info_buf = thread_info_buf.substr(split + 1); // skip the comma
+	return send_cmd_ack(chunk);
+}
+
+bool gdb_thread::cmd_thread_info_continued(gdb_cmd&)
+{
+	if (thread_info_buf.empty())
+	{
+		return send_cmd_ack("l");
+	}
+
+	constexpr usz max_chunk = 1190;
+	if (thread_info_buf.size() <= max_chunk)
+	{
+		std::string result = "m" + thread_info_buf + "l";
+		thread_info_buf.clear();
+		return send_cmd_ack(result);
+	}
+
+	usz split = thread_info_buf.rfind(',', max_chunk);
+	if (split == umax) split = max_chunk;
+
+	std::string chunk = "m" + thread_info_buf.substr(0, split);
+	thread_info_buf = thread_info_buf.substr(split + 1);
+	return send_cmd_ack(chunk);
 }
 
 bool gdb_thread::cmd_current_thread(gdb_cmd&)
@@ -1021,6 +1058,7 @@ void gdb_thread::operator()()
 				PROCESS_CMD("?", cmd_reason);
 				PROCESS_CMD("qSupported", cmd_supported);
 				PROCESS_CMD("qfThreadInfo", cmd_thread_info);
+				PROCESS_CMD("qsThreadInfo", cmd_thread_info_continued);
 				PROCESS_CMD("qC", cmd_current_thread);
 				PROCESS_CMD("p", cmd_read_register);
 				PROCESS_CMD("P", cmd_write_register);

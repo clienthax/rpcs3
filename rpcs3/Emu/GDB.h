@@ -18,6 +18,7 @@ class gdb_thread
 	shared_ptr<cpu_thread> selected_thread{};
 	u64 continue_ops_thread_id = ANY_THREAD;
 	u64 general_ops_thread_id = ANY_THREAD;
+	std::string thread_info_buf{}; // remaining thread IDs not yet sent
 
 	//initialize server socket and start listening
 	void start_server();
@@ -70,6 +71,7 @@ class gdb_thread
 	bool cmd_reason(gdb_cmd& cmd);
 	bool cmd_supported(gdb_cmd& cmd);
 	bool cmd_thread_info(gdb_cmd& cmd);
+	bool cmd_thread_info_continued(gdb_cmd& cmd);
 	bool cmd_current_thread(gdb_cmd& cmd);
 	bool cmd_read_register(gdb_cmd& cmd);
 	bool cmd_write_register(gdb_cmd& cmd);
