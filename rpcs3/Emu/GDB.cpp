@@ -595,7 +595,8 @@ bool gdb_thread::cmd_thread_info(gdb_cmd&)
 		thread_info_buf += u64_to_padded_hex(static_cast<u64>(cpu.id));
 	};
 	idm::select<named_thread<ppu_thread>>(on_select);
-	idm::select<named_thread<spu_thread>>(on_select);
+	// SPU threads enumerated in Task 10 when select_thread also handles SPU
+	//idm::select<named_thread<spu_thread>>(on_select);
 
 	// Send first chunk: "m<ids>" — up to 1190 chars of IDs
 	constexpr usz max_chunk = 1190;
