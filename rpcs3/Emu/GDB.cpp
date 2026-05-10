@@ -462,7 +462,7 @@ std::string gdb_thread::get_reg(ppu_thread* thread, u32 rid)
 	}
 	//fpscr
 	case 70:
-		return std::string(8, 'x');
+		return u32_to_padded_hex(thread->fpscr.bits.pack());
 	default:
 		if (rid > 70) return "";
 		return (rid > 31)
@@ -501,6 +501,7 @@ bool gdb_thread::set_reg(ppu_thread* thread, u32 rid, const std::string& value)
 	}
 		//fpscr
 	case 70:
+		thread->fpscr.bits.unpack(hex_to_u32(value));
 		return true;
 	default:
 		if (rid > 70) return false;
