@@ -949,7 +949,15 @@ bool gdb_thread::cmd_vcont(gdb_cmd& cmd)
 
 bool gdb_thread::cmd_thread_alive(gdb_cmd& cmd)
 {
-	u64 id = hex_to_u64(cmd.data);
+	u64 id;
+	try
+	{
+		id = hex_to_u64(cmd.data);
+	}
+	catch (...)
+	{
+		return send_cmd_ack("E01");
+	}
 	const auto on_select = [id](u32, cpu_thread& cpu)
 	{
 		return cpu.id == id;
