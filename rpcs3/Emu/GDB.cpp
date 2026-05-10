@@ -970,6 +970,19 @@ bool gdb_thread::cmd_thread_alive(gdb_cmd& cmd)
 	return send_cmd_ack("E01");
 }
 
+bool gdb_thread::cmd_detach(gdb_cmd&)
+{
+	if (!send_cmd_ack("OK"))
+	{
+		return false;
+	}
+	if (Emu.IsPaused())
+	{
+		Emu.Resume();
+	}
+	return false; // break connection loop
+}
+
 static const u32 INVALID_PTR = 0xffffffff;
 
 bool gdb_thread::cmd_set_breakpoint(gdb_cmd& cmd)
@@ -1094,6 +1107,7 @@ void gdb_thread::operator()()
 				PROCESS_CMD("T", cmd_thread_alive);
 				PROCESS_CMD("qAttached", cmd_attached_to_what);
 				PROCESS_CMD("k", cmd_kill);
+				PROCESS_CMD("D", cmd_detach);
 				PROCESS_CMD("vCont?", cmd_continue_support);
 				PROCESS_CMD("vCont", cmd_vcont);
 				PROCESS_CMD("z", cmd_remove_breakpoint);

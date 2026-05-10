@@ -87,6 +87,7 @@ class gdb_thread
 	bool cmd_set_breakpoint(gdb_cmd& cmd);
 	bool cmd_remove_breakpoint(gdb_cmd& cmd);
 	bool cmd_thread_alive(gdb_cmd& cmd);
+	bool cmd_detach(gdb_cmd& cmd);
 
 public:
 	bool from_breakpoint = true;
