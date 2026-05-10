@@ -1031,6 +1031,129 @@ bool gdb_thread::cmd_remove_breakpoint(gdb_cmd& cmd)
 
 }
 
+static const std::string_view ppu_target_xml = R"(<?xml version="1.0"?>
+<!DOCTYPE target SYSTEM "gdb-target.dtd">
+<target version="1.0">
+  <architecture>powerpc:common64</architecture>
+  <feature name="org.gnu.gdb.power.core">
+    <reg name="r0"  bitsize="64" type="uint64" regnum="0"/>
+    <reg name="r1"  bitsize="64" type="uint64"/>
+    <reg name="r2"  bitsize="64" type="uint64"/>
+    <reg name="r3"  bitsize="64" type="uint64"/>
+    <reg name="r4"  bitsize="64" type="uint64"/>
+    <reg name="r5"  bitsize="64" type="uint64"/>
+    <reg name="r6"  bitsize="64" type="uint64"/>
+    <reg name="r7"  bitsize="64" type="uint64"/>
+    <reg name="r8"  bitsize="64" type="uint64"/>
+    <reg name="r9"  bitsize="64" type="uint64"/>
+    <reg name="r10" bitsize="64" type="uint64"/>
+    <reg name="r11" bitsize="64" type="uint64"/>
+    <reg name="r12" bitsize="64" type="uint64"/>
+    <reg name="r13" bitsize="64" type="uint64"/>
+    <reg name="r14" bitsize="64" type="uint64"/>
+    <reg name="r15" bitsize="64" type="uint64"/>
+    <reg name="r16" bitsize="64" type="uint64"/>
+    <reg name="r17" bitsize="64" type="uint64"/>
+    <reg name="r18" bitsize="64" type="uint64"/>
+    <reg name="r19" bitsize="64" type="uint64"/>
+    <reg name="r20" bitsize="64" type="uint64"/>
+    <reg name="r21" bitsize="64" type="uint64"/>
+    <reg name="r22" bitsize="64" type="uint64"/>
+    <reg name="r23" bitsize="64" type="uint64"/>
+    <reg name="r24" bitsize="64" type="uint64"/>
+    <reg name="r25" bitsize="64" type="uint64"/>
+    <reg name="r26" bitsize="64" type="uint64"/>
+    <reg name="r27" bitsize="64" type="uint64"/>
+    <reg name="r28" bitsize="64" type="uint64"/>
+    <reg name="r29" bitsize="64" type="uint64"/>
+    <reg name="r30" bitsize="64" type="uint64"/>
+    <reg name="r31" bitsize="64" type="uint64"/>
+    <reg name="pc"  bitsize="64" type="code_ptr" regnum="64"/>
+    <reg name="msr" bitsize="64" regnum="65"/>
+    <reg name="cr"  bitsize="32" regnum="66"/>
+    <reg name="lr"  bitsize="64" type="code_ptr" regnum="67"/>
+    <reg name="ctr" bitsize="64" regnum="68"/>
+    <reg name="xer" bitsize="32" regnum="69"/>
+  </feature>
+  <feature name="org.gnu.gdb.power.fpu">
+    <reg name="f0"  bitsize="64" type="ieee_double" regnum="32"/>
+    <reg name="f1"  bitsize="64" type="ieee_double"/>
+    <reg name="f2"  bitsize="64" type="ieee_double"/>
+    <reg name="f3"  bitsize="64" type="ieee_double"/>
+    <reg name="f4"  bitsize="64" type="ieee_double"/>
+    <reg name="f5"  bitsize="64" type="ieee_double"/>
+    <reg name="f6"  bitsize="64" type="ieee_double"/>
+    <reg name="f7"  bitsize="64" type="ieee_double"/>
+    <reg name="f8"  bitsize="64" type="ieee_double"/>
+    <reg name="f9"  bitsize="64" type="ieee_double"/>
+    <reg name="f10" bitsize="64" type="ieee_double"/>
+    <reg name="f11" bitsize="64" type="ieee_double"/>
+    <reg name="f12" bitsize="64" type="ieee_double"/>
+    <reg name="f13" bitsize="64" type="ieee_double"/>
+    <reg name="f14" bitsize="64" type="ieee_double"/>
+    <reg name="f15" bitsize="64" type="ieee_double"/>
+    <reg name="f16" bitsize="64" type="ieee_double"/>
+    <reg name="f17" bitsize="64" type="ieee_double"/>
+    <reg name="f18" bitsize="64" type="ieee_double"/>
+    <reg name="f19" bitsize="64" type="ieee_double"/>
+    <reg name="f20" bitsize="64" type="ieee_double"/>
+    <reg name="f21" bitsize="64" type="ieee_double"/>
+    <reg name="f22" bitsize="64" type="ieee_double"/>
+    <reg name="f23" bitsize="64" type="ieee_double"/>
+    <reg name="f24" bitsize="64" type="ieee_double"/>
+    <reg name="f25" bitsize="64" type="ieee_double"/>
+    <reg name="f26" bitsize="64" type="ieee_double"/>
+    <reg name="f27" bitsize="64" type="ieee_double"/>
+    <reg name="f28" bitsize="64" type="ieee_double"/>
+    <reg name="f29" bitsize="64" type="ieee_double"/>
+    <reg name="f30" bitsize="64" type="ieee_double"/>
+    <reg name="f31" bitsize="64" type="ieee_double"/>
+    <reg name="fpscr" bitsize="32" group="float" regnum="70"/>
+  </feature>
+</target>)";
+
+bool gdb_thread::cmd_qxfer(gdb_cmd& cmd)
+{
+	// cmd.data = "features:read:target.xml:offset,length"
+	// We only serve target.xml; anything else gets an empty response
+	if (!cmd.data.starts_with("features:read:target.xml:"))
+	{
+		return send_cmd_ack("");
+	}
+
+	const usz colon = cmd.data.rfind(':');
+	if (colon == umax)
+	{
+		return send_cmd_ack("E01");
+	}
+
+	const std::string_view range = std::string_view(cmd.data).substr(colon + 1);
+	const usz comma = range.find(',');
+	if (comma == umax)
+	{
+		return send_cmd_ack("E01");
+	}
+
+	u32 offset = 0;
+	u32 length = 0;
+	auto [p1, e1] = std::from_chars(range.data(), range.data() + comma, offset, 16);
+	auto [p2, e2] = std::from_chars(range.data() + comma + 1, range.data() + range.size(), length, 16);
+
+	if (e1 != std::errc() || e2 != std::errc())
+	{
+		return send_cmd_ack("E01");
+	}
+
+	if (offset >= ppu_target_xml.size())
+	{
+		return send_cmd_ack("l");
+	}
+
+	const std::string_view chunk = ppu_target_xml.substr(offset, length);
+	const bool last = (offset + chunk.size() >= ppu_target_xml.size());
+	return send_cmd_ack(std::string(last ? "l" : "m") + std::string(chunk));
+}
+
 #define PROCESS_CMD(cmds,handler) if (cmd.cmd == cmds) { if (!handler(cmd)) break; else continue; }
 
 gdb_thread::gdb_thread() noexcept
@@ -1106,6 +1229,7 @@ void gdb_thread::operator()()
 				PROCESS_CMD("H", cmd_set_thread_ops);
 				PROCESS_CMD("T", cmd_thread_alive);
 				PROCESS_CMD("qAttached", cmd_attached_to_what);
+				PROCESS_CMD("qXfer", cmd_qxfer);
 				PROCESS_CMD("k", cmd_kill);
 				PROCESS_CMD("D", cmd_detach);
 				PROCESS_CMD("vCont?", cmd_continue_support);
