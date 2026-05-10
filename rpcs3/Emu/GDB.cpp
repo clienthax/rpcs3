@@ -451,9 +451,15 @@ std::string gdb_thread::get_reg(ppu_thread* thread, u32 rid)
 		return u64_to_padded_hex(thread->lr);
 	case 68:
 		return u64_to_padded_hex(thread->ctr);
-	//xer
 	case 69:
-		return std::string(8, 'x');
+	{
+		u32 xer_val = 0;
+		if (thread->xer.so) xer_val |= (1u << 31);
+		if (thread->xer.ov) xer_val |= (1u << 30);
+		if (thread->xer.ca) xer_val |= (1u << 29);
+		xer_val |= (thread->xer.cnt & 0x7Fu);
+		return u32_to_padded_hex(xer_val);
+	}
 	//fpscr
 	case 70:
 		return std::string(8, 'x');
@@ -484,9 +490,15 @@ bool gdb_thread::set_reg(ppu_thread* thread, u32 rid, const std::string& value)
 	case 68:
 		thread->ctr = hex_to_u64(value);
 		return true;
-		//xer
 	case 69:
+	{
+		u32 xer_val = hex_to_u32(value);
+		thread->xer.so = !!(xer_val & (1u << 31));
+		thread->xer.ov = !!(xer_val & (1u << 30));
+		thread->xer.ca = !!(xer_val & (1u << 29));
+		thread->xer.cnt = static_cast<u8>(xer_val & 0x7Fu);
 		return true;
+	}
 		//fpscr
 	case 70:
 		return true;
