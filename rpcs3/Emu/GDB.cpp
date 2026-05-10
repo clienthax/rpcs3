@@ -854,7 +854,7 @@ bool gdb_thread::cmd_vcont(gdb_cmd& cmd)
 		{
 			try
 			{
-				op_thread_id = hex_to_u64(tid_str);
+				op_thread_id = (tid_str == "-1") ? ALL_THREADS : hex_to_u64(tid_str);
 			}
 			catch (...)
 			{
