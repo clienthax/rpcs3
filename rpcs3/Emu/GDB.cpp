@@ -431,6 +431,11 @@ bool gdb_thread::select_thread(u64 id)
 		selected_thread = ppu.ptr;
 		return true;
 	}
+	if (auto spu = idm::select<named_thread<spu_thread>>(on_select))
+	{
+		selected_thread = spu.ptr;
+		return true;
+	}
 	GDB.warning("Unable to select thread! Is the emulator running?");
 	return false;
 }
@@ -537,6 +542,49 @@ u32 gdb_thread::get_reg_size(ppu_thread*, u32 rid)
 	}
 }
 
+std::string gdb_thread::get_spu_reg(spu_thread* thread, u32 rid)
+{
+	if (rid < 128)
+	{
+		// 128-bit GPR: output as 32 hex chars (big-endian words)
+		const v128& reg = thread->gpr[rid];
+		return fmt::format("%.8x%.8x%.8x%.8x",
+			reg._u32[3], reg._u32[2], reg._u32[1], reg._u32[0]);
+	}
+	if (rid == 128)
+	{
+		return u32_to_padded_hex(thread->pc);
+	}
+	return "";
+}
+
+bool gdb_thread::set_spu_reg(spu_thread* thread, u32 rid, const std::string& value)
+{
+	if (rid < 128)
+	{
+		if (value.size() < 32) return false;
+		v128& reg = thread->gpr[rid];
+		reg._u32[3] = hex_to_u32(value.substr(0, 8));
+		reg._u32[2] = hex_to_u32(value.substr(8, 8));
+		reg._u32[1] = hex_to_u32(value.substr(16, 8));
+		reg._u32[0] = hex_to_u32(value.substr(24, 8));
+		return true;
+	}
+	if (rid == 128)
+	{
+		thread->pc = static_cast<u32>(hex_to_u32(value));
+		return true;
+	}
+	return false;
+}
+
+u32 gdb_thread::get_spu_reg_size(u32 rid)
+{
+	if (rid < 128) return 16;
+	if (rid == 128) return 4;
+	return 0;
+}
+
 bool gdb_thread::send_reason()
 {
 	return send_cmd_ack("S05");
@@ -595,8 +643,7 @@ bool gdb_thread::cmd_thread_info(gdb_cmd&)
 		thread_info_buf += u64_to_padded_hex(static_cast<u64>(cpu.id));
 	};
 	idm::select<named_thread<ppu_thread>>(on_select);
-	// SPU threads enumerated in Task 10 when select_thread also handles SPU
-	//idm::select<named_thread<spu_thread>>(on_select);
+	idm::select<named_thread<spu_thread>>(on_select);
 
 	// Send first chunk: "m<ids>" — up to 1190 chars of IDs
 	constexpr usz max_chunk = 1190;
@@ -668,6 +715,18 @@ bool gdb_thread::cmd_read_register(gdb_cmd& cmd)
 		return send_cmd_ack(result);
 	}
 
+	if (auto spu = selected_thread->try_get<named_thread<spu_thread>>())
+	{
+		u32 rid = hex_to_u32(cmd.data);
+		std::string result = get_spu_reg(spu, rid);
+		if (result.empty())
+		{
+			GDB.warning("Wrong SPU register id %d.", rid);
+			return send_cmd_ack("E01");
+		}
+		return send_cmd_ack(result);
+	}
+
 	GDB.warning("Unimplemented thread type %d.", selected_thread->id_type());
 	return send_cmd_ack("");
 }
@@ -701,6 +760,23 @@ bool gdb_thread::cmd_write_register(gdb_cmd& cmd)
 		}
 		return send_cmd_ack("OK");
 	}
+
+	if (auto spu = selected_thread->try_get<named_thread<spu_thread>>())
+	{
+		usz eq_pos = cmd.data.find('=');
+		if (eq_pos == umax)
+		{
+			return send_cmd_ack("E02");
+		}
+		u32 rid = hex_to_u32(cmd.data.substr(0, eq_pos));
+		std::string value = cmd.data.substr(eq_pos + 1);
+		if (!set_spu_reg(spu, rid, value))
+		{
+			return send_cmd_ack("E01");
+		}
+		return send_cmd_ack("OK");
+	}
+
 	GDB.warning("Unimplemented thread type %d.", selected_thread->id_type());
 	return send_cmd_ack("");
 }

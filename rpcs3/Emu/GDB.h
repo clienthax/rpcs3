@@ -7,6 +7,7 @@ struct gdb_cmd;
 
 class cpu_thread;
 class ppu_thread;
+class spu_thread;
 
 class gdb_thread
 {
@@ -61,6 +62,12 @@ class gdb_thread
 	static bool set_reg(ppu_thread* thread, u32 rid, const std::string& value);
 	//returns size of register with id rid in bytes, zero if invalid rid is provided
 	static u32 get_reg_size(ppu_thread* thread, u32 rid);
+	//returns SPU register value as hex string by register id, empty string if invalid
+	static std::string get_spu_reg(spu_thread* thread, u32 rid);
+	//sets SPU register value from hex string by register id, false if invalid
+	static bool set_spu_reg(spu_thread* thread, u32 rid, const std::string& value);
+	//returns size of SPU register with id rid in bytes, zero if invalid
+	static u32 get_spu_reg_size(u32 rid);
 	//send reason of stop, returns false if sending response failed
 	bool send_reason();
 
