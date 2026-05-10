@@ -442,9 +442,10 @@ std::string gdb_thread::get_reg(ppu_thread* thread, u32 rid)
 	{
 	case 64:
 		return u64_to_padded_hex(thread->cia);
-	//msr?
+	//msr
 	case 65:
-		return std::string(16, 'x');
+		// MSR not tracked; return a static user-mode 64-bit PS3 value
+		return u64_to_padded_hex(0x800000000000F032ULL);
 	case 66:
 		return u32_to_padded_hex(thread->cr.pack());
 	case 67:
