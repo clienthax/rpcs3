@@ -863,6 +863,17 @@ bool gdb_thread::cmd_read_all_registers(gdb_cmd&)
 		return send_cmd_ack(result);
 	}
 
+	if (auto spu = selected_thread->try_get<named_thread<spu_thread>>())
+	{
+		// 128 GPRs (32 hex chars each) + PC (8 hex chars)
+		result.reserve(128 * 32 + 8);
+		for (u32 i = 0; i <= 128; ++i)
+		{
+			result += get_spu_reg(spu, i);
+		}
+		return send_cmd_ack(result);
+	}
+
 	GDB.warning("Unimplemented thread type %d.", selected_thread->id_type());
 	return send_cmd_ack("");
 }
@@ -883,6 +894,18 @@ bool gdb_thread::cmd_write_all_registers(gdb_cmd& cmd)
 		{
 			int sz = get_reg_size(ppu, i);
 			set_reg(ppu, i, cmd.data.substr(ptr, sz * 2));
+			ptr += sz * 2;
+		}
+		return send_cmd_ack("OK");
+	}
+
+	if (auto spu = selected_thread->try_get<named_thread<spu_thread>>())
+	{
+		int ptr = 0;
+		for (u32 i = 0; i <= 128; ++i)
+		{
+			int sz = get_spu_reg_size(i);
+			set_spu_reg(spu, i, cmd.data.substr(ptr, sz * 2));
 			ptr += sz * 2;
 		}
 		return send_cmd_ack("OK");
@@ -996,6 +1019,17 @@ bool gdb_thread::cmd_vcont(gdb_cmd& cmd)
 
 		ppu->add_remove_flags(add_flags, cpu_flag::dbg_pause);
 	}
+	else if (auto spu = !selected_thread || selected_thread->state & cpu_flag::exit
+		? nullptr
+		: selected_thread->try_get<named_thread<spu_thread>>())
+	{
+		bs_t<cpu_flag> add_flags{};
+		if (action == 's')
+		{
+			add_flags += cpu_flag::dbg_step;
+		}
+		spu->add_remove_flags(add_flags, cpu_flag::dbg_pause);
+	}
 
 	if (Emu.IsReady())
 	{
@@ -1018,6 +1052,12 @@ bool gdb_thread::cmd_vcont(gdb_cmd& cmd)
 	if (ppu)
 	{
 		ppu->add_remove_flags({}, cpu_flag::dbg_pause);
+	}
+	else if (auto spu = !selected_thread || selected_thread->state & cpu_flag::exit
+		? nullptr
+		: selected_thread->try_get<named_thread<spu_thread>>())
+	{
+		spu->add_remove_flags({}, cpu_flag::dbg_pause);
 	}
 
 	return send_reason();
