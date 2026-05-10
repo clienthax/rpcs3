@@ -579,7 +579,7 @@ bool gdb_thread::cmd_reason(gdb_cmd&)
 
 bool gdb_thread::cmd_supported(gdb_cmd&)
 {
-	return send_cmd_ack("PacketSize=1200");
+	return send_cmd_ack("PacketSize=1200;swbreak+;qXfer:features:read+");
 }
 
 bool gdb_thread::cmd_thread_info(gdb_cmd&)
