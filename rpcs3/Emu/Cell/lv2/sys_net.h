@@ -11,6 +11,8 @@
 #include <functional>
 #include <queue>
 
+struct infoctl_arg_t;
+
 // Error codes
 enum sys_net_error : s32
 {
@@ -62,12 +64,12 @@ static constexpr sys_net_error operator-(sys_net_error v)
 // Socket types (prefixed with SYS_NET_)
 enum lv2_socket_type : s32
 {
-	SYS_NET_SOCK_STREAM     = 1,
-	SYS_NET_SOCK_DGRAM      = 2,
-	SYS_NET_SOCK_RAW        = 3,
-	SYS_NET_SOCK_DGRAM_P2P  = 6,
+	SYS_NET_SOCK_STREAM      = 1,
+	SYS_NET_SOCK_DGRAM       = 2,
+	SYS_NET_SOCK_RAW         = 3,
+	SYS_NET_SOCK_DGRAM_P2P   = 6,
 	SYS_NET_SOCK_DGRAM_ETHER = 7, // used by PS3 DHCP client (socket(AF_INET,7,0))
-	SYS_NET_SOCK_STREAM_P2P = 10,
+	SYS_NET_SOCK_STREAM_P2P  = 10,
 };
 
 // Socket options (prefixed with SYS_NET_)
@@ -186,6 +188,40 @@ enum
 enum lv2_socket_abort_flags : s32
 {
 	SYS_NET_ABORT_STRICT_CHECK = 1,
+};
+
+// IOCTL commands (BSD encoding: dir[31:30] | size[29:16] | group[15:8] | num[7:0])
+// Verified against libnet.prx _sys_net_lib_ioctl whitelist (GEX 4.70).
+// Group 'i' (0x69) = interface ioctls → sys_net_bnet_ioctl
+// Group 'P' (0x50) = protocol/socket ioctls → socket proto handler
+enum lv2_net_ioctl: u32
+{
+	// Flags
+	SYS_NET_SIOCSIFFLAGS   = 0x80206910,  // W   'i'/0x10  ifreq(32)       set interface flags
+	SYS_NET_SIOCGIFFLAGS   = 0xc0206911,  // R/W 'i'/0x11  ifreq(32)       get interface flags
+	// Addresses — set (forwarded to in_control in kernel; confirmed in _sce_net_set_ip_and_mask)
+	SYS_NET_SIOCSIFADDR    = 0x8020690c,  // W   'i'/0x0c  ifreq(32)       set unicast address
+	SYS_NET_SIOCSIFDSTADDR = 0x8020690e,  // W   'i'/0x0e  ifreq(32)       set point-to-point destination address
+	SYS_NET_SIOCSIFBRDADDR = 0x80206913,  // W   'i'/0x13  ifreq(32)       set broadcast address
+	SYS_NET_SIOCSIFNETMASK = 0x80206916,  // W   'i'/0x16  ifreq(32)       set network mask
+	SYS_NET_SIOCDIFADDR    = 0x80206919,  // W   'i'/0x19  ifreq(32)       delete interface address
+	SYS_NET_SIOCAIFADDR    = 0x8040691a,  // W   'i'/0x1a  ifaliasreq(64)  add/change interface address
+	// Addresses — get
+	SYS_NET_SIOCGIFADDR    = 0xc0206921,  // R/W 'i'/0x21  ifreq(32)       get unicast address
+	SYS_NET_SIOCGIFDSTADDR = 0xc0206922,  // R/W 'i'/0x22  ifreq(32)       get point-to-point dst address
+	SYS_NET_SIOCGIFBRDADDR = 0xc0206923,  // R/W 'i'/0x23  ifreq(32)       get broadcast address
+	SYS_NET_SIOCGIFNETMASK = 0xc0206925,  // R/W 'i'/0x25  ifreq(32)       get network mask
+	// MTU
+	SYS_NET_SIOCSIFMTU     = 0x8020697f,  // W   'i'/0x7f  ifreq(32)       set interface MTU
+	SYS_NET_SIOCGIFMTU     = 0xc020697e,  // R/W 'i'/0x7e  ifreq(32)       get interface MTU
+	// Generic driver pass-through (forwarded to if_ioctl unchanged)
+	SYS_NET_SIOCGIFGENERIC = 0xc020698c,  // R/W 'i'/0x8c  ifreq(32)       get driver-generic data
+	SYS_NET_SIOCSIFGENERIC = 0x8020698d,  // W   'i'/0x8d  ifreq(32)       set driver-generic data
+	// PS3-specific test parameter ioctls (used by sys_net_get/set_test_param in libnet)
+	SYS_NET_SIOCGIFTESTPARAM = 0xc210698e,  // R/W 'i'/0x8e  528-byte buf  get test parameters
+	SYS_NET_SIOCSIFTESTPARAM = 0x8210698f,  // W   'i'/0x8f  528-byte buf  set test parameters
+	// Socket-level multicast flush (_IO 'P'/0xc8, no data parameter)
+	SYS_NET_SIOCFLUSHMC    = 0x200050c8,  // -   'P'/0xc8  (none)          flush all multicast group subscriptions
 };
 
 // in_addr_t type prefixed with sys_net_
@@ -363,8 +399,8 @@ error_code _sys_net_read_dump(ppu_thread&, s32 id, vm::ptr<void> buf, s32 len, v
 error_code _sys_net_close_dump(ppu_thread&, s32 id, vm::ptr<s32> pflags);
 error_code _sys_net_write_dump(ppu_thread&, s32 id, vm::cptr<void> buf, s32 len, u32 unknown);
 error_code sys_net_abort(ppu_thread&, s32 type, u64 arg, s32 flags);
-error_code sys_net_infoctl(ppu_thread&, s32 cmd, vm::ptr<void> arg);
+error_code sys_net_infoctl(ppu_thread& ppu, s32 cmd, vm::ptr<infoctl_arg_t> arg);
 error_code sys_net_control(ppu_thread&, vm::cptr<char> ifr_name, s32 cmd, vm::ptr<void> cmdbuf, s32 bufsize);
-error_code sys_net_bnet_ioctl(ppu_thread& ppu, s32 socket_id, u32 cmd, vm::ptr<struct ifreq> ifr);
-error_code sys_net_bnet_sysctl(ppu_thread&, vm::cptr<be_t<s32>> ops, u32 ops_count, u32 oldp, vm::ptr<be_t<u64>> oldlenp, u32 newp, u32 newlen);
+error_code sys_net_bnet_ioctl(ppu_thread& ppu, s32 socket_id, lv2_net_ioctl cmd, vm::ptr<struct ifreq> ifr);
+error_code sys_net_bnet_sysctl(ppu_thread& ppu, vm::cptr<be_t<s32>> mib_parts, u32 mib_parts_count, vm::ptr<void> oldp, vm::ptr<be_t<u64>> oldlenp, vm::ptr<void> newp, u32 newlen);
 error_code sys_net_eurus_post_command(ppu_thread& ppu, u16 cmd, vm::ptr<u8> cmdbuf, u32 cmdbuf_size);

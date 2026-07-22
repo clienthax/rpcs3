@@ -2913,7 +2913,7 @@ error_code sceNpCommerceGetDataFlagAbort()
 error_code sceNpCommerceGetChildCategoryInfo(vm::ptr<SceNpCommerceProductCategory> pc, u32 child_index, vm::ptr<SceNpCommerceCategoryInfo> info)
 {
 	sceNp.todo("sceNpCommerceGetChildCategoryInfo(pc=*0x%x, child_index=%d, info=*0x%x)", pc, child_index, info);
-	
+
 	if (!pc || !info) // Not really checked I think
 		return SCE_NP_COMMERCE_ERROR_CHILD_CATEGORY_INFO_NOT_FOUND;
 
@@ -2937,7 +2937,7 @@ error_code sceNpCommerceGetChildCategoryInfo(vm::ptr<SceNpCommerceProductCategor
 error_code sceNpCommerceGetChildProductSkuInfo(vm::ptr<SceNpCommerceProductCategory> pc, u32 child_index, vm::ptr<SceNpCommerceProductSkuInfo> info)
 {
 	sceNp.todo("sceNpCommerceGetChildProductSkuInfo(pc=*0x%x, child_index=%d, info=*0x%x)", pc, child_index, info);
-	
+
 	if (!pc || !info) // Not really checked I think
 		return SCE_NP_COMMERCE_ERROR_SKU_INFO_NOT_FOUND;
 
@@ -4323,7 +4323,7 @@ error_code sceNpManagerGetEntitlementById(vm::cptr<char> entId, vm::ptr<SceNpEnt
 error_code sceNpManagerGetSigninId(vm::ptr<void> signInId)
 {
 	sceNp.todo("sceNpManagerGetSigninId(signInId==*0x%x)", signInId);
-	
+
 	auto& nph = g_fxo->get<named_thread<np::np_handler>>();
 
 	if (!nph.is_NP_init)
@@ -5569,7 +5569,7 @@ std::pair<std::optional<error_code>, shared_ptr<score_transaction_ctx>> get_scor
 		{
 			if (trans_ctx->thread.joinable())
 				trans_ctx->thread.join();
-			
+
 			trans_ctx->result = {};
 			trans_ctx->tdata = {};
 		}

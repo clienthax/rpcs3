@@ -337,7 +337,10 @@ lv2_fs_mount_point* lv2_fs_object::get_mp(std::string_view filename, std::string
 			const auto& device_alias_check = !is_path && (
 				(mp == &g_mp_sys_dev_hdd0 && mp_name == "CELL_FS_IOS:PATA0_HDD_DRIVE"sv) ||
 				(mp == &g_mp_sys_dev_hdd1 && mp_name == "CELL_FS_IOS:PATA1_HDD_DRIVE"sv) ||
-				(mp == &g_mp_sys_dev_flash2 && mp_name == "CELL_FS_IOS:BUILTIN_FLASH"sv)); // TODO confirm
+				(mp == &g_mp_sys_dev_flash && mp_name == "CELL_FS_IOS:BUILTIN_FLASH"sv) ||
+				(mp == &g_mp_sys_dev_flash && mp_name == "CELL_FS_IOS:BUILTIN_FLSH1"sv) ||
+				(mp == &g_mp_sys_dev_flash2 && mp_name == "CELL_FS_IOS:BUILTIN_FLSH2"sv) ||
+				(mp == &g_mp_sys_dev_flash3 && mp_name == "CELL_FS_IOS:BUILTIN_FLSH3"sv)); // TODO confirm
 
 			if (mp == &g_mp_sys_dev_usb)
 			{
@@ -1089,7 +1092,26 @@ error_code sys_fs_open(ppu_thread& ppu, vm::cptr<char> path, s32 flags, vm::ptr<
 		return {path_error, vpath};
 	}
 
-	auto [error, ppath, real, file, type] = lv2_file::open(vpath, flags, mode, arg.get_ptr(), size);
+	std::string clean_path = vpath;
+
+	// strip trailing '/'
+	while (clean_path.size() > 1 && clean_path.back() == '/')
+	{
+		clean_path.pop_back();
+	}
+
+	// (optional but safe) collapse "//"
+	for (usz i = 0; i + 1 < clean_path.size();)
+	{
+		if (clean_path[i] == '/' && clean_path[i + 1] == '/')
+		{
+			clean_path.erase(i, 1);
+			continue;
+		}
+		++i;
+	}
+
+	auto [error, ppath, real, file, type] = lv2_file::open(clean_path, flags, mode, arg.get_ptr(), size);
 
 	if (error)
 	{
@@ -1098,7 +1120,7 @@ error_code sys_fs_open(ppu_thread& ppu, vm::cptr<char> path, s32 flags, vm::ptr<
 			return not_an_error(CELL_EEXIST);
 		}
 
-		return {g_fxo->get<lv2_fs_mount_info_map>().lookup(vpath) == &g_mp_sys_dev_hdd1 ? sys_fs.warning : sys_fs.error, error, path};
+		return {g_fxo->get<lv2_fs_mount_info_map>().lookup(clean_path) == &g_mp_sys_dev_hdd1 ? sys_fs.warning : sys_fs.error, error, path};
 	}
 
 	if (const u32 id = idm::import<lv2_fs_object, lv2_file>([&ppath = ppath, &file = file, mode, flags, &real = real, &type = type]() -> shared_ptr<lv2_file>
@@ -1668,6 +1690,23 @@ error_code sys_fs_stat(ppu_thread& ppu, vm::cptr<char> path, vm::ptr<CellFsStat>
 	sb->size = info.is_directory ? mp->block_size : info.size;
 	sb->blksize = mp->block_size;
 
+
+	// Needed for vshnet_0xEFB67F8E
+	// Part of psn activation, checks for this uid and mode specifically for exdata
+	// if this is incorrect it will not create act.dat
+	if (vpath.length() >= 6)
+	{
+		bool is_exdata = (vpath.substr(vpath.length() - 6) == "exdata");
+
+		if (is_exdata)
+		{
+			sys_fs.todo("sys_fs_stat(path=%s, sb=*0x%x) - VSH HACK - overwriting uid from %d to 0, and mode from 0x%x to 0x41c0", path, sb, sb->uid, mode);
+
+			sb->uid = 0;
+			sb->mode = 0x41c0;
+		}
+	}
+
 	return CELL_OK;
 }
 
@@ -1716,6 +1755,7 @@ error_code sys_fs_fstat(ppu_thread& ppu, u32 fd, vm::ptr<CellFsStat> sb)
 	sb->ctime = info.ctime; // ctime may be incorrect
 	sb->size = info.size;
 	sb->blksize = file->mp->block_size;
+
 	return CELL_OK;
 }
 
@@ -1944,10 +1984,30 @@ error_code sys_fs_unlink(ppu_thread& ppu, vm::cptr<char> path)
 		return {path_error, vpath};
 	}
 
-	const std::string local_path = vfs::get(vpath);
+
+	std::string clean_path = vpath;
+
+	// strip trailing '/'
+	while (clean_path.size() > 1 && clean_path.back() == '/')
+	{
+		clean_path.pop_back();
+	}
+
+	// (optional but safe) collapse "//"
+	for (usz i = 0; i + 1 < clean_path.size();)
+	{
+		if (clean_path[i] == '/' && clean_path[i + 1] == '/')
+		{
+			clean_path.erase(i, 1);
+			continue;
+		}
+		++i;
+	}
+
+	const std::string local_path = vfs::get(clean_path);
 
 	std::string mount_path = fs::get_parent_dir(vpath); // Use its parent directory as fallback
-	const auto& mp = g_fxo->get<lv2_fs_mount_info_map>().lookup(vpath, true, &mount_path);
+	const auto& mp = g_fxo->get<lv2_fs_mount_info_map>().lookup(clean_path, true, &mount_path);
 
 	if (mp == &g_mp_sys_dev_root)
 	{
@@ -2014,16 +2074,60 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 
 	switch (op)
 	{
-	case 0x80000004: // Unknown
+	case 0x80000004: // cellFsSetCharacterSet
 	{
-		if (_size > 4)
+		// argBufferSize must be 4; kernel copies up to 4 bytes from user into a
+		// zero-initialised u32 then passes it to fs_obj->vtable[0x160/8].
+		if (_size != 4)
 		{
 			return CELL_EINVAL;
 		}
 
-		const auto arg = vm::static_ptr_cast<u32>(_arg);
-		*arg = 0;
-		break;
+		const auto file = idm::get_unlocked<lv2_fs_object, lv2_file>(fd);
+
+		if (!file)
+		{
+			return CELL_EBADF;
+		}
+
+		// Input: read charset from caller. Kernel copies exactly _size bytes into a
+		// zero-initialised u32, so values narrower than 4 bytes have their upper
+		// bytes treated as zero. Reading the full u32 is fine for _size == 4;
+		// for _size < 4 we mask off the bytes the kernel would not have copied.
+		u32 charset = 0;
+		if (_size > 0)
+		{
+			const auto arg = vm::static_ptr_cast<be_t<u32>>(_arg);
+			const u32 mask = ~u32{0} << ((4 - _size) * 8);
+			charset = (+*arg) & mask;
+		}
+
+		// Stored per-mount-info: the kernel applies charset to the filesystem
+		// object that backs the volume, shared across all fds on the same mount.
+		file->mp.charset = charset;
+		return CELL_OK;
+	}
+
+	case 0x80000005: // cellFsGetCharacterSet
+	{
+		// Symmetric getter: returns 4 bytes, so size must be exactly 4.
+		// Kernel uses fs_obj->vtable[0x168/8] and writes the result back via
+		// a local pointer passed into the vtable call.
+		if (_size != 4)
+		{
+			return CELL_EINVAL;
+		}
+
+		const auto file = idm::get_unlocked<lv2_fs_object, lv2_file>(fd);
+
+		if (!file)
+		{
+			return CELL_EBADF;
+		}
+
+		const auto arg = vm::static_ptr_cast<be_t<u32>>(_arg);
+		*arg = file->mp.charset;
+		return CELL_OK;
 	}
 
 	case 0x80000006: // cellFsAllocateFileAreaByFdWithInitialData
@@ -2201,7 +2305,7 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 		const auto& mp = g_fxo->get<lv2_fs_mount_info_map>().lookup("/dev_hdd0");
 
 		arg->out_block_size = mp->block_size;
-		arg->out_block_count = (40ull * 1024 * 1024 * 1024 - 1) / mp->block_size; // Read explanation in cellHddGameCheck
+		arg->out_block_count = (100ull * 1024 * 1024 * 1024 - 1) / mp->block_size; // Read explanation in cellHddGameCheck
 		return CELL_OK;
 	}
 
@@ -2215,7 +2319,12 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 		break;
 	}
 
-	case 0xc0000006: // Unknown
+	case 0xc0000005: // getSystemMergin
+	{
+		break;
+	}
+
+	case 0xc0000006: // async path-to-device-id query
 	{
 		const auto arg = vm::static_ptr_cast<lv2_file_c0000006>(_arg);
 
@@ -2356,6 +2465,16 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 		return CELL_OK;
 	}
 
+	case 0xc0000012: // something async related
+	{
+		break;
+	}
+
+	case 0xc0000013: // toggles some flag?
+	{
+		break;
+	}
+
 	case 0xc0000015: // USB Vid/Pid query
 	case 0xc000001c: // USB Vid/Pid/Serial query
 	{
@@ -2410,6 +2529,17 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 
 	case 0xc0000016: // ps2disc_8160A811
 	{
+		// change ps2 disc layer?
+		break;
+	}
+
+	case 0xc0000017: // open_dummy_cfs_files
+	{
+		break;
+	}
+
+	case 0xc0000018: // close_dummy_cfs_files
+	{
 		break;
 	}
 
@@ -2417,6 +2547,33 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 	{
 		[[maybe_unused]] const auto arg = vm::static_ptr_cast<lv2_file_c000001a>(_arg);
 		return CELL_OK;
+	}
+
+	case 0xc000001b:
+	{
+		break;
+	}
+
+	case 0xc000001d:
+	{
+		break;
+	}
+
+	case 0xc000001e:
+	{
+		// 0's a 0x420 buffer in lv2.
+		break;
+	}
+
+	case 0xc000001f:
+	{
+		break;
+	}
+
+	case 0xc0000020:
+	{
+		// raw ata commands to hdd?
+		break;
 	}
 
 	case 0xc0000021: // 9FDBBA89
@@ -2434,12 +2591,12 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 		break;
 	}
 
-	case 0xe0000003: // Unknown
+	case 0xe0000003: // Possibly cellFsOpen path
 	{
 		break;
 	}
 
-	case 0xe0000004: // Unknown
+	case 0xe0000004: // Possibly cellFsOpen dir
 	{
 		break;
 	}
@@ -2454,7 +2611,7 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 		break;
 	}
 
-	case 0xe0000007: // Unknown
+	case 0xe0000007: // Possibly cellFsRmdir path based
 	{
 		break;
 	}
@@ -2506,7 +2663,8 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 
 	case 0xe0000011: // Unknown
 	{
-		break;
+		// No impl on retail firmware
+		return CELL_ENOTSUP;
 	}
 
 	case 0xe0000012: // cellFsGetDirectoryEntries
@@ -2567,6 +2725,16 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 		return CELL_OK;
 	}
 
+	case 0xe0000013:
+	{
+		break;
+	}
+
+	case 0xe0000014:
+	{
+		break;
+	}
+
 	case 0xe0000015: // Unknown
 	{
 		break;
@@ -2621,6 +2789,11 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 	}
 
 	case 0xe0000020: // Unknown
+	{
+		break;
+	}
+
+	case 0xe0000024:
 	{
 		break;
 	}
@@ -2767,6 +2940,41 @@ error_code sys_fs_fsync(ppu_thread& ppu, u32 fd)
 	}
 
 	file->file.sync();
+	return CELL_OK;
+}
+
+error_code sys_fs_sync(ppu_thread& ppu, vm::cptr<char> path)
+{
+	lv2_obj::sleep(ppu);
+
+	sys_fs.warning("sys_fs_sync(path=%s)", path);
+
+	const auto [path_error, vpath] = translate_to_str(path);
+
+	if (path_error)
+	{
+		return {path_error, vpath};
+	}
+
+	const std::string local_path = vfs::get(vpath);
+
+	const auto& mp = g_fxo->get<lv2_fs_mount_info_map>().lookup(vpath);
+
+	if (local_path.empty())
+	{
+		return {sys_fs.warning, CELL_ENOTMOUNTED, path};
+	}
+
+	std::lock_guard lock(mp->mutex);
+
+	idm::select<lv2_fs_object, lv2_file>([&](u32 /*id*/, lv2_file& file)
+	{
+		if (file.file && file.mp == mp.mp && file.flags & CELL_FS_O_ACCMODE)
+		{
+			file.file.sync();
+		}
+	});
+
 	return CELL_OK;
 }
 

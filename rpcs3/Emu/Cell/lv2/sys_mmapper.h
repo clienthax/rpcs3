@@ -115,3 +115,4 @@ error_code sys_mmapper_map_shared_memory(ppu_thread&, u32 addr, u32 mem_id, u64 
 error_code sys_mmapper_search_and_map(ppu_thread&, u32 start_addr, u32 mem_id, u64 flags, vm::ptr<u32> alloc_addr);
 error_code sys_mmapper_unmap_shared_memory(ppu_thread&, u32 addr, vm::ptr<u32> mem_id);
 error_code sys_mmapper_enable_page_fault_notification(ppu_thread&, u32 start_addr, u32 event_queue_id);
+error_code sys_mmapper_shared_memory_get_auth_id(ppu_thread& ppu, u32 mem_id, vm::ptr<u64> auth_id);

@@ -799,9 +799,9 @@ error_code sys_spu_thread_initialize(ppu_thread& ppu, vm::ptr<u32> thread, u32 g
 	const u32 inited_before_lock = group->init;
 
 	u32 tid = (inited_before_lock << 24) | (group_id & 0xffffff);
-	
+
 	const auto spu_ptr = ensure(idm::make_ptr<named_thread<spu_thread>>(group.get(), spu_num, thread_name, tid, false, option));
-	
+
 	std::unique_lock lock(group->mutex);
 
 	if (auto state = +group->run_state; state != SPU_THREAD_GROUP_STATUS_NOT_INITIALIZED)
@@ -2516,6 +2516,9 @@ error_code sys_isolated_spu_create(ppu_thread& ppu, vm::ptr<u32> id, vm::ptr<voi
 	const u32 ls_addr = RAW_SPU_BASE_ADDR + RAW_SPU_OFFSET * index;
 
 	const auto thread = idm::make_ptr<named_thread<spu_thread>>(nullptr, index, "", index, true);
+
+	ensure(vm::get(vm::spu)->falloc(thread->vm_offset(), SPU_LS_SIZE, &thread->shm, vm::page_size_64k));
+	thread->map_ls(*thread->shm, thread->ls);
 
 	thread->gpr[3] = v128::from64(0, arg1);
 	thread->gpr[4] = v128::from64(0, arg2);

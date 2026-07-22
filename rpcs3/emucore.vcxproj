@@ -76,10 +76,13 @@
     <ClCompile Include="Emu\Cell\ErrorCodes.cpp" />
     <ClCompile Include="Emu\Cell\lv2\sys_bt.cpp" />
     <ClCompile Include="Emu\Cell\lv2\sys_game.cpp" />
+    <ClCompile Include="Emu\Cell\lv2\sys_npdrm.cpp" />
     <ClCompile Include="Emu\Cell\Modules\cellMusicSelectionContext.cpp" />
     <ClCompile Include="Emu\Cell\Modules\libfs_utility_init.cpp" />
+    <ClCompile Include="Emu\Cell\Modules\sceNpInstaller.cpp" />
     <ClCompile Include="Emu\Cell\Modules\sys_crashdump.cpp" />
     <ClCompile Include="Emu\Cell\Modules\HLE_PATCHES.cpp" />
+    <ClCompile Include="Emu\Cell\Modules\vshnet.cpp" />
     <ClCompile Include="Emu\games_config.cpp" />
     <ClCompile Include="Emu\Io\Buzz.cpp" />
     <ClCompile Include="Emu\Io\camera_config.cpp" />
@@ -584,6 +587,7 @@
     <ClInclude Include="Emu\Cell\lv2\sys_bt.h" />
     <ClInclude Include="Emu\Cell\lv2\sys_crypto_engine.h" />
     <ClInclude Include="Emu\Cell\lv2\sys_game.h" />
+    <ClInclude Include="Emu\Cell\lv2\sys_npdrm.h" />
     <ClInclude Include="Emu\Cell\Modules\cellCrossController.h" />
     <ClInclude Include="Emu\Cell\Modules\cellMusicDecode.h" />
     <ClInclude Include="Emu\Cell\Modules\cellRec.h" />
@@ -592,7 +596,9 @@
     <ClInclude Include="Emu\Cell\Modules\cellStorage.h" />
     <ClInclude Include="Emu\Cell\Modules\cellSysutilAvc.h" />
     <ClInclude Include="Emu\Cell\Modules\libfs_utility_init.h" />
+    <ClInclude Include="Emu\Cell\Modules\sceNpInstaller.h" />
     <ClInclude Include="Emu\Cell\Modules\sys_crashdump.h" />
+    <ClInclude Include="Emu\Cell\Modules\vshnet.h" />
     <ClInclude Include="Emu\config_mode.h" />
     <ClInclude Include="Emu\CPU\Hypervisor.h" />
     <ClInclude Include="Emu\CPU\sse2neon.h" />

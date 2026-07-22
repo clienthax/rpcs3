@@ -2,6 +2,8 @@
 
 #include "Utilities/Thread.h"
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 struct gdb_cmd;
 
@@ -20,6 +22,10 @@ class gdb_thread
 	u64 continue_ops_thread_id = ANY_THREAD;
 	u64 general_ops_thread_id = ANY_THREAD;
 	std::string thread_info_buf{}; // remaining thread IDs not yet sent
+
+	// vFile remote filesystem: fd → synthetic ELF data
+	std::unordered_map<int, std::vector<u8>> vfile_handles{};
+	int vfile_next_fd = 1;
 
 	//initialize server socket and start listening
 	void start_server();
@@ -96,6 +102,7 @@ class gdb_thread
 	bool cmd_thread_alive(gdb_cmd& cmd);
 	bool cmd_detach(gdb_cmd& cmd);
 	bool cmd_qxfer(gdb_cmd& cmd);
+	bool cmd_vfile(gdb_cmd& cmd);
 
 public:
 	bool from_breakpoint = true;

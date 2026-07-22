@@ -287,6 +287,7 @@ public:
 	static const ppu_static_module sceNp2;
 	static const ppu_static_module sceNpClans;
 	static const ppu_static_module sceNpCommerce2;
+	static const ppu_static_module sceNpInstaller;
 	static const ppu_static_module sceNpMatchingInt;
 	static const ppu_static_module sceNpSns;
 	static const ppu_static_module sceNpTrophy;
@@ -301,6 +302,7 @@ public:
 	static const ppu_static_module sys_lv2dbg;
 	static const ppu_static_module static_hle;
 	static const ppu_static_module hle_patches;
+	static const ppu_static_module vshnet;
 };
 
 template <auto* Func>

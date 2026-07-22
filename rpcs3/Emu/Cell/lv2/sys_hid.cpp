@@ -135,6 +135,7 @@ error_code sys_hid_manager_check_focus()
 	return not_an_error(1);
 }
 
+// sys_hid_manager_set_port_config
 error_code sys_hid_manager_513(u64 a1, u64 a2, vm::ptr<void> buf, u64 buf_size)
 {
 	sys_hid.todo("sys_hid_manager_513(%llx, %llx, buf=%llx, buf_size=%llx)", a1, a2, buf, buf_size);

@@ -394,6 +394,17 @@ error_code sys_mmapper_allocate_shared_memory_ext(ppu_thread& ppu, u64 ipc_key, 
 	return CELL_OK;
 }
 
+error_code sys_mmapper_shared_memory_get_auth_id(ppu_thread& ppu, u32 mem_id, vm::ptr<u64> auth_id)
+{
+	sys_mmapper.todo("sys_mmapper_shared_memory_get_auth_id(mem_id=0x%x, auth_id=0x%llx)", mem_id, auth_id);
+	// Prob not the best way to implement this lol
+	const u64 authid = g_ps3_process_info.self_info.valid ? g_ps3_process_info.self_info.prog_id_hdr.program_authority_id : 0;
+	*auth_id = authid;
+	sys_mmapper.todo("sys_mmapper_shared_memory_get_auth_id(mem_id=0x%x, auth_id=0x%llx) -> auth_id=0xllx", mem_id, auth_id, authid);
+
+	return CELL_OK;
+}
+
 error_code sys_mmapper_allocate_shared_memory_from_container_ext(ppu_thread& ppu, u64 ipc_key, u64 size, u64 flags, u32 cid, vm::ptr<mmapper_unk_entry_struct0> entries, s32 entry_count, vm::ptr<u32> mem_id)
 {
 	ppu.state += cpu_flag::wait;

@@ -2661,7 +2661,9 @@ void Emulator::FixGuestTime()
 			// Mark a known savestate location and the one we try to boot (in case we boot a moved/copied savestate)
 			if (g_cfg.savestate.suspend_emu)
 			{
-				for (std::string old_path : std::initializer_list<std::string>{m_ar ? m_path_old : "", m_title_id.empty() ? "" : get_savestate_file(m_title_id, m_path_old, -1)})
+				std::string paths[2] = { m_ar ? m_path_old : "", m_title_id.empty() ? "" : get_savestate_file(m_title_id, m_path_old, -1) };
+for (std::string& old_path : paths)
+				//for (std::string old_path : std::initializer_list<std::string>{m_ar ? m_path_old : "", m_title_id.empty() ? "" : get_savestate_file(m_title_id, m_path_old, -1)})
 				{
 					if (old_path.empty())
 					{
@@ -3110,7 +3112,7 @@ void Emulator::GracefulShutdown(bool allow_autoexit, bool async_op, bool savesta
 				Resume();
 			}, nullptr, true, read_counter);
 
-			std::shared_lock rlock(id_manager::g_mutex, std::defer_lock); 
+			std::shared_lock rlock(id_manager::g_mutex, std::defer_lock);
 
 			// Check if the EXITGAME signal was read. We allow the game to terminate itself if that's the case.
 			if (!read_sysutil_signal && read_counter != get_sysutil_cb_manager_read_count() && rlock.try_lock())

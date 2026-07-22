@@ -20,6 +20,9 @@
 #include "util/sysinfo.hpp"
 #include "Utilities/JIT.h"
 
+
+#include "rpcs3qt/breakpoint_handler.h"
+
 #if !defined(_MSC_VER)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"

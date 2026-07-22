@@ -73,6 +73,19 @@ enum : u32
 	SYS_PROCESS_PARAM_SDK_VERSION_UNKNOWN = 0xffffffff,
 };
 
+struct spawn_self_param_sfo
+{
+	u8 sfo_marker;          // 0x00 — must be 0x01 (real SFO) or 0xFF (defaults/none)
+	u8 reserved[0x3F];      // 0x01..0x3F — PARAM.SFO data when marker == 0x01
+};
+
+struct spawn_self_dbg_data
+{
+	be_t<u64> proc_intr_mask;
+	be_t<u32> trace_id;
+	be_t<u32> pad;
+};
+
 struct sys_exit2_param
 {
 	be_t<u64> x0; // 0x85
@@ -123,4 +136,4 @@ error_code sys_process_detach_child(u64 unk);
 void _sys_process_exit(ppu_thread& ppu, s32 status, u32 arg2, u32 arg3);
 void _sys_process_exit2(ppu_thread& ppu, s32 status, vm::ptr<sys_exit2_param> arg, u32 arg_size, u32 arg4);
 void sys_process_exit3(ppu_thread& ppu, s32 status);
-error_code sys_process_spawns_a_self2(vm::ptr<u32> pid, u32 primary_prio, u64 flags, vm::ptr<void> stack, u32 stack_size, u32 mem_id, vm::ptr<void> param_sfo, vm::ptr<void> dbg_data);
+error_code sys_process_spawns_a_self2(vm::ptr<u32> pid, u32 primary_prio, u64 flags, vm::ptr<void> stack, u32 stack_size, u32 mem_id, vm::ptr<spawn_self_param_sfo> param_sfo, vm::ptr<spawn_self_dbg_data> dbg_data);

@@ -28,6 +28,8 @@
 #include <span>
 #include <set>
 #include <algorithm>
+
+#include "rpcs3qt/breakpoint_handler.h"
 #include "util/asm.hpp"
 
 LOG_CHANNEL(ppu_loader);
@@ -51,6 +53,14 @@ std::unordered_map<std::string, ppu_static_module*>& ppu_module_manager::get()
 std::vector<std::string> g_ppu_function_names;
 
 atomic_t<u32> liblv2_begin = 0, liblv2_end = 0;
+
+// Import stub code address → function name, populated during ppu_load_imports
+static std::unordered_map<u32, std::string> s_ppu_stub_code_names;
+
+const std::unordered_map<u32, std::string>& ppu_get_stub_code_names()
+{
+	return s_ppu_stub_code_names;
+}
 
 extern u32 ppu_generate_id(std::string_view name)
 {
@@ -318,6 +328,7 @@ static void ppu_initialize_modules(ppu_linkage_info* link, utils::serial* ar = n
 		&ppu_module_manager::sceNp2,
 		&ppu_module_manager::sceNpClans,
 		&ppu_module_manager::sceNpCommerce2,
+		&ppu_module_manager::sceNpInstaller,
 		&ppu_module_manager::sceNpMatchingInt,
 		&ppu_module_manager::sceNpPlus,
 		&ppu_module_manager::sceNpSns,
@@ -994,6 +1005,15 @@ static import_result_t ppu_load_imports(const ppu_module<lv2_obj>& _module, std:
 			const u32 fstub = _module.get_ref<u32>(faddrs, i);
 			const u32 faddr = (faddrs + i).addr();
 			ppu_loader.notice("**** %s import: [%s] (0x%08x) -> 0x%x", module_name, ppu_get_function_name(module_name, fnid), fnid, fstub);
+
+			// Record import stub code address for GDB symbol naming.
+			// For imports, faddrs[i] is the stub code address directly (unlike exports where it's an OPD).
+			if (fstub)
+			{
+				const std::string fname = ppu_get_function_name(module_name, fnid);
+				if (!fname.empty())
+					s_ppu_stub_code_names.try_emplace(fstub, fname);
+			}
 
 			// Function linkage info
 			auto& flink = mlink.functions[fnid];
@@ -2831,6 +2851,14 @@ bool ppu_load_exec(const ppu_exec_object& elf, bool virtual_load, const std::str
 	}
 
 	error_handler.errored = false;
+
+	//breakpoint_handler g_breakpoint_handler = breakpoint_handler();
+	//g_breakpoint_handler.AddBreakpoint(0x10550, breakpoint_types::bp_exec);
+
+
+	//breakpoint_handler g_breakpoint_handler = breakpoint_handler();
+	//g_breakpoint_handler.AddBreakpoint(0x10000, breakpoint_types::bp_exec);
+
 	return true;
 }
 

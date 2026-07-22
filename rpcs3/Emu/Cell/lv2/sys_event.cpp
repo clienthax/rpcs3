@@ -126,7 +126,7 @@ CellError lv2_event_queue::send(lv2_event event, bool* notified_thread, lv2_even
 		*notified_thread = false;
 	}
 
-	struct notify_spus_t 
+	struct notify_spus_t
 	{
 		std::array<shared_ptr<named_thread<spu_thread>>, 8> spus;
 
@@ -186,7 +186,7 @@ CellError lv2_event_queue::send(lv2_event event, bool* notified_thread, lv2_even
 		if (port && ppu.prio.load().prio < ensure(cpu_thread::get_current<ppu_thread>())->prio.load().prio)
 		{
 			// Block event port disconnection for the time being of sending events
-			// PPU -> lower prio PPU is the only case that can cause thread blocking 
+			// PPU -> lower prio PPU is the only case that can cause thread blocking
 			port->is_busy++;
 			ensure(notified_thread);
 			*notified_thread = true;
@@ -275,7 +275,7 @@ error_code sys_event_queue_destroy(ppu_thread& ppu, u32 equeue_id, s32 mode)
 		return CELL_EINVAL;
 	}
 
-	struct notify_spus_t 
+	struct notify_spus_t
 	{
 		std::array<shared_ptr<named_thread<spu_thread>>, 8> spus;
 
@@ -483,6 +483,7 @@ error_code sys_event_queue_receive(ppu_thread& ppu, u32 equeue_id, vm::ptr<sys_e
 
 		// "/dev_flash/vsh/module/msmw2.sprx" seems to rely on some cryptic shared memory behaviour that we don't emulate correctly
 		// This is a hack to avoid waiting for 1m40s every time we boot vsh
+		// Needs multiprocess :(
 		if (queue.key == 0x8005911000000012 && Emu.IsVsh())
 		{
 			sys_event.todo("sys_event_queue_receive(equeue_id=0x%x, *0x%x, timeout=0x%llx) Bypassing timeout for msmw2.sprx", equeue_id, dummy_event, timeout);

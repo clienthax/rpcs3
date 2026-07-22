@@ -23,6 +23,15 @@ u64 sys_time_get_system_time()
 	return get_guest_system_time();
 }
 
+// iVar10 = sys_process_spawn(local_f0,puVar16,0,0,0x3e9,0x20);
+// iVar10 = sys_process_spawn(local_f0,puVar16,0,0,2000,0x20);
+error_code sys_process_spawn(ppu_thread& ppu, vm::ptr<u32> pid, vm::ptr<char> path, vm::ptr<void> unk2, u64 unk3, u64 unk4, u64 unk5)
+{
+	sysPrxForUser.todo("sys_process_spawn(pid=*0x%x, path=%s, unk2=*0x%x, unk3=0x%x, unk4=0x%x, unk5=0x%x)", pid, path, unk2, unk3, unk4, unk5);
+
+	return CELL_OK;
+}
+
 void sys_process_exit(ppu_thread& ppu, s32 status)
 {
 	sysPrxForUser.warning("sys_process_exit(status=%d)", status);
@@ -241,6 +250,7 @@ DECLARE(ppu_module_manager::sysPrxForUser)("sysPrxForUser", [](ppu_static_module
 	REG_FUNC(sysPrxForUser, _sys_process_at_Exitspawn);
 	REG_FUNC(sysPrxForUser, sys_process_is_stack);
 	REG_FUNC(sysPrxForUser, sys_process_get_paramsfo); // 0xe75c40f2
+	REG_FUNC(sysPrxForUser, sys_process_spawn);
 
 	REG_FUNC(sysPrxForUser, sys_get_random_number);
 

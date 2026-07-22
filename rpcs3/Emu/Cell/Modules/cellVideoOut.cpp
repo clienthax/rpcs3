@@ -181,6 +181,12 @@ error_code cellVideoOutGetResolution(u32 resolutionId, vm::ptr<CellVideoOutResol
 	return result;
 }
 
+
+// Valid on decr
+// cellVideoOutConfigure(videoOut=0, config=*0xd0100790, option=*0x0, waitForEvent=0) ->
+// vpsize: 208
+// fpsize: 544
+// maybe config is popultaed with another call..?
 error_code cellVideoOutConfigure(u32 videoOut, vm::ptr<CellVideoOutConfiguration> config, vm::ptr<CellVideoOutOption> option, u32 waitForEvent)
 {
 	cellSysutil.warning("cellVideoOutConfigure(videoOut=%d, config=*0x%x, option=*0x%x, waitForEvent=%d)", videoOut, config, option, waitForEvent);

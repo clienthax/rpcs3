@@ -389,7 +389,7 @@ DECLARE(ppu_module_manager::cellResc)("cellResc", []()
 	REG_FUNC(cellResc, cellRescSetWaitFlip);
 	REG_FUNC(cellResc, cellRescSetFlipHandler);
 	REG_FUNC(cellResc, cellRescGcmSurface2RescSrc);
-	REG_FUNC(cellResc, cellRescGetNumColorBuffers);
+	REG_FUNC(cellResc, cellRescGetNumColorBuffers).flag(MFF_PERFECT);
 	REG_FUNC(cellResc, cellRescSetDsts);
 	REG_FUNC(cellResc, cellRescResetFlipStatus);
 	REG_FUNC(cellResc, cellRescSetPalInterpolateDropFlexRatio);

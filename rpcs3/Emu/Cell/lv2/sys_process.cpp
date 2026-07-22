@@ -525,10 +525,74 @@ void sys_process_exit3(ppu_thread& ppu, s32 status)
 	return _sys_process_exit(ppu, status, 0, 0);
 }
 
-error_code sys_process_spawns_a_self2(vm::ptr<u32> pid, u32 primary_prio, u64 flags, vm::ptr<void> stack, u32 stack_size, u32 mem_id, vm::ptr<void> param_sfo, vm::ptr<void> dbg_data)
-{
-	sys_process.todo("sys_process_spawns_a_self2(pid=*0x%x, primary_prio=0x%x, flags=0x%llx, stack=*0x%x, stack_size=0x%x, mem_id=0x%x, param_sfo=*0x%x, dbg_data=*0x%x"
-		, pid, primary_prio, flags, stack, stack_size, mem_id, param_sfo, dbg_data);
 
-	return CELL_OK;
+error_code sys_process_spawns_a_self2(vm::ptr<u32> pid, u32 primary_prio, u64 flags, vm::ptr<void> stack, u32 stack_size, u32 mem_id, vm::ptr<spawn_self_param_sfo> param_sfo, vm::ptr<spawn_self_dbg_data> dbg_data)
+{
+    sys_process.todo("sys_process_spawns_a_self2(pid=*0x%x, primary_prio=0x%x, flags=0x%llx",
+        "stack=*0x%x, stack_size=0x%x, mem_id=0x%x, param_sfo=*0x%x, dbg_data=*0x%x)",
+        pid, primary_prio, flags, stack, stack_size, mem_id, param_sfo, dbg_data);
+
+    // --- param_sfo ---
+    if (param_sfo)
+    {
+        const u8 marker = param_sfo->sfo_marker;
+        sys_process.todo("  param_sfo.marker=0x%02x (%s)", marker,
+            marker == 0x01 ? "SFO present" :
+            marker == 0xFF ? "defaults"    : "INVALID");
+    }
+
+    // --- dbg_data ---
+    if (dbg_data)
+    {
+        sys_process.todo("  dbg_data.proc_intr_mask=0x%016llx, trace_id=0x%08x", +dbg_data->proc_intr_mask, +dbg_data->trace_id);
+    }
+
+    // --- stack blob ---
+    if (!stack || !stack_size)
+    {
+        sys_process.todo("  stack: NULL or zero size");
+    }
+    else if (stack_size > 0x10000)
+    {
+        sys_process.todo("  stack_size=0x%x exceeds kernel limit — would return EAGAIN", stack_size);
+    }
+    else
+    {
+        sys_process.todo("  stack blob (%u bytes):", stack_size);
+
+        // The blob begins with a NULL-terminated table of userspace pointers.
+        // The FIRST pointer is the SELF path; remaining pointers are argv/envp strings.
+        // The kernel reads ptr[0] and subtracts the user stack base to locate the path.
+        const auto ptrs = vm::cptr<u64>::make(stack.addr());
+        const u32  base = stack.addr();
+        const u32  end  = base + stack_size;
+
+        u32 i = 0;
+        while (i * 8 < stack_size)
+        {
+            const u64 p = +ptrs[i];
+            if (p == 0)
+            {
+                sys_process.todo("    [%u] NULL (terminator)", i);
+                break;
+            }
+
+            if (p >= base && p < end)
+            {
+                const u32 off = static_cast<u32>(p - base);
+                const auto str = vm::cptr<char>::make(static_cast<u32>(p));
+                const char* role = (i == 0) ? "self_path" : "arg/env";
+                sys_process.todo("    [%u] %s @ blob+0x%x: \"%s\"", i, role, off, str.get_ptr());
+            }
+            else
+            {
+                sys_process.todo("    [%u] ptr 0x%llx out of blob range [0x%x..0x%x)", i, p, base, end);
+                break;
+            }
+            i++;
+        }
+    }
+
+    //Emu.Pause();
+    return CELL_OK;
 }

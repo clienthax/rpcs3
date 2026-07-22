@@ -169,6 +169,11 @@ struct lv2_fs_mount_info
 	const std::string file_system;
 	const bool read_only;
 
+	// Character set applied to this volume via sys_fs_fcntl(0x80000004).
+	// Stored here (per-mount-info) because the real kernel applies it to the
+	// filesystem object that backs the volume, not to individual file descriptors.
+	mutable atomic_t<u32> charset{0};
+
 	lv2_fs_mount_info(lv2_fs_mount_point* mp = nullptr, std::string_view device = {}, std::string_view file_system = {}, bool read_only = false)
 		: mp(mp ? mp : &g_mp_sys_no_device)
 		, device(device.empty() ? this->mp->device : device)
@@ -658,6 +663,7 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> arg, u32 
 error_code sys_fs_lseek(ppu_thread& ppu, u32 fd, s64 offset, s32 whence, vm::ptr<u64> pos);
 error_code sys_fs_fdatasync(ppu_thread& ppu, u32 fd);
 error_code sys_fs_fsync(ppu_thread& ppu, u32 fd);
+error_code sys_fs_sync(ppu_thread& ppu, vm::cptr<char> path);
 error_code sys_fs_fget_block_size(ppu_thread& ppu, u32 fd, vm::ptr<u64> sector_size, vm::ptr<u64> block_size, vm::ptr<u64> arg4, vm::ptr<s32> out_flags);
 error_code sys_fs_get_block_size(ppu_thread& ppu, vm::cptr<char> path, vm::ptr<u64> sector_size, vm::ptr<u64> block_size, vm::ptr<u64> arg4);
 error_code sys_fs_truncate(ppu_thread& ppu, vm::cptr<char> path, u64 size);

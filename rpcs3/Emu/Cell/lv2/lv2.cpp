@@ -43,6 +43,7 @@
 #include "sys_config.h"
 #include "sys_bdemu.h"
 #include "sys_bt.h"
+#include "sys_npdrm.h"
 #include "sys_btsetting.h"
 #include "sys_console.h"
 #include "sys_hid.h"
@@ -416,7 +417,7 @@ const std::array<std::pair<ppu_intrp_func_t, std::string_view>, 1024> g_ppu_sysc
 	BIND_SYSC(sys_mmapper_search_and_map),                  //337 (0x151)
 	NULL_FUNC(sys_mmapper_get_shared_memory_attribute),     //338 (0x152)
 	BIND_SYSC(sys_mmapper_allocate_shared_memory_ext),      //339 (0x153)
-	null_func,//BIND_SYSC(sys_...),                         //340 (0x154)
+	BIND_SYSC(sys_mmapper_shared_memory_get_auth_id),       //340 (0x154)
 	BIND_SYSC(sys_memory_container_create),                 //341 (0x155)
 	BIND_SYSC(sys_memory_container_destroy),                //342 (0x156)
 	BIND_SYSC(sys_memory_container_get_size),               //343 (0x157)
@@ -468,7 +469,7 @@ const std::array<std::pair<ppu_intrp_func_t, std::string_view>, 1024> g_ppu_sysc
 	NULL_FUNC(sys_sm_request_error_log),                    //390 (0x186)  ROOT
 	NULL_FUNC(sys_sm_request_be_count),                     //391 (0x187)  ROOT
 	BIND_SYSC(sys_sm_ring_buzzer),                          //392 (0x188)  ROOT
-	NULL_FUNC(sys_sm_get_hw_config),                        //393 (0x189)  ROOT
+	BIND_SYSC(sys_sm_get_hw_config),                        //393 (0x189)  ROOT
 	NULL_FUNC(sys_sm_request_scversion),                    //394 (0x18A)  ROOT
 	NULL_FUNC(sys_sm_request_system_event_log),             //395 (0x18B)  PM
 	NULL_FUNC(sys_sm_set_rtc_alarm),                        //396 (0x18C)  ROOT
@@ -517,13 +518,13 @@ const std::array<std::pair<ppu_intrp_func_t, std::string_view>, 1024> g_ppu_sysc
 	BIND_SYSC(sys_prx_get_ppu_guid),                        //467 (0x1D3)
 	null_func,//BIND_SYSC(sys_...),                         //468 (0x1D4) ROOT
 	uns_func,                                               //469 (0x1D5)  UNS
-	NULL_FUNC(sys_npdrm_check_ekc),                         //470 (0x1D6)  ROOT
-	NULL_FUNC(sys_npdrm_regist_ekc),                        //471 (0x1D7)  ROOT
+	BIND_SYSC(sys_npdrm_check_ekc),                         //470 (0x1D6)  ROOT
+	BIND_SYSC(sys_npdrm_regist_ekc),                        //471 (0x1D7)  ROOT
 	null_func,//BIND_SYSC(sys_...),                         //472 (0x1D8)  ROOT
 	null_func,//BIND_SYSC(sys_...),                         //473 (0x1D9)
 	null_func,//BIND_SYSC(sys_...),                         //474 (0x1DA)
-	null_func,//BIND_SYSC(sys_...),                         //475 (0x1DB)  ROOT
-	null_func,//BIND_SYSC(sys_...),                         //476 (0x1DC)  ROOT
+	BIND_SYSC(sys_npdrm_regist_ekc2),                       //475 (0x1DB)  ROOT
+	BIND_SYSC(sys_npdrm_476),                               //476 (0x1DC)  ROOT
 
 	uns_func, uns_func, uns_func,                           //477-479  UNS
 
@@ -605,7 +606,7 @@ const std::array<std::pair<ppu_intrp_func_t, std::string_view>, 1024> g_ppu_sysc
 	BIND_SYSC(sys_usbd_unregister_extra_ldd),               //558 (0x22E)
 	BIND_SYSC(sys_usbd_register_extra_ldd),                 //559 (0x22F)
 	null_func,//BIND_SYSC(sys_...),                         //560 (0x230)  ROOT
-	null_func,//BIND_SYSC(sys_...),                         //561 (0x231)  ROOT
+	null_func,//BIND_SYSC(sys_...),                         //561 (0x231)  ROOT - // sys_cardreader_check_if_present - 1 = yes 0 = no
 	null_func,//BIND_SYSC(sys_...),                         //562 (0x232)  ROOT
 	null_func,//BIND_SYSC(sys_...),                         //563 (0x233)
 	null_func,//BIND_SYSC(sys_...),                         //564 (0x234)
@@ -818,7 +819,7 @@ const std::array<std::pair<ppu_intrp_func_t, std::string_view>, 1024> g_ppu_sysc
 	BIND_SYSC(sys_fs_newfs),                                //836 (0x344)
 	BIND_SYSC(sys_fs_mount),                                //837 (0x345)
 	BIND_SYSC(sys_fs_unmount),                              //838 (0x346)
-	NULL_FUNC(sys_fs_sync),                                 //839 (0x347)
+	BIND_SYSC(sys_fs_sync),                                 //839 (0x347)
 	BIND_SYSC(sys_fs_disk_free),                            //840 (0x348)
 	BIND_SYSC(sys_fs_get_mount_info_size),                  //841 (0x349)
 	BIND_SYSC(sys_fs_get_mount_info),                       //842 (0x34A)
@@ -832,10 +833,10 @@ const std::array<std::pair<ppu_intrp_func_t, std::string_view>, 1024> g_ppu_sysc
 	uns_func, uns_func, uns_func, uns_func, uns_func, uns_func, //854-859  UNS
 
 	NULL_FUNC(sys_ss_get_cache_of_analog_sunset_flag),      //860 (0x35C)  AUTHID
-	NULL_FUNC(sys_ss_protected_file_db),                    //861  ROOT
+	NULL_FUNC(sys_ss_protected_file_db),                    //861  ROOT - gamesave_storage_manager_if
 	BIND_SYSC(sys_ss_virtual_trm_manager),                  //862  ROOT
 	BIND_SYSC(sys_ss_update_manager),                       //863  ROOT
-	NULL_FUNC(sys_ss_sec_hw_framework),                     //864  DBG
+	BIND_SYSC(sys_ss_sec_hw_framework),                     //864  DBG
 	BIND_SYSC(sys_ss_random_number_generator),              //865 (0x361)
 	BIND_SYSC(sys_ss_secure_rtc),                           //866  ROOT
 	BIND_SYSC(sys_ss_appliance_info_manager),               //867  ROOT

@@ -23,7 +23,7 @@ enum : u32
 	PS3AV_CID_AV_TV_MUTE                    = 0x0000000A,
 	PS3AV_CID_AV_NULL_CMD                   = 0x0000000B,
 	PS3AV_CID_AV_GET_AKSV                   = 0x0000000C,
-	PS3AV_CID_AV_UNK4                       = 0x0000000D,
+	PS3AV_CID_AV_UNK4                       = 0x0000000D, // Called when switching RGB Full Range (HDMI) option
 	PS3AV_CID_AV_UNK5                       = 0x0000000E,
 
 	PS3AV_CID_AV_VIDEO_MUTE                 = 0x00010002,

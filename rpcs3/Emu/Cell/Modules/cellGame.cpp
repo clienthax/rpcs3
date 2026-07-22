@@ -447,7 +447,7 @@ error_code cellHddGameCheck(ppu_thread& ppu, u32 version, vm::cptr<char> dirName
 	// 40 GB - 256 kilobytes. The reasoning is that many games take this number and multiply it by 1024, to get the amount of bytes. With 40GB exactly,
 	// this will result in an overflow, and the size would be 0, preventing the game from running. By reducing 256 kilobytes, we make sure that even
 	// after said overflow, the number would still be high enough to contain the game's data.
-	get->hddFreeSizeKB = 40 * 1024 * 1024 - 256;
+	get->hddFreeSizeKB = 100 * 1024 * 1024 - 256;
 	get->isNewData = CELL_HDDGAME_ISNEWDATA_EXIST;
 	get->sysSizeKB = 0; // TODO
 	get->st_atime_ = 0; // TODO
