@@ -164,7 +164,7 @@ bool has_non_directory_components(std::string_view path, bool ends_with_delim_do
 
 		edited_path = edited_path.substr(0, edited_path.find_last_not_of(fs::delim) + 1);
 
-		const auto elem = edited_path.substr(edited_path.find_last_of(fs::delim) + 1); 
+		const auto elem = edited_path.substr(edited_path.find_last_of(fs::delim) + 1);
 
 		if (elem == "." || elem == "..")
 		{
@@ -1828,6 +1828,22 @@ error_code sys_fs_stat(ppu_thread& ppu, vm::cptr<char> path, vm::ptr<CellFsStat>
 	sb->size = info.is_directory ? mp->block_size : info.size;
 	sb->blksize = mp->block_size;
 
+	// Needed for vshnet_0xEFB67F8E
+	// Part of psn activation, checks for this uid and mode specifically for exdata
+	// if this is incorrect it will not create act.dat
+	if (vpath.length() >= 6)
+	{
+		bool is_exdata = (vpath.substr(vpath.length() - 6) == "exdata");
+
+		if (is_exdata)
+		{
+			sys_fs.todo("sys_fs_stat(path=%s, sb=*0x%x) - VSH HACK - overwriting uid from %d to 0, and mode from 0x%x to 0x41c0", path, sb, sb->uid, mode);
+
+			sb->uid = 0;
+			sb->mode = 0x41c0;
+		}
+	}
+
 	return CELL_OK;
 }
 
@@ -2361,7 +2377,7 @@ error_code sys_fs_fcntl(ppu_thread& ppu, u32 fd, u32 op, vm::ptr<void> _arg, u32
 		const auto& mp = g_fxo->get<lv2_fs_mount_info_map>().lookup("/dev_hdd0");
 
 		arg->out_block_size = mp->block_size;
-		arg->out_block_count = (40ull * 1024 * 1024 * 1024 - 1) / mp->block_size; // Read explanation in cellHddGameCheck
+		arg->out_block_count = (200ull * 1024 * 1024 * 1024 - 1) / mp->block_size; // Read explanation in cellHddGameCheck
 		return CELL_OK;
 	}
 
@@ -3580,6 +3596,14 @@ error_code sys_fs_mount(ppu_thread& ppu, vm::cptr<char> dev_name, vm::cptr<char>
 
 	if (vfs_path.empty())
 		return {CELL_ENOTSUP, device_name};
+
+	const std::string vpath = lv2_fs_object::get_device_root(path_sv);
+	if (vpath == "dev_hdd0")
+	{
+		// VSH would normally mount this.. but it errors, wonder if this breaks anything?
+		return CELL_OK;
+	}
+
 
 	if (root_name.empty() || !vfs::get(path_sv).empty())
 		return {CELL_EEXIST, path_sv};

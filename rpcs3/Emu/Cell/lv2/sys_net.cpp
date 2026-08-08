@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "sys_net.h"
 
+#include "sys_event.h"
 #include "Emu/IdManager.h"
 #include "Emu/Cell/PPUThread.h"
 #include "Utilities/Thread.h"
@@ -130,6 +131,7 @@ void fmt_class_string<lv2_socket_family>::format(std::string& out, u64 arg)
 			case SYS_NET_AF_LOCAL: return "LOCAL";
 			case SYS_NET_AF_INET: return "INET";
 			case SYS_NET_AF_INET6: return "INET6";
+			case SYS_NET_AF_ROUTE: return "ROUTE";
 			}
 
 			return unknown;
@@ -234,6 +236,38 @@ void fmt_class_string<struct in_addr>::format(std::string& out, u64 arg)
 	const u8* data = reinterpret_cast<const u8*>(&get_object(arg));
 
 	fmt::append(out, "%u.%u.%u.%u", data[0], data[1], data[2], data[3]);
+}
+
+template <>
+void fmt_class_string<lv2_net_ioctl>::format(std::string& out, u64 arg)
+{
+	format_enum(out, arg, [](auto value)
+		{
+			switch (value)
+			{
+			case SYS_NET_SIOCSIFFLAGS: return "SIOCSIFFLAGS";
+			case SYS_NET_SIOCGIFFLAGS: return "SYS_NET_SIOCGIFFLAGS";
+			case SYS_NET_SIOCSIFADDR: return "SYS_NET_SIOCSIFADDR";
+			case SYS_NET_SIOCSIFDSTADDR: return "SYS_NET_SIOCSIFDSTADDR";
+			case SYS_NET_SIOCSIFBRDADDR: return "SYS_NET_SIOCSIFBRDADDR";
+			case SYS_NET_SIOCSIFNETMASK: return "SYS_NET_SIOCSIFNETMASK";
+			case SYS_NET_SIOCDIFADDR: return "SYS_NET_SIOCDIFADDR";
+			case SYS_NET_SIOCAIFADDR: return "SYS_NET_SIOCAIFADDR";
+			case SYS_NET_SIOCGIFADDR: return "SYS_NET_SIOCGIFADDR";
+			case SYS_NET_SIOCGIFDSTADDR: return "SYS_NET_SIOCGIFDSTADDR";
+			case SYS_NET_SIOCGIFBRDADDR: return "SYS_NET_SIOCGIFBRDADDR";
+			case SYS_NET_SIOCGIFNETMASK: return "SYS_NET_SIOCGIFNETMASK";
+			case SYS_NET_SIOCSIFMTU: return "SYS_NET_SIOCSIFMTU";
+			case SYS_NET_SIOCGIFMTU: return "SYS_NET_SIOCGIFMTU";
+			case SYS_NET_SIOCGIFGENERIC: return "SYS_NET_SIOCGIFGENERIC";
+			case SYS_NET_SIOCSIFGENERIC: return "SYS_NET_SIOCSIFGENERIC";
+			case SYS_NET_SIOCGIFTESTPARAM: return "SYS_NET_SIOCGIFTESTPARAM";
+			case SYS_NET_SIOCSIFTESTPARAM: return "SYS_NET_SIOCSIFTESTPARAM";
+			case SYS_NET_SIOCFLUSHMC: return "SYS_NET_SIOCFLUSHMC";
+			}
+
+			return unknown;
+		});
 }
 
 lv2_socket::lv2_socket(utils::serial& ar, lv2_socket_type _type)
@@ -942,6 +976,8 @@ error_code sys_net_bnet_sendmsg(ppu_thread& ppu, s32 s, vm::cptr<sys_net_msghdr>
 					return false;
 				});
 
+			// Required before sleeping - see the comment in sys_net_bnet_select().
+			lv2_obj::prepare_for_sleep(ppu);
 			lv2_obj::sleep(ppu);
 			return false;
 		});
@@ -1176,12 +1212,12 @@ error_code sys_net_bnet_socket(ppu_thread& ppu, lv2_socket_family family, lv2_so
 
 	sys_net.warning("sys_net_bnet_socket(family=%s, type=%s, protocol=%s)", family, type, protocol);
 
-	if (family != SYS_NET_AF_INET)
+	if (family != SYS_NET_AF_INET && family != SYS_NET_AF_ROUTE)
 	{
 		sys_net.error("sys_net_bnet_socket(): unknown family (%d)", family);
 	}
 
-	if (type != SYS_NET_SOCK_STREAM && type != SYS_NET_SOCK_DGRAM && type != SYS_NET_SOCK_RAW && type != SYS_NET_SOCK_DGRAM_P2P && type != SYS_NET_SOCK_STREAM_P2P)
+	if (type != SYS_NET_SOCK_STREAM && type != SYS_NET_SOCK_DGRAM && type != SYS_NET_SOCK_RAW && type != SYS_NET_SOCK_DGRAM_P2P && type != SYS_NET_SOCK_DGRAM_ETHER && type != SYS_NET_SOCK_STREAM_P2P)
 	{
 		sys_net.error("sys_net_bnet_socket(): unsupported type (%d)", type);
 		return -SYS_NET_EPROTONOSUPPORT;
@@ -1204,6 +1240,7 @@ error_code sys_net_bnet_socket(ppu_thread& ppu, lv2_socket_family family, lv2_so
 		break;
 	}
 	case SYS_NET_SOCK_RAW: sock_lv2 = make_shared<lv2_socket_raw>(family, type, protocol); break;
+	case SYS_NET_SOCK_DGRAM_ETHER: sock_lv2 = make_shared<lv2_socket_raw>(family, type, protocol); break;
 	case SYS_NET_SOCK_DGRAM_P2P: sock_lv2 = make_shared<lv2_socket_p2p>(family, type, protocol); break;
 	case SYS_NET_SOCK_STREAM_P2P: sock_lv2 = make_shared<lv2_socket_p2ps>(family, type, protocol); break;
 	}
@@ -1434,6 +1471,12 @@ error_code sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set
 
 	atomic_t<s32> signaled{0};
 
+	// Number of descriptors actually flagged in the fd_sets. select() with a timeout but
+	// no descriptors set is the portable way to sleep, and must return 0 on expiry - not
+	// EINTR. Nothing gets queued in that case, so the timeout detection below (which counts
+	// cleared queue entries) can't distinguish it from a spurious wake on its own.
+	u32 num_selected = 0;
+
 	if (exceptfds)
 	{
 		struct log_t
@@ -1461,6 +1504,13 @@ error_code sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set
 		if (exceptfds)
 			_exceptfds = *exceptfds;
 
+		// Must happen before this thread can end up in lv2_obj::sleep() below: it drops the
+		// vm lock and removes us from the cpu counter. A thread that sleeps while still
+		// counted never acknowledges vm::suspend_all(), so the next memory operation that
+		// needs it (PRX load, mapping, JIT patching) hangs the whole emulator with no
+		// diagnostics. Mirrors sys_net_bnet_poll().
+		lv2_obj::prepare_for_sleep(ppu);
+
 		std::lock_guard nw_lock(g_fxo->get<network_context>().mutex_thread_loop);
 		reader_lock lock(id_manager::g_mutex);
 
@@ -1484,6 +1534,7 @@ error_code sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set
 			if (selected)
 			{
 				selected += lv2_socket::poll_t::error;
+				num_selected++;
 			}
 			else
 			{
@@ -1650,7 +1701,9 @@ error_code sys_net_bnet_select(ppu_thread& ppu, s32 nfds, vm::ptr<sys_net_fd_set
 		}
 	}
 
-	if (!has_timedout && !signaled)
+	// With no descriptors flagged there was nothing to wake us and nothing to clear, so
+	// reaching here just means the timeout elapsed: report 0 ready descriptors, not EINTR.
+	if (!has_timedout && !signaled && num_selected)
 	{
 		return -SYS_NET_EINTR;
 	}
@@ -1822,6 +1875,76 @@ error_code sys_net_abort(ppu_thread& ppu, s32 type, u64 arg, s32 flags)
 	return CELL_OK;
 }
 
+// Per-emulation-session state for sys_net_infoctl.
+// Stored via g_fxo so it resets cleanly on emulator stop/restart.
+struct bnet_netctl_state
+{
+	shared_mutex mutex;
+
+	// SET_BNET_SYNC (cmd 53): LV2 mutex+cond IDs the bnet layer uses to wake up
+	// a PPU thread that is blocking on a network operation.
+	u32 sync_mutex_id = 0;
+	u32 sync_cond_id  = 0;
+
+	// CREATE/DESTROY_LIBNETCTL_QUEUE (cmd 55/56): event port IDs keyed by
+	// interface name. The port is connected to the userland event queue so
+	// libnetctl can receive async link-state / DHCP events.
+	std::unordered_map<std::string, u32> queue_ports;
+
+	// Whether the synthetic "link negotiated" event has already been delivered for
+	// this interface during the current connect attempt. VSH's connect path
+	// (FUN_00339bf4) only needs it once; re-sending it while netctl sits in its
+	// connected steady state (state 5, FUN_0032bc4c) makes that state see a
+	// retryable link error and bounce back to state 2 in an endless reconnect loop.
+	// Cleared on queue (re)registration and on teardown.
+	std::unordered_map<std::string, bool> link_event_sent;
+};
+
+// data1 values carried on the libnetctl event queue. Only NETCTL_EV_LINK originates
+// from the kernel: VSH tells us to use it via the third argument of infoctl cmd 55,
+// and netctl_wait_event dispatches on `data1 == 0x20` and nothing else. Every other
+// bit here is posted by VSH to its *own* event port (created in FUN_00329d30) and
+// must never be synthesized by us.
+constexpr u64 NETCTL_EV_LINK = 0x20;
+
+// data2 sub-codes for NETCTL_EV_LINK on a wired interface (device_type == 0), as
+// decoded by FUN_00329140. Note that the "up" case also sets last_link_error to
+// 0x80130139 guest-side; that is intentional, and every netctl wait loop treats it
+// as retryable. The real success signal is state_flags bit 2, which only data2 == 4 sets.
+constexpr u64 NETCTL_LINK_NEGOTIATED = 4;
+
+// data3 for NETCTL_EV_LINK: the negotiated link-mode bitmask, which the guest maps
+// to a 1..6 index (1=10H 2=10F 4=100H 8=100F 0x10=1000H 0x20=1000F). 8 keeps this
+// consistent with the 0x08 reported by sys_net_control cmd 0x80020001 (LINK_STATUS).
+constexpr u64 NETCTL_LINK_MODE_100_FULL = 8;
+
+// Deliver the synthetic "Ethernet link negotiated" event to libnetctl, at most once
+// per connect attempt. Caller must not hold state.mutex.
+static void netctl_send_link_event(bnet_netctl_state& state, const std::string& ifname)
+{
+	u32 port_id = 0;
+
+	{
+		std::lock_guard lock(state.mutex);
+
+		const auto it = state.queue_ports.find(ifname);
+		if (it == state.queue_ports.end())
+			return;
+
+		bool& sent = state.link_event_sent[ifname];
+		if (sent)
+			return;
+
+		sent    = true;
+		port_id = it->second;
+	}
+
+	sys_event_port_send(port_id, NETCTL_EV_LINK, NETCTL_LINK_NEGOTIATED, NETCTL_LINK_MODE_100_FULL);
+
+	sys_net.notice("libnetctl: if=%s sent link event {data1=0x%x, data2=0x%x, data3=0x%x} on port=0x%x",
+		ifname, NETCTL_EV_LINK, NETCTL_LINK_NEGOTIATED, NETCTL_LINK_MODE_100_FULL, port_id);
+}
+
 struct net_infoctl_cmd_9_t
 {
 	be_t<u32> zero;
@@ -1829,17 +1952,76 @@ struct net_infoctl_cmd_9_t
 	// More (TODO)
 };
 
-error_code sys_net_infoctl(ppu_thread& ppu, s32 cmd, vm::ptr<void> arg)
+// Generic 32-byte argument block passed to sys_net_infoctl (via copyin in LV2).
+// Each field is 8 bytes, big-endian. Usage varies per cmd — see infoctl_docs.
+struct infoctl_arg_t
+{
+	be_t<u64> field0;  // +0x00: often a user pointer or combined (mutex_hi:cond_lo)
+	be_t<u64> field1;  // +0x08: often size or extra param
+	be_t<u64> field2;  // +0x10: often a second user pointer (e.g. interface name)
+	be_t<u64> field3;  // +0x18: usually unused
+};
+
+error_code sys_net_infoctl(ppu_thread& ppu, s32 cmd, vm::ptr<infoctl_arg_t> arg)
 {
 	ppu.state += cpu_flag::wait;
 
-	sys_net.todo("sys_net_infoctl(cmd=%d, arg=*0x%x)", cmd, arg);
+	sys_net.todo("sys_net_infoctl(cmd=%s, arg=*0x%x)", cmd, arg);
+
+	// todo process permission check
+
+	if (!arg)
+	{
+		//sys_net_set_errorno(SYS_NET_EFAULT);
+		return -SYS_NET_EFAULT;
+	}
+
+	if (cmd < 4 || cmd > 100)
+	{
+		//sys_net_set_errno(SYS_NET_EINVAL);
+		return -SYS_NET_EINVAL;
+	}
 
 	// TODO
 	switch (cmd)
 	{
+	case 4:
+	{
+		// SYS_NET_INFOCTL_GET_SYSTEM_TIME
+		const auto  out = vm::ptr<be_t<u64>>::make(static_cast<u32>(arg->field0));
+		*out = get_system_time();
+		sys_net.todo("^-- SYS_NET_INFOCTL_GET_SYSTEM_TIME");
+		return CELL_OK;
+	}
+	case 5:
+	{
+		// SYS_NET_INFOCTL_GET_UNIX_TIME
+		const auto  out = vm::ptr<be_t<u64>>::make(static_cast<u32>(arg->field0));
+		*out = get_timebased_time();
+		sys_net.todo("^-- GET_UNIX_TIME");
+		return CELL_OK;
+	}
+	case 6:
+	{
+		// SYS_NET_INFOCTL_GET_OPENSOCKETS / bnet_get_sockinfo
+		sys_net.todo("^-- GET_OPEN_SOCKETS unimplemented");
+		return CELL_OK;
+	}
+	case 7:
+	{
+		// SYS_NET_INFOCTL_GET_SOCKINFO_SA
+		sys_net.todo("^-- GET_SOCKINFO_SA unimplemented");
+		return CELL_OK;
+	}
+	case 8:
+	{
+		// SYS_NET_INFOCTL_GET_BNET_HEAP_STATS / bnet_get_meminfo
+		sys_net.todo("^-- GET_BNET_HEAP_STATS unimplemented");
+		return CELL_OK;
+	}
 	case 9:
 	{
+		// Nameserver.
 		constexpr auto nameserver = "nameserver \0"sv;
 
 		char buffer[nameserver.size() + 80]{};
@@ -1850,44 +2032,1081 @@ error_code sys_net_infoctl(ppu_thread& ppu, s32 cmd, vm::ptr<void> arg)
 		std::memcpy(buffer + nameserver.size() - 1, dns_str.data(), dns_str.size());
 
 		std::string_view name{buffer};
-		vm::static_ptr_cast<net_infoctl_cmd_9_t>(arg)->zero = 0;
-		std::memcpy(vm::static_ptr_cast<net_infoctl_cmd_9_t>(arg)->server_name.get_ptr(), name.data(), name.size());
-		break;
+		vm::static_ptr_cast<net_infoctl_cmd_9_t>(vm::ptr<void>(arg))->zero = 0; // prob a return code?
+		std::memcpy(vm::static_ptr_cast<net_infoctl_cmd_9_t>(vm::ptr<void>(arg))->server_name.get_ptr(), name.data(), name.size());
+
+		sys_net.todo("^-- GET_NAMESERVER");
+
+		return CELL_OK;
 	}
-	default: break;
+	case 10:
+	{
+		// SYS_NET_INFOCTL_CMD_6 - Returns some counter todo..
+		sys_net.todo("^-- GET_SOME_COUNTER unimplemented");
+		return CELL_OK;
+	}
+	case 11:
+	{
+		// SYS_NET_INFOCTL_GET_INPCBTABLES
+		sys_net.todo("^-- GET_INPCTABLES unimplemented");
+		return CELL_OK;
+	}
+	case 52: // 0x34
+	{
+		// SYS_NET_INFOCTL_SET_NAMESERVER
+		// arg->field0 = user pointer to new nameserver string (NULL = clear).
+		// Kernel: frees old global nameserver string, copies new one via copyin_str.
+		// Emulation: log the new nameserver string; the active DNS is managed by np_handler.
+		const u32 str_ptr = static_cast<u32>(arg->field0);
+		if (str_ptr)
+		{
+			const std::string ns(vm::ptr<char>::make(str_ptr).get_ptr());
+			sys_net.todo("^-- (SET_RESOLV_CONF): \"%s\"", ns.c_str());
+		}
+		else
+		{
+			sys_net.todo("^-- (SET_RESOLV_CONF): NULL (clear)");
+		}
+		return CELL_OK;
+	}
+	case 53: // 0x35
+	{
+		// SYS_NET_INFOCTL_SET_BNET_SYNC
+		// arg->field0 upper 32 = mutex_id, lower 32 = cond_id (both LV2 object IDs).
+		// Kernel: attaches the mutex+cond to the current bnet thread's sync struct so
+		// blocking socket ops can wake up the PPU thread via sys_cond_signal.
+		const auto& a = *vm::static_ptr_cast<infoctl_arg_t>(arg);
+		const u32 mutex_id = static_cast<u32>(a.field0 >> 32);
+		const u32 cond_id  = static_cast<u32>(a.field0);
+
+		auto& state = g_fxo->get<bnet_netctl_state>();
+		{
+			std::lock_guard lock(state.mutex);
+			state.sync_mutex_id = mutex_id;
+			state.sync_cond_id  = cond_id;
+		}
+
+		sys_net.todo("^-- (SET_BNET_SYNC): mutex_id=0x%x cond_id=0x%x", mutex_id, cond_id);
+		return CELL_OK;
+	}
+	case 55: // 0x37
+	{
+		const auto& a = *vm::static_ptr_cast<infoctl_arg_t>(arg);
+		const u32 ifname_ptr = static_cast<u32>(a.field2);
+		// Third argument of _sys_net_lib_set_libnetctl_queue: the data1 value the guest
+		// expects link events to arrive with. VSH passes 0x20, which is the only data1
+		// netctl_wait_event dispatches on.
+		const u32 event_data = static_cast<u32>(a.field1);
+		const u32 queue_id   = static_cast<u32>(a.field0);
+
+		const std::string ifname = ifname_ptr ? std::string(vm::ptr<char>::make(ifname_ptr).get_ptr()) : "eth0";
+
+		if (queue_id == 0xffffffffu)
+		{
+			sys_net.todo("^-- (CREATE_LIBNETCTL_QUEUE): if=%s, no queue (0xffffffff)", ifname.c_str());
+			return CELL_OK;
+		}
+
+		// VSH registers the queue at the top of netctl state 2 (the connect state,
+		// FUN_0032c330) on every connect attempt, so this is where a new attempt begins:
+		// re-arm the one-shot link event.
+		auto& state = g_fxo->get<bnet_netctl_state>();
+		bool have_existing_port = false;
+		{
+			std::lock_guard lock(state.mutex);
+			state.link_event_sent[ifname] = false;
+			have_existing_port = state.queue_ports.contains(ifname);
+		}
+
+		if (have_existing_port)
+		{
+			// Fallback delivery point. Normally the event is sent from the SET_NEG_MODE
+			// path in sys_net_control, which is where the guest actually asks the link
+			// to come up; this covers profiles that reach the connect wait without it.
+			netctl_send_link_event(state, ifname);
+			sys_net.todo("^-- (CREATE_LIBNETCTL_QUEUE): if=%s re-registration, event_data=0x%x", ifname.c_str(), event_data);
+			return CELL_OK;
+		}
+
+		// First call: create a LOCAL event port.
+		const u32 port_id = idm::make<lv2_obj, lv2_event_port>(SYS_EVENT_PORT_LOCAL, SYS_EVENT_PORT_NO_NAME);
+		if (!port_id)
+		{
+			sys_net.error("^-- (CREATE_LIBNETCTL_QUEUE): if=%s failed to allocate event port", ifname.c_str());
+			return -SYS_NET_EINVAL;
+		}
+
+		// Connect port to the userland event queue.
+		{
+			std::lock_guard lock(id_manager::g_mutex);
+			const auto port  = idm::check_unlocked<lv2_obj, lv2_event_port>(port_id);
+			auto queue = idm::get_unlocked<lv2_obj, lv2_event_queue>(queue_id);
+
+			if (!port || !queue)
+			{
+				// Queue not found — destroy the port we just created.
+				idm::withdraw<lv2_obj, lv2_event_port>(port_id, [](lv2_event_port&) -> CellError { return {}; });
+				sys_net.error("^-- (CREATE_LIBNETCTL_QUEUE): if=%s queue 0x%x not found", ifname.c_str(), queue_id);
+				return -SYS_NET_EINVAL;
+			}
+
+			port->queue = std::move(queue);
+		}
+
+		// Store port_id for this interface so cmd 56 can clean up and the second
+		// call above can find it.
+		{
+			std::lock_guard lock(state.mutex);
+			state.queue_ports[ifname] = port_id;
+		}
+
+		// Fallback delivery point — see the re-registration path above.
+		netctl_send_link_event(state, ifname);
+
+		sys_net.todo("^-- (CREATE_LIBNETCTL_QUEUE): if=%s queue=0x%x → port=0x%x event_data=0x%x", ifname.c_str(), queue_id, port_id, event_data);
+		return CELL_OK;
+	}
+	case 56: // 0x38
+	{
+		// SYS_NET_INFOCTL_DESTROY_LIBNETCTL_QUEUE
+		// arg->field2 = user ptr to interface name string
+		// Kernel: disconnects event port from queue, then destroys the port.
+		const auto& a = *vm::static_ptr_cast<infoctl_arg_t>(arg);
+		const u32 ifname_ptr = static_cast<u32>(a.field2);
+
+		const std::string ifname = ifname_ptr? std::string(vm::ptr<char>::make(ifname_ptr).get_ptr()) : "eth0";
+
+		auto& state = g_fxo->get<bnet_netctl_state>();
+		u32 port_id = 0;
+		{
+			std::lock_guard lock(state.mutex);
+			const auto it = state.queue_ports.find(ifname);
+			if (it != state.queue_ports.end())
+			{
+				port_id = it->second;
+				state.queue_ports.erase(it);
+			}
+			state.link_event_sent.erase(ifname);
+		}
+
+		if (!port_id)
+		{
+			sys_net.todo("^-- (DESTROY_LIBNETCTL_QUEUE): if=%s no port to destroy", ifname.c_str());
+			return -SYS_NET_EINVAL; // 0xffffffffffffffea
+		}
+
+		// Disconnect port from queue.
+		{
+			std::lock_guard lock(id_manager::g_mutex);
+			const auto port = idm::check_unlocked<lv2_obj, lv2_event_port>(port_id);
+			if (port && lv2_obj::check(port->queue) && !port->is_busy)
+				port->queue.reset();
+		}
+
+		// Destroy port.
+		idm::withdraw<lv2_obj, lv2_event_port>(port_id, [](lv2_event_port& port) -> CellError
+		{
+			if (lv2_obj::check(port.queue)) return CELL_EISCONN;
+			return {};
+		});
+
+		sys_net.todo("^-- (DESTROY_LIBNETCTL_QUEUE): if=%s port=0x%x destroyed", ifname.c_str(), port_id);
+		return CELL_OK;
+	}
+	case 57:
+	{
+		// SYS_NET_INFOCTL_SET_PSPEMU_STRING_0
+		sys_net.todo("^--- SET_PSPEMU_STRING_0 unimplemented");
+		return CELL_OK;
+	}
+	case 58:
+	{
+		// SYS_NET_INFOCTL_SET_PSPEMU_STRING_1
+		sys_net.todo("^-- SET_PSPEMU_STRING_1 unimplemented");
+		return CELL_OK;
+	}
+	case 59:
+	{
+		// SYS_NET_INFOCTL_GET_PSPEMU_STRING_0
+		sys_net.todo("^-- GET_PSPEMU_STRING_0 unimplemented");
+		return CELL_OK;
+	}
+	case 60:
+	{
+		// SYS_NET_INFOCTL_GET_PSPEMU_STRING_1
+		sys_net.todo("^-- GET_PSPEMU_STRING_1 unimplemented");
+		return CELL_OK;
+	}
+	case 100:
+	{
+		// sys_net_bnet_show_memory_status
+		sys_net.todo("^-- SHOW_MEMORY_STATUS unimplemented");
+		return CELL_OK;
+	}
 	}
 
 	return CELL_OK;
 }
 
-error_code sys_net_control(ppu_thread& ppu, u32 arg1, s32 arg2, vm::ptr<void> arg3, s32 arg4)
+
+error_code sys_net_control(ppu_thread& ppu, vm::cptr<char> ifr_name, s32 cmd, vm::ptr<void> cmdbuf, s32 bufsize)
 {
 	ppu.state += cpu_flag::wait;
 
-	sys_net.todo("sys_net_control(0x%x, %d, *0x%x, %d)", arg1, arg2, arg3, arg4);
+	// Kernel: sys_net_name_to_index treats null ifr_name as "eth0".
+	// eth0/1 = cable, eth2 = wifi?
+	const char* name = ifr_name ? ifr_name.get_ptr() : "eth0";
+
+	switch (cmd)
+	{
+	case 0x80020001:
+	{
+		// Called from sceNetCtlGetEtherInfoVsh
+		// net_control_logic_switch → net_control_something (EINVAL on real HW).
+		// netctl reads this 4-byte result to determine connection state.
+		// result - netctl state
+		// 0x01 - 1 - Disconnected
+		// 0x02 - 2 - Connecting
+		// 0x04 - 3 - Negotiating / finalizing
+		// 0x08 - 4 - Connected (link + IP up)
+		// 0x10 - 5 -
+		// 0x20 - 6 -
+		// Else - Invalid
+		const u32 result = 0x08;
+		if (cmdbuf && bufsize >= 4)
+			*vm::ptr<be_t<u32>>::make(cmdbuf.addr()) = result;
+		sys_net.warning("sys_net_control(ifr=%s, cmd=LINK_STATUS): → %u", name, result);
+		return CELL_OK;
+	}
+
+	case 0x80020002:
+	{
+		// net_get_lv1_eth_port_status_2: returns 1 << port_index if HV
+		// reports link up, else 0.  For eth0 (primary wired, port 0)
+		// that's 0x01 = "link up on port 0".
+		//
+		// Currently unused by netctl in RPCS3 (cmd 55 event synthesis
+		// bypasses the polling loop), but implementing it correctly
+		// protects against games that bypass libnetctl and poll directly.
+		if (cmdbuf && bufsize >= 4)
+			*vm::ptr<be_t<u32>>::make(cmdbuf.addr()) = 0x01;
+		return CELL_OK;
+	}
+
+	case 0x81020000:
+	{
+		// net_control_0x81020000_set_neg_mode: sets Ethernet autoneg mode.
+		// cmdbuf = be_u32 mode: 0=auto 1=10H 2=10F 4=100H 8=100F 0x10=1000H 0x20=1000F 0x80=forced/unknown?
+		// Mapped to lv1_net_control cmd=3 flag word and sent to HV. No output buffer.
+		if (!cmdbuf || bufsize < 4)
+		{
+			sys_net.warning("sys_net_control(ifr=%s, cmd=SET_NEG_MODE): missing/short cmdbuf", name);
+			return CELL_OK;
+		}
+		const u32 mode = *vm::ptr<be_t<u32>>::make(cmdbuf.addr());
+		sys_net.warning("sys_net_control(ifr=%s, cmd=SET_NEG_MODE): mode=0x%x", name, mode);
+
+		// This is the guest asking the link to come up: netctl's wired connect path
+		// (FUN_00339bf4) clears its "link settled" flag, calls this, then blocks in
+		// netctl_wait_event(mask 0x2a) until the kernel reports the negotiated result.
+		// Report it now — on real hardware this comes back asynchronously from the HV.
+		netctl_send_link_event(g_fxo->get<bnet_netctl_state>(), name);
+		return CELL_OK;
+	}
+
+	case 0x80080005:
+	{
+		// FUN_80000000000a1278: lv1_net_control cmd=5 → returns 32-bit device ID.
+		// Gated on SM param bit 0x400; returns ESRCH without it on real HW.
+		// Emulation: write 0x00000000 as fake device ID as this seems to be what the decr returns.
+		const u32 dev_id = 0x00000000;
+		if (cmdbuf && bufsize >= 4)
+			*vm::ptr<be_t<u32>>::make(cmdbuf.addr()) = dev_id;
+		sys_net.warning("sys_net_control(ifr=%s, cmd=GET_DEV_ID): → 0x%x", name, dev_id);
+		return CELL_OK;
+	}
+
+	default:
+		sys_net.todo("sys_net_control(ifr=%s, cmd=0x%x, *0x%x, bufsize=%d)", name, cmd, cmdbuf, bufsize);
+		sys_net.todo("sys_net_control: unhandled cmd=0x%x", cmd);
+		return CELL_OK;
+	}
+}
+
+
+// struct ifreq — 32 bytes, PS3 bnet (sys_net_ifioctl_docs.md §Common Data Structures)
+// All multi-byte fields are big-endian on PPC64.
+struct ifreq
+{
+	char ifr_name[16];          // +0x00: interface name, null-terminated
+
+	union                       // +0x10: ifr_ifru (16 bytes)
+	{
+		be_t<u16> ifr_flags;    // SIOCGIFFLAGS / SIOCSIFFLAGS
+		be_t<s32> ifr_mtu;      // SIOCGIFMTU   / SIOCSIFMTU
+		be_t<s32> ifr_value;    // SIOCGIFGENERIC
+		be_t<u64> ifr_cap;      // SIOCGIFCAP out  (+0x10, 8 bytes)
+		char      ifr_data[16]; // raw / addr commands
+		struct
+		{
+			be_t<u64> _unused;
+			be_t<u64> ifr_capenable; // +0x18: SIOCSIFCAP new_capenable in
+		};
+	};
+
+	//   must be subset of ifp->if_capabilities
+};                              // total: 32 bytes
+static_assert(sizeof(ifreq) == 32);
+
+// struct ifaliasreq — 64 bytes, used with SIOCAIFADDR / SIOCDIFADDR
+// Each sockaddr_in: [sa_len u8][sa_family u8][port be16][addr be32][zero 8]
+struct ifaliasreq
+{
+	char ifra_name[16];    // +0x00: interface name
+	struct {               // +0x10: ifra_addr (address to add)
+		u8            sa_len;
+		u8            sa_family;   // AF_INET = 2
+		be_t<u16>     sin_port;
+		be_t<u32>     sin_addr;    // IPv4 address
+		u8            sin_zero[8];
+	} ifra_addr;
+	struct {               // +0x20: ifra_broadaddr / ifra_dstaddr
+		u8            sa_len;
+		u8            sa_family;
+		be_t<u16>     sin_port;
+		be_t<u32>     sin_addr;    // broadcast address
+		u8            sin_zero[8];
+	} ifra_broadaddr;
+	struct {               // +0x30: ifra_mask (netmask)
+		u8            sa_len;
+		u8            sa_family;
+		be_t<u16>     sin_port;
+		be_t<u32>     sin_addr;    // netmask
+		u8            sin_zero[8];
+	} ifra_mask;
+};                         // total: 64 bytes
+static_assert(sizeof(ifaliasreq) == 64);
+
+// PS3 IFF flag constants (from sys_net_ifioctl RE)
+enum : u16
+{
+	SYS_NET_IFF_UP          = 0x0001,  // interface is up
+	SYS_NET_IFF_DRV_RUNNING = 0x0040,  // driver DRV_RUNNING flag
+	// user-settable bits allowed through SIOCSIFFLAGS
+	SYS_NET_IFF_USER_MASK   = 0x70ad,
+	// kernel/driver private bits preserved on SIOCSIFFLAGS
+	SYS_NET_IFF_KERNEL_MASK = 0x8f52,
+};
+
+// Fake ifnet entry for the emulator — one per virtual PS3 network interface.
+// PS3 netctl always uses "eth0"; loopback "lo0" is the other known interface.
+struct bnet_ifnet
+{
+	char     name[16];   // matches ifreq::ifr_name field width
+	u16      if_flags;   // current IFF_* flags (mirrors ifp+0x4c in kernel)
+};
+
+// Emulator interface table. Initialize before first ioctl.
+// eth0: UP+DRV_RUNNING when host network is available; adjust as needed.
+// lo0:  always UP+DRV_RUNNING (loopback).
+static std::array<bnet_ifnet, 2> g_bnet_ifnet_table = {{
+	{ "eth0", SYS_NET_IFF_UP | SYS_NET_IFF_DRV_RUNNING },
+	{ "lo0",  SYS_NET_IFF_UP | SYS_NET_IFF_DRV_RUNNING },
+}};
+
+static bnet_ifnet* bnet_ifunit(const char* name)
+{
+	for (auto& ifp : g_bnet_ifnet_table)
+		if (std::strncmp(ifp.name, name, sizeof(ifp.name)) == 0)
+			return &ifp;
+	return nullptr;
+}
+
+// ifreq layout (from doc):
+//   +0x00..+0x0f  char ifr_name[16]   — interface name
+//   +0x10..+0x11  uint16_t ifr_flags  — flags in/out (union first member)
+error_code sys_net_bnet_ioctl(ppu_thread& ppu, s32 socket_id, lv2_net_ioctl cmd, vm::ptr<ifreq> ifr)
+{
+	ppu.state += cpu_flag::wait;
+
+	sys_net.todo("sys_net_bnet_ioctl(socket=%d, cmd=%s, ifr=0x%x)", socket_id, cmd, ifr);
+
+	static std::unordered_map<std::string, u16> s_ifflags = {
+		{"eth0", SYS_NET_IFF_UP | SYS_NET_IFF_DRV_RUNNING},
+		{"lo0",  SYS_NET_IFF_UP | SYS_NET_IFF_DRV_RUNNING},
+	};
+
+	static std::unordered_map<std::string, s32> s_ifmtu = {
+		{"eth0", 1500},
+		{"lo0",  16384},
+	};
+
+	switch (cmd)
+	{
+	case SYS_NET_SIOCGIFFLAGS:
+	{
+		const std::string name(ifr->ifr_name, strnlen(ifr->ifr_name, 16));
+		const u16 flags = s_ifflags.count(name) ? s_ifflags[name] : u16{SYS_NET_IFF_UP};
+		ifr->ifr_flags = flags;
+
+		sys_net.todo("SIOCGIFFLAGS(if=%s): 0x%04x", name.c_str(), flags);
+
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCSIFFLAGS:
+	{
+		const std::string name(ifr->ifr_name, strnlen(ifr->ifr_name, 16));
+		u16& flags = s_ifflags[name];
+		const u16 new_flags = ifr->ifr_flags;
+		const u16 old_flags = flags;
+
+		if ((old_flags & SYS_NET_IFF_UP) && !(new_flags & SYS_NET_IFF_UP))
+			flags &= ~SYS_NET_IFF_UP;
+		else if (!(old_flags & SYS_NET_IFF_UP) && (new_flags & SYS_NET_IFF_UP))
+			flags |= SYS_NET_IFF_UP;
+
+		flags = (flags & SYS_NET_IFF_KERNEL_MASK) | (new_flags & SYS_NET_IFF_USER_MASK);
+
+		if (old_flags != flags)
+			sys_net.todo("SIOCSIFFLAGS(if=%s): 0x%04x -> 0x%04x (req=0x%04x)",
+				name.c_str(), old_flags, flags, new_flags);
+
+		return CELL_OK;
+	}
+
+	// Address get — fill ifr_data (sockaddr_in: sa_len, AF_INET, port=0, addr, zero[8])
+	case SYS_NET_SIOCGIFADDR:
+	case SYS_NET_SIOCGIFDSTADDR:
+	case SYS_NET_SIOCGIFBRDADDR:
+	case SYS_NET_SIOCGIFNETMASK:
+	{
+		const std::string name(ifr->ifr_name, strnlen(ifr->ifr_name, 16));
+
+		auto& nph = g_fxo->get<named_thread<np::np_handler>>();
+		// get_local_ip_addr() returns be_t<u32>::operator u32() on LE host:
+		// the IP bytes (network order, big-endian) end up byte-swapped as a native u32.
+		// std::byteswap restores presentation order (0xc0a80102 = 192.168.1.2).
+		const u32 raw    = nph.get_local_ip_addr();
+		const u32 ip_h   = raw ? std::byteswap(raw) : 0xc0a80102u; // fallback 192.168.1.2
+		const u32 mask_h = 0xffffff00u; // /24
+		const u32 bcast_h = (ip_h & mask_h) | ~mask_h;
+
+		u32 addr_h;
+		if (cmd == SYS_NET_SIOCGIFADDR || cmd == SYS_NET_SIOCGIFDSTADDR)
+			addr_h = ip_h;
+		else if (cmd == SYS_NET_SIOCGIFBRDADDR)
+			addr_h = bcast_h;
+		else // SIOCGIFNETMASK
+			addr_h = mask_h;
+
+		// Write as be_t<u32> so PS3 big-endian memory sees correct network-order bytes.
+		auto* sa = reinterpret_cast<u8*>(ifr->ifr_data);
+		sa[0] = 16; sa[1] = 2; sa[2] = 0; sa[3] = 0;
+		*reinterpret_cast<be_t<u32>*>(sa + 4) = addr_h;
+		std::memset(sa + 8, 0, 8);
+
+		sys_net.todo("SIOCGIF%s(if=%s): %u.%u.%u.%u",
+			cmd == SYS_NET_SIOCGIFADDR ? "ADDR" : cmd == SYS_NET_SIOCGIFDSTADDR ? "DSTADDR" :
+			cmd == SYS_NET_SIOCGIFBRDADDR ? "BRDADDR" : "NETMASK",
+			name.c_str(),
+			(addr_h >> 24) & 0xff, (addr_h >> 16) & 0xff, (addr_h >> 8) & 0xff, addr_h & 0xff);
+
+		return CELL_OK;
+	}
+
+	// Address set — no-op in emulation (real kernel forwards to in_control)
+	case SYS_NET_SIOCSIFADDR:
+	case SYS_NET_SIOCSIFDSTADDR:
+	case SYS_NET_SIOCSIFBRDADDR:
+	case SYS_NET_SIOCSIFNETMASK:
+	{
+		const std::string name(ifr->ifr_name, strnlen(ifr->ifr_name, 16));
+		const auto* sa  = reinterpret_cast<const u8*>(ifr->ifr_data);
+		const u32   addr = *reinterpret_cast<const be_t<u32>*>(sa + 4);
+		sys_net.todo("SIOCS%s(if=%s): %u.%u.%u.%u",
+			cmd == SYS_NET_SIOCSIFADDR ? "IFADDR" : cmd == SYS_NET_SIOCSIFDSTADDR ? "IFDSTADDR" :
+			cmd == SYS_NET_SIOCSIFBRDADDR ? "IFBRDADDR" : "IFNETMASK",
+			name.c_str(),
+			(addr >> 24) & 0xff, (addr >> 16) & 0xff, (addr >> 8) & 0xff, addr & 0xff);
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCGIFMTU:
+	{
+		const std::string name(ifr->ifr_name, strnlen(ifr->ifr_name, 16));
+		const s32 mtu = s_ifmtu.count(name) ? s_ifmtu[name] : 1500;
+		ifr->ifr_mtu = mtu;
+
+		sys_net.todo("SIOCGIFMTU(if=%s): %d", name.c_str(), mtu);
+
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCSIFMTU:
+	{
+		const std::string name(ifr->ifr_name, strnlen(ifr->ifr_name, 16));
+		const s32 new_mtu = ifr->ifr_mtu;
+
+		if (new_mtu < 68 || new_mtu > 9000)
+		{
+			sys_net.todo("SIOCSIFMTU(if=%s): invalid MTU %d", name.c_str(), new_mtu);
+			return -SYS_NET_EINVAL;
+		}
+
+		const s32 old_mtu = s_ifmtu.count(name) ? s_ifmtu[name] : 1500;
+		s_ifmtu[name] = new_mtu;
+
+		sys_net.todo("SIOCSIFMTU(if=%s): %d -> %d", name.c_str(), old_mtu, new_mtu);
+
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCDIFADDR:
+	{
+		// Delete interface address — called by DHCP client to release an IP.
+		// In the kernel this falls to the protocol-layer (in_control); in emulation just log it.
+		const std::string name(ifr->ifr_name, strnlen(ifr->ifr_name, 16));
+		sys_net.todo("SIOCDIFADDR(if=%s): address delete request", name.c_str());
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCAIFADDR:
+	{
+		// Add/change interface alias address — called by DHCP client to assign an IP.
+		// The argument is a 64-byte ifaliasreq: [name 16][addr 16][broadaddr 16][mask 16].
+		// In the kernel this falls to in_control; in emulation store and log the assignment.
+		const auto& alias = *vm::ptr<ifaliasreq>::make(ifr.addr());
+		const std::string name(alias.ifra_name, strnlen(alias.ifra_name, 16));
+		const u32 ip   = alias.ifra_addr.sin_addr;
+		const u32 bcast = alias.ifra_broadaddr.sin_addr;
+		const u32 mask  = alias.ifra_mask.sin_addr;
+		sys_net.todo("SIOCAIFADDR(if=%s): ip=%u.%u.%u.%u mask=%u.%u.%u.%u bcast=%u.%u.%u.%u",
+			name.c_str(),
+			(ip >> 24) & 0xff, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff,
+			(mask >> 24) & 0xff, (mask >> 16) & 0xff, (mask >> 8) & 0xff, mask & 0xff,
+			(bcast >> 24) & 0xff, (bcast >> 16) & 0xff, (bcast >> 8) & 0xff, bcast & 0xff);
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCGIFGENERIC:
+	{
+		// Get driver-generic data — forwarded to if_ioctl unchanged in the kernel.
+		// No known useful data to return; zero ifr_value and succeed.
+		const std::string name(ifr->ifr_name, strnlen(ifr->ifr_name, 16));
+		ifr->ifr_value = 0;
+		sys_net.todo("SIOCGIFGENERIC(if=%s): → 0", name.c_str());
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCSIFGENERIC:
+	{
+		// Set driver-generic data — forwarded to if_ioctl in kernel; no-op in emulation.
+		const std::string name(ifr->ifr_name, strnlen(ifr->ifr_name, 16));
+		sys_net.todo("SIOCSIFGENERIC(if=%s): value=0x%x", name.c_str(), +ifr->ifr_value);
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCGIFTESTPARAM:
+	{
+		// sys_net_get_test_param in libnet issues this ioctl into a 528-byte buffer,
+		// then copies bytes [16..527] to the caller. Zero-fill is correct for emulation.
+		sys_net.todo("SIOCGIFTESTPARAM");
+		std::memset(reinterpret_cast<u8*>(ifr.get_ptr()) + 0x10, 0, 0x200);
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCSIFTESTPARAM:
+	{
+		// sys_net_set_test_param in libnet issues this ioctl. No-op in emulation.
+		sys_net.todo("SIOCSIFTESTPARAM");
+		return CELL_OK;
+	}
+
+	case SYS_NET_SIOCFLUSHMC:
+	{
+		// Flush all multicast group subscriptions on this socket (_IO 'P'/0xc8, no data).
+		// In the kernel: FUN_8000000000161c58 walks and frees the socket's mc group list.
+		// In emulation: no multicast state to flush.
+		sys_net.todo("SIOCFLUSHMC: flush multicast groups");
+		return CELL_OK;
+	}
+
+	// PPPOE TESTING
+
+	case 0x8020697a:  // SIOCIFCREATE       (in: ifreq, 32B)
+	case 0x80206979:  // SIOCIFDESTROY      (in: ifreq, 32B)
+	case 0x8040696e:  // PPPOESETPARMS      (in: caller buffer, 64B)
+	case 0x80506979:  // SPPPSETAUTHCFG     (in: caller buffer, 80B)
+	case 0x80146980:  // SPPPSETAUTHFAILURE (in: ifreq-like, 20B)
+	case 0x80146981:  // SPPPSETDNSOPTS     (in: ifreq-like, 20B)
+		sys_net.todo("PPPoE setup ioctl 0x%x: fake success (no concentrator simulation)", cmd);
+		return 0;
+
+	case 0xc0146974:  // PPPOEGETSESSIONSTATE — out: ifreq with ifr_value = state
+		// state = 1 means "PADI sent, no PADO received" — the natural error
+		// when no PPPoE concentrator exists on the network.
+		sys_net.todo("PPPOEGETSESSIONSTATE: reporting state=1 (NO_PADO)");
+		ifr->ifr_value = 1;
+		return 0;
+
+	case 0xc014697c:  // (related PPPoE query — likely SPPPGETSTATUS variant, 20B)
+		sys_net.todo("PPPoE ioctl 0xc014697c: zeroed output");
+		ifr->ifr_value = 0;
+		return 0;
+
+	case 0xc0146988:  // PPPOEGETLINKSTATE — out: ifreq with ifr_value = LCP phase
+		// state = 0 means LCP never came up — consistent with discovery failure.
+		sys_net.todo("PPPOEGETLINKSTATE: reporting state=0 (LCP not up)");
+		ifr->ifr_value = 0;
+		return 0;
+
+	case 0xc1146975:  // PPPOEGETSESSIONERRTAG (276B caller buffer)
+		// Only called when SESSIONSTATE returned 2 or 4. We return 1, so this
+		// shouldn't be reached. If it is, zero the caller buffer.
+		sys_net.todo("PPPOEGETSESSIONERRTAG: zeroed (shouldn't be called)");
+		// Need to zero the caller's 276-byte buffer through the user pointer.
+		// Implementation depends on how RPCS3 marshals it; if the syscall
+		// dispatcher already gives you a pointer, memset it to zero.
+		return 0;
+
+
+	default:
+		sys_net.todo("sys_net_bnet_ioctl: unhandled cmd=0x%x", cmd);
+		return CELL_OK;
+	}
+}
+
+namespace sysctl_mib
+{
+    // CTL_* top-level
+    static const char* ctl_name(s32 v)
+    {
+        switch (v)
+        {
+        case 1:  return "kern";
+        case 2:  return "vm";
+        case 3:  return "fs";
+        case 4:  return "net";
+        case 5:  return "debug";
+        case 6:  return "hw";
+        case 7:  return "machdep";
+        case 8:  return "user";
+        default: return nullptr;
+        }
+    }
+
+    // PF_* under CTL_NET
+    static const char* pf_name(s32 v)
+    {
+        switch (v)
+        {
+        case 0:  return "unspec";
+        case 1:  return "local";
+        case 2:  return "inet";
+        case 17: return "route";   // PF_ROUTE = 0x11
+        case 18: return "link";    // AF_LINK
+        case 30: return "inet6";
+        default: return nullptr;
+        }
+    }
+
+    // AF_* filter (mib[3] under net.route)
+    static const char* af_name(s32 v)
+    {
+        switch (v)
+        {
+        case 0:  return "unspec";  // 0 = all families
+        case 2:  return "inet";
+        case 18: return "link";
+        case 30: return "inet6";
+        default: return nullptr;
+        }
+    }
+
+    // NET_RT_* commands (mib[4] under net.route)
+    static const char* net_rt_name(s32 v)
+    {
+        switch (v)
+        {
+        case 0: return "noop";
+        case 1: return "dump";     // NET_RT_DUMP
+        case 2: return "flags";    // NET_RT_FLAGS
+        case 3: return "iflist";   // NET_RT_IFLIST (old)
+        case 4: return "iflist2";  // NET_RT_IFLIST2
+        default: return nullptr;
+        }
+    }
+
+    // Decode a sysctl MIB into a human-readable path string.
+    // Returns e.g. "net.route.1.unspec.dump.0"
+    static std::string decode(const be_t<s32>* ops, u32 count)
+    {
+        std::string out;
+
+        for (u32 i = 0; i < count; i++)
+        {
+            const s32 v = ops[i];
+            const char* name = nullptr;
+
+            if (i == 0)
+            {
+                name = ctl_name(v);
+            }
+            else if (i == 1 && ops[0] == 4) // CTL_NET subtree
+            {
+                name = pf_name(v);
+            }
+            else if (i == 2 && ops[0] == 4 && ops[1] == 17) // net.route protocol
+            {
+                // mib[2] is the protocol number — always 1 for IP, ignored by kernel
+                // render as bare integer
+            }
+            else if (i == 3 && ops[0] == 4 && ops[1] == 17) // net.route AF filter
+            {
+                name = af_name(v);
+            }
+            else if (i == 4 && ops[0] == 4 && ops[1] == 17) // net.route command
+            {
+                name = net_rt_name(v);
+            }
+            // mib[5] = flags filter — always bare integer
+
+            if (i > 0)
+                out += '.';
+
+            if (name)
+                out += name;
+            else
+                fmt::append(out, "%d", v);
+        }
+
+        return out;
+    }
+
+    // Return a brief annotation for the command (for log context).
+    static const char* cmd_desc(const be_t<s32>* ops, u32 count)
+    {
+        if (count < 5 || ops[0] != 4 || ops[1] != 17)
+            return "unknown";
+
+        switch (+ops[4])
+        {
+        case 1: return "NET_RT_DUMP (routing table)";
+        case 4: return "NET_RT_IFLIST (interface list)";
+        default: return "NET_RT_?";
+        }
+    }
+}
+
+// bsd style sysctl mib
+error_code sys_net_bnet_sysctl(ppu_thread& ppu, vm::cptr<be_t<s32>> mib_parts, u32 mib_parts_count, vm::ptr<void> oldp, vm::ptr<be_t<u64>> oldlenp, vm::ptr<void> newp, u32 newlen)
+{
+
+	ppu.state += cpu_flag::wait;
+
+	//sys_net.todo("enter, val at 0xd00b51c0 = 0x%x", vm::read32(0xd00b51c0));
+
+	sys_net.todo("r31=0x%x, *r31=0x%x, oldlenp=0x%x",
+	static_cast<u32>(ppu.gpr[31]),
+	vm::read32(static_cast<u32>(ppu.gpr[31])),
+	oldlenp.addr());
+
+	sys_net.todo("gpr[6]=0x%x, gpr[1]+0x70=0x%x, oldlenp.addr()=0x%x",
+	static_cast<u32>(ppu.gpr[6]),
+	static_cast<u32>(ppu.gpr[1]) + 0x70,
+	oldlenp.addr());
+
+	if (mib_parts && mib_parts_count)
+	{
+		sys_net.todo("sys_net_bnet_sysctl(path=%s [%s], oldp=*0x%x, *oldlenp=0x%x, newp=*0x%x, newlen=%u)", sysctl_mib::decode(mib_parts.get_ptr(), mib_parts_count), sysctl_mib::cmd_desc(mib_parts.get_ptr(), mib_parts_count), oldp, oldlenp, newp, newlen);
+	}
+	else
+	{
+		sys_net.todo("sys_net_bnet_sysctl(ops=null/empty, oldp=*0x%x, newp=0x%x)", oldp, newp);
+	}
+
+	auto path = sysctl_mib::decode(mib_parts.get_ptr(), mib_parts_count);
+
+	const u8* data;
+	u64 data_size;
+
+	sys_net.todo("maow raw: 0x%x", vm::read32(oldlenp.addr()));
+
+	if (path == "net.route.0.unspec.iflist2.0")
+	{
+		// Capture from devkit
+		static const u8 iflist2data[] = {
+			0x00, 0xb0, 0x03, 0x0f, 0x00, 0x00, 0x00, 0x10, 0xff, 0xff, 0x80, 0x09, 0x00, 0x01, 0x00, 0x00,
+			0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x81, 0x70,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x1d, 0x66, 0xaa,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0xeb, 0x10, 0x18, 0x12, 0x00, 0x01, 0x18, 0x03, 0x00, 0x00,
+			0x6c, 0x6f, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x3c, 0x03, 0x0c, 0x00, 0x00, 0x00, 0xa4, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x05, 0x02, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00,
+			0x7f, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00,
+			0x7f, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb0, 0x03, 0x0f,
+			0x00, 0x00, 0x00, 0x10, 0xff, 0xff, 0x88, 0x43, 0x00, 0x02, 0x00, 0x00, 0x06, 0x06, 0x0e, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0xdc, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x98, 0x96, 0x80, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x1d, 0x66, 0xaa, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x09, 0xeb, 0x10, 0x18, 0x12, 0x00, 0x02, 0x06, 0x04, 0x06, 0x00, 0x65, 0x74, 0x68, 0x30,
+			0x00, 0x15, 0xc1, 0xb0, 0xf4, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x03, 0x0c,
+			0x00, 0x00, 0x00, 0xa4, 0x00, 0x00, 0x01, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x05, 0x02, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb0, 0x03, 0x0f, 0x00, 0x00, 0x00, 0x10,
+			0xff, 0xff, 0x88, 0x02, 0x00, 0x03, 0x00, 0x00, 0x06, 0x06, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0xdc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x98, 0x96, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x18, 0x12, 0x00, 0x03, 0x06, 0x04, 0x06, 0x00, 0x65, 0x74, 0x68, 0x31, 0x00, 0x15, 0xc1, 0xb0,
+			0xf4, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb0, 0x03, 0x0f, 0x00, 0x00, 0x00, 0x10,
+			0xff, 0xff, 0x88, 0x02, 0x00, 0x04, 0x00, 0x00, 0x06, 0x06, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0xdc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x98, 0x96, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x18, 0x12, 0x00, 0x04, 0x06, 0x04, 0x06, 0x00, 0x65, 0x74, 0x68, 0x32, 0x00, 0x15, 0xc1, 0xb0,
+			0xf4, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+		};
+		data = iflist2data;
+		data_size = std::size(iflist2data);
+	}
+	else if (path == "net.route.0.inet.dump.0")
+	{
+		static const u8 inetdump0data[] = {
+			0x00, 0xc8, 0x03, 0x04, 0x00, 0x02, 0x5d, 0x24, 0x00, 0x00, 0x08, 0x03, 0x00, 0x00, 0x00, 0x37,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0xa8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0xc0, 0xa8, 0x01, 0x01,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x18, 0x12, 0x00, 0x02, 0x06, 0x04, 0x06, 0x00, 0x65, 0x74, 0x68, 0x30, 0x00, 0x15, 0xc1, 0xb0,
+			0xf4, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0xc0, 0xa8, 0x01, 0x90,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc8, 0x03, 0x04, 0x00, 0x01, 0x5d, 0x24,
+			0x00, 0x00, 0x08, 0x0b, 0x00, 0x00, 0x00, 0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0xa8,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x81, 0x70,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x10, 0x02, 0x00, 0x00, 0x7f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x10, 0x02, 0x00, 0x00, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x05, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x18, 0x12, 0x00, 0x01, 0x18, 0x03, 0x00, 0x00,
+			0x6c, 0x6f, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x10, 0x02, 0x00, 0x00, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0xc0, 0x03, 0x04, 0x00, 0x01, 0x5d, 0x24, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x33,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0xa8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x81, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0x7f, 0x00, 0x00, 0x01,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0x7f, 0x00, 0x00, 0x01,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x12, 0x00, 0x01, 0x18, 0x03, 0x00, 0x00,
+			0x6c, 0x6f, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x10, 0x02, 0x00, 0x00, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0xd0, 0x03, 0x04, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x37,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x0c, 0x1d, 0x66, 0xae, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0xc0, 0xa8, 0x01, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x14, 0x12, 0x00, 0x02, 0x06, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x07, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x18, 0x12, 0x00, 0x02, 0x06, 0x04, 0x06, 0x00,
+			0x65, 0x74, 0x68, 0x30, 0x00, 0x15, 0xc1, 0xb0, 0xf4, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x10, 0x02, 0x00, 0x00, 0xc0, 0xa8, 0x01, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0xc8, 0x03, 0x04, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00, 0x24, 0x05, 0x00, 0x00, 0x00, 0x33,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x0c, 0x1d, 0x66, 0xae, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0xc0, 0xa8, 0x01, 0x01,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x14, 0x12, 0x00, 0x02, 0x06, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x18, 0x12, 0x00, 0x02, 0x06, 0x04, 0x06, 0x00, 0x65, 0x74, 0x68, 0x30, 0x00, 0x15, 0xc1, 0xb0,
+			0xf4, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x02, 0x00, 0x00, 0xc0, 0xa8, 0x01, 0x90,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xd0, 0x03, 0x04, 0x00, 0x02, 0x00, 0x01,
+			0x00, 0x00, 0x09, 0x01, 0x00, 0x00, 0x00, 0x37
+		};
+		data = inetdump0data;
+		data_size = std::size(inetdump0data);
+	}
+	else {
+		sys_net.warning("Unhandled sysctl path: %s", path);
+		return CELL_OK;
+	}
+
+	if (!data || data_size == 0)
+	{
+		sys_net.warning("sys_net_bnet_sysctl: no data for path %s", path);
+		return CELL_OK;
+	}
+
+	if (!oldp)
+	{
+		sys_net.todo("Size probe");
+		vm::write<be_t<u64>>(oldlenp.addr(), data_size);
+		sys_net.todo("wrote %d to oldlenp addr=0x%x, readback=%d", data_size, oldlenp.addr(), static_cast<u32>(*oldlenp));
+
+		sys_net.todo("requesting: %d", data_size);
+
+		//sys_net.todo("before return, val at 0xd00b51c0 = 0x%x", vm::read32(0xd00b51c0));
+
+		return CELL_OK;
+	}
+
+	if (*oldlenp < data_size)
+	{
+		// TODO make new buffer and assign to newp?
+		sys_net.todo("Help i need a bigger buffer, current size: %d, needed size: %d", *oldlenp, data_size);
+		return CELL_OK;
+	}
+
+	std::memcpy(oldp.get_ptr(), data, data_size);
 	return CELL_OK;
 }
 
-error_code sys_net_bnet_ioctl(ppu_thread& ppu, s32 arg1, u32 arg2, u32 arg3)
+error_code sys_net_eurus_post_command(ppu_thread& ppu, u16 cmd, vm::ptr<u8> cmdbuf, u32 cmdbuf_size)
 {
 	ppu.state += cpu_flag::wait;
+	// WIFI specifically
 
-	sys_net.todo("sys_net_bnet_ioctl(%d, 0x%x, 0x%x)", arg1, arg2, arg3);
-	return CELL_OK;
-}
+	sys_net.todo("sys_net_eurus_post_command(cmd=0x%x, buf=*0x%x, size=0x%x)", cmd, cmdbuf, cmdbuf_size);
 
-error_code sys_net_bnet_sysctl(ppu_thread& ppu, u32 arg1, u32 arg2, u32 arg3, vm::ptr<void> arg4, u32 arg5, u32 arg6)
-{
-	ppu.state += cpu_flag::wait;
+	if (!cmdbuf)
+	{
+		return CELL_OK;
+	}
 
-	sys_net.todo("sys_net_bnet_sysctl(0x%x, 0x%x, 0x%x, *0x%x, 0x%x, 0x%x)", arg1, arg2, arg3, arg4, arg5, arg6);
-	return CELL_OK;
-}
+	auto* buf = static_cast<u8*>(cmdbuf.get_ptr());
 
-error_code sys_net_eurus_post_command(ppu_thread& ppu, s32 arg1, u32 arg2, u32 arg3)
-{
-	ppu.state += cpu_flag::wait;
+	// WiFi chip readiness poll
+	if (cmd == 0xffff)
+	{
+		// WiFi chip readiness poll — vsh loops until buf[12:15]==1
+		// buf[4:5] = BE uint16 firmware status (must be 1 or FUN_0033a638 returns error)
+		// buf[12:15] = lower word of u64 at buf+8, ==1 → chip ready → loop exits
+		if (cmdbuf_size >= 16)
+		{
+			memset(buf, 0, 16);
+			buf[4]  = 0x01;  // buf[4:5] BE uint16 = 1 (fw status ok) - eurus buffer is LE
+			buf[15] = 0x01;  // buf[12:15] = 1 (chip ready, read via PPC ld+cmpwi, stays BE)
+		}
+		return CELL_OK;
+	}
 
-	sys_net.todo("sys_net_eurus_post_command(%d, 0x%x, 0x%x)", arg1, arg2, arg3);
+	// Get Scan Results
+	if (cmd == 0x1033)
+	{
+		// VSH FUN_0033b808: iterates buf[0x0C] AP entries starting at buf[0x0D].
+		// Each entry: LE u16 body_len at [0x00], fixed fields at [0x02..0x14], then 802.11 IEs.
+		// body_len is measured from entry offset 0x02 (bssid) through end of IEs.
+		if (cmdbuf_size >= 0x30)
+		{
+			memset(buf, 0, cmdbuf_size);
+			buf[4]     = 0x01;  // LE fw status = 1
+			buf[0x0c]  = 1;     // 1 AP in results
+
+			u8* ap = buf + 0x0d;
+
+			// body_len (LE u16): 0x13 fixed (bssid+rssi+tsf+beacon+cap) + 7 (SSID IE) + 3 (DS-Param IE) = 0x1D
+			ap[0x00] = 0x1d;
+			ap[0x01] = 0x00;
+
+			// bssid: locally-administered unicast MAC
+			ap[0x02] = 0x02;
+			ap[0x03] = 0x00;
+			ap[0x04] = 0x00;
+			ap[0x05] = 0x00;
+			ap[0x06] = 0x00;
+			ap[0x07] = 0x01;
+
+			// ap[0x08] = 0x00: raw_rssi = 0 → 100% signal quality via rssi_to_quality
+			// ap[0x09..0x10] = 0: TSF timestamp zeroed
+
+			// beacon_interval (LE u16) = 100 TU (~102.4 ms, standard)
+			ap[0x11] = 0x64;
+			ap[0x12] = 0x00;
+
+			// capability (LE u16): ESS bit set, IBSS clear → bss_mode=1 (infrastructure)
+			ap[0x13] = 0x01;
+			ap[0x14] = 0x00;
+
+			// IEs at ap[0x15]: SSID before DS-Param per 802.11 ordering
+			ap[0x15] = 0x00;  // tag: SSID
+			ap[0x16] = 0x05;  // length
+			ap[0x17] = 'R';
+			ap[0x18] = 'P';
+			ap[0x19] = 'C';
+			ap[0x1a] = 'S';
+			ap[0x1b] = '3';
+			// DS-Param IE: channel
+			ap[0x1c] = 0x03;
+			ap[0x1d] = 0x01;
+			ap[0x1e] = 0x06;  // channel 6
+		}
+		return CELL_OK;
+	}
+
+	// All other commands: vsh's wrapper checks buf[4:5] as LE uint16.
+	// If != 1 it turns CELL_OK into 0x80130800. Always ack with status=1.
+	if (cmdbuf_size >= 6)
+	{
+		buf[4] = 0x01; // LE low byte
+		buf[5] = 0x00; // LE high byte
+	}
+
+	if (cmd == 0x1ed)
+	{
+		return CELL_OK;
+	}
+
+	// Chip PHY programming for speed rates (likely).
+	if (cmd == 0x1025)
+	{
+		return CELL_OK;
+	}
+
+	if (cmd == 0x1033)
+	{
+		return CELL_OK;
+	}
+
+
+
+	sys_net.todo("not implemented");
 	return CELL_OK;
 }

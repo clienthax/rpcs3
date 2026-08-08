@@ -12,6 +12,8 @@
 #include <shared_mutex>
 #include <unordered_set>
 
+#include "Crypto/aes.h"
+
 #ifdef _WIN32
 #include <Windows.h>
 #include <bcrypt.h>
@@ -58,6 +60,10 @@ struct lv2_update_manager
 
 	std::unordered_set<u32> malloc_set;
 	mutable std::shared_mutex malloc_mutex;
+
+	// VTRM slot storage: slot index → 64-byte data blob
+	std::unordered_map<u32, std::array<u8, 0x40>> vtrm_slots;
+	mutable std::shared_mutex vtrm_mutex;
 
 	// return address
 	u32 allocate(u32 size)
@@ -249,6 +255,7 @@ error_code sys_ss_appliance_info_manager(u32 code, vm::ptr<u8> buffer)
 	{
 		// AIM_get_device_id
 		constexpr u8 idps[] = { 0x00, 0x00, 0x00, 0x01, 0x00, 0x89, 0x00, 0x0B, 0x14, 0x00, 0xEF, 0xDD, 0xCA, 0x25, 0x52, 0x66 };
+
 		std::memcpy(buffer.get_ptr(), idps, 16);
 		if (g_cfg.core.debug_console_mode)
 		{
@@ -344,6 +351,8 @@ error_code sys_ss_get_cache_of_flash_ext_flag(vm::ptr<u64> flag)
 	}
 
 	*flag = 0xFE; // nand vs nor from lsb
+
+	// vsh seems to check bit 0 and 1
 
 	return CELL_OK;
 }
@@ -563,9 +572,462 @@ error_code sys_ss_update_manager(ppu_thread& ppu, u64 pkg_id, u64 a1, u64 a2, u6
 	return CELL_OK;
 }
 
-error_code sys_ss_virtual_trm_manager(u64 pkg_id, u64 a1, u64 a2, u64 a3, u64 a4)
+error_code sys_ss_virtual_trm_manager(ppu_thread& ppu, u64 cmd, u64 a1, u64 a2, u64 a3, u64 a4)
 {
-	sys_ss.todo("sys_ss_virtual_trm_manager(pkg=0x%llx, a1=0x%llx, a2=0x%llx, a3=0x%llx, a4=0x%llx)", pkg_id, a1, a2, a3, a4);
+	sys_ss.todo("sys_ss_virtual_trm_manager(cmd=0x%llx, a1=0x%llx, a2=0x%llx, a3=0x%llx, a4=0x%llx)", cmd, a1, a2, a3, a4);
+
+	auto& update_manager = g_fxo->get<lv2_update_manager>();
+
+	// Derive 16-byte AES-128 key: base_key XOR (laid[8] || paid[8])  big-endian
+	const auto sc_derive_key = [](const u8* base_key, u64 laid, u64 paid, u8* out_key)
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			out_key[i]     = base_key[i]     ^ static_cast<u8>(laid >> (56 - 8 * i));
+			out_key[8 + i] = base_key[8 + i] ^ static_cast<u8>(paid >> (56 - 8 * i));
+		}
+	};
+
+	// Map cipher context 0-3 to (laid, paid) for non-portable VTRM ops
+	// matches vtrm_get_laid_paid_from_type() in sc_crypto_all-1.py
+	const auto vtrm_context_to_laid_paid = [](u32 ctx, u64& laid, u64& paid)
+	{
+		switch (ctx & 3)
+		{
+		case 0: laid = 0xFFFFFFFFFFFFFFFFULL; paid = 0xFFFFFFFFFFFFFFFFULL; break;
+		case 1: laid = 0x1070000002000001ULL; paid = 0x1070000000000001ULL; break;
+		case 2: laid = 0x1070000002000001ULL; paid = 0x0000000000000000ULL; break;
+		case 3: laid = 0x1070000002000001ULL; paid = 0x10700003FF000001ULL; break;
+		}
+	};
+
+	// AES-128-CBC encrypt or decrypt; iv is consumed (CBC state)
+	const auto vtrm_aes_cbc = [](bool encrypt, const u8* key, const u8* iv_in, const u8* input, u8* output, u32 size) -> bool
+	{
+		aes_context aes{};
+		u8 iv[16];
+		std::memcpy(iv, iv_in, 16);
+		if (encrypt)
+		{
+			aes_setkey_enc(&aes, key, 128);
+			return aes_crypt_cbc(&aes, AES_ENCRYPT, size, iv, input, output) == 0;
+		}
+		else
+		{
+			aes_setkey_dec(&aes, key, 128);
+			return aes_crypt_cbc(&aes, AES_DECRYPT, size, iv, input, output) == 0;
+		}
+	};
+
+	// Shared body for ops 0x200A / 0x200B (standard) and 0x200C / 0x200D (portable)
+	// r4=context, r5=key/IV ptr (16 bytes), r6=data ptr (64 bytes, in/out)
+	const auto do_cipher_op = [&](bool encrypt, bool portable) -> error_code
+	{
+		const u32 context   = static_cast<u32>(a1);
+		const u32 key_addr  = ::narrow<u32>(a2); // IV
+		const u32 data_addr = ::narrow<u32>(a3); // plaintext/ciphertext
+
+		if (!key_addr || !data_addr)
+			return CELL_EFAULT;
+
+		const u8* base_key;
+		u64 laid, paid;
+
+		if (!portable)
+		{
+			// Standard: sc_type 3 (SC_ISO_SERIES_KEY_2) XOR vtrm_laid_paid(context)
+			base_key = SC_ISO_SERIES_KEY_2;
+			vtrm_context_to_laid_paid(context, laid, paid);
+		}
+		else
+		{
+			// Portable: vtrm_portability_type_mapper maps context → sc_type
+			// laid_paid is (0,0) per reference implementation
+			static constexpr u32 port_map[4] = {1, 3, 2, 5};
+			const u32 sc_type = port_map[context & 3];
+			laid = 0;
+			paid = 0;
+			switch (sc_type)
+			{
+			case 2: base_key = SC_ISO_SERIES_KEY_1; break;
+			case 3: base_key = SC_ISO_SERIES_KEY_2; break;
+			default:
+				sys_ss.todo("sys_ss_virtual_trm_manager: portability sc_type %u not implemented", sc_type);
+				return CELL_OK;
+			}
+		}
+
+		u8 derived_key[16], iv[16], data[0x40], result[0x40];
+		sc_derive_key(base_key, laid, paid, derived_key);
+		std::memcpy(iv,   vm::_ptr<u8>(key_addr),  16);
+		std::memcpy(data, vm::_ptr<u8>(data_addr), 0x40);
+
+		if (!vtrm_aes_cbc(encrypt, derived_key, iv, data, result, 0x40))
+			return CELL_EINVAL;
+
+		std::memcpy(vm::_ptr<u8>(data_addr), result, 0x40);
+		return CELL_OK;
+	};
+
+	switch (cmd)
+	{
+	case 0x2001:
+		// Init — no-op; real VTRM initialises its internal state
+		break;
+
+	case 0x2002:
+	{
+		// Status — return (0, 0, 0) to indicate VTRM ready
+		const u32 sa = ::narrow<u32>(a1);
+		const u32 sb = ::narrow<u32>(a2);
+		const u32 sc = ::narrow<u32>(a3);
+		if (!sa || !sb || !sc)
+			return CELL_EFAULT;
+		vm::write32(sa, 0);
+		vm::write32(sb, 0);
+		vm::write32(sc, 0);
+		break;
+	}
+
+	case 0x2003:
+	{
+		// Store with TRM Update — writes 64-byte blob to slot 0
+		const u32 data_addr = ::narrow<u32>(a1);
+		if (!data_addr)
+			return CELL_EFAULT;
+		std::lock_guard lock(update_manager.vtrm_mutex);
+		std::memcpy(update_manager.vtrm_slots[0].data(), vm::_ptr<u8>(data_addr), 0x40);
+		break;
+	}
+
+	case 0x2004:
+	{
+		// Store — writes 64-byte blob to slot nth (r5)
+		const u32 data_addr = ::narrow<u32>(a1);
+		const u32 nth       = static_cast<u32>(a2);
+		if (!data_addr)
+			return CELL_EFAULT;
+		std::lock_guard lock(update_manager.vtrm_mutex);
+		std::memcpy(update_manager.vtrm_slots[nth].data(), vm::_ptr<u8>(data_addr), 0x40);
+		break;
+	}
+
+	case 0x2005:
+	{
+		// Retrieve — reads 64-byte blob from slot nth (r5) into r4
+		const u32 data_addr = ::narrow<u32>(a1);
+		const u32 nth       = static_cast<u32>(a2);
+		if (!data_addr)
+			return CELL_EFAULT;
+		std::shared_lock lock(update_manager.vtrm_mutex);
+		const auto it = update_manager.vtrm_slots.find(nth);
+		if (it == update_manager.vtrm_slots.end())
+		{
+			// Slot never stored — zero out caller's buffer and return VTRM error
+			std::memset(vm::_ptr<u8>(data_addr), 0, 0x40);
+			// return 0x80010501; // VTRM_SLOT_EMPTY (arbitrary, maps to 0x80010500 | 1)
+			return CELL_OK; // IDK MAN
+		}
+		std::memcpy(vm::_ptr<u8>(data_addr), it->second.data(), 0x40);
+		break;
+	}
+
+	case 0x2006:
+	{
+		// Free — removes slot nth (r4) from storage
+		const u32 nth = static_cast<u32>(a1);
+		std::lock_guard lock(update_manager.vtrm_mutex);
+		update_manager.vtrm_slots.erase(nth);
+		break;
+	}
+
+	// 0x2007–0x2009 not implemented in lv2 (fall through to default → 0x8001051d)
+
+	case 0x200A: return do_cipher_op(true,  false); // Encrypt
+	case 0x200B: return do_cipher_op(false, false); // Decrypt
+	case 0x200C: return do_cipher_op(true,  true);  // Encrypt Portable
+	case 0x200D: return do_cipher_op(false, true);  // Decrypt Portable
+
+		/*
+	case 0x200E:
+	{
+		// Decrypt Master
+		// r4 = key/IV ptr (16 bytes), r5 = data ptr (64 bytes, ciphertext→plaintext in place)
+		// Key is derived from the caller's LAID/PAID and one of three master key variants.
+		const u32 key_addr  = ::narrow<u32>(a1); // IV
+		const u32 data_addr = ::narrow<u32>(a2); // ciphertext / plaintext out
+
+		if (!key_addr || !data_addr)
+			return CELL_EFAULT;
+
+		// Caller's PAID from SELF header; LAID is LAID_2 for GameOS/PS3_LPAR processes
+		const u64 paid = g_ps3_process_info.self_info.valid ?
+			g_ps3_process_info.self_info.prog_id_hdr.program_authority_id : 0ULL;
+		const u64 laid = 0x1070000002000001ULL; // LAID_2
+
+		u8 iv[16], ciphertext[0x40], plaintext[0x40], derived_key[16];
+		std::memcpy(iv,         vm::_ptr<u8>(key_addr),  16);
+		std::memcpy(ciphertext, vm::_ptr<u8>(data_addr), 0x40);
+
+		// Three master key variants: sc_type 4.0 (SC_ISO_SERIES_INTERNAL_KEY_3, fw < 3.10),
+		// 4.1 (SC_KEY_FOR_MASTER_1, fw 3.10–3.55), 4.2 (SC_KEY_FOR_MASTER_2, fw ≥ 3.56).
+		// Real VTRM picks the variant recorded in EEPROM; default to the most common (4.2).
+		sc_derive_key(SC_KEY_FOR_MASTER_2, laid, paid, derived_key);
+		if (!vtrm_aes_cbc(false, derived_key, iv, ciphertext, plaintext, 0x40))
+			return CELL_EINVAL;
+
+		for (size_t i = 0; i < 0x40; i += 16)
+		{
+			sys_ss.todo(
+				"%02x %02x %02x %02x %02x %02x %02x %02x "
+				"%02x %02x %02x %02x %02x %02x %02x %02x",
+				plaintext[i+0],  plaintext[i+1],  plaintext[i+2],  plaintext[i+3],
+				plaintext[i+4],  plaintext[i+5],  plaintext[i+6],  plaintext[i+7],
+				plaintext[i+8],  plaintext[i+9],  plaintext[i+10], plaintext[i+11],
+				plaintext[i+12], plaintext[i+13], plaintext[i+14], plaintext[i+15]);
+		}
+
+		std::memcpy(vm::_ptr<u8>(data_addr), plaintext, 0x40);
+		break;
+	}*/
+
+
+case 0x200E:
+{
+    // Decrypt Master
+    // r4 = key/IV ptr (16 bytes), r5 = data ptr (64 bytes, ciphertext→plaintext in place)
+    // Key is derived from the caller's LAID/PAID and one of three master key variants.
+    const u32 key_addr  = ::narrow<u32>(a1); // IV
+    const u32 data_addr = ::narrow<u32>(a2); // ciphertext / plaintext out
+
+    if (!key_addr || !data_addr)
+       return CELL_EFAULT;
+
+    // Caller's PAID from SELF header; LAID is LAID_2 for GameOS/PS3_LPAR processes
+	const auto process = idm::get_unlocked<lv2_obj, lv2_process>(id_manager::g_process);
+    const u64 paid = process->self_info.valid ?  process->self_info.prog_id_hdr.program_authority_id : 0ULL;
+    const u64 laid = 0x1070000002000001ULL; // LAID_2
+
+    u8 iv[16], ciphertext[0x40], plaintext[0x40], derived_key[16];
+    std::memcpy(iv,         vm::_ptr<u8>(key_addr),  16);
+    std::memcpy(ciphertext, vm::_ptr<u8>(data_addr), 0x40);
+
+    /* ===== DEBUG: Input Parameters ===== */
+    sys_ss.todo("[VTRM DECRYPT MASTER] Syscall 0x200E invoked");
+    sys_ss.todo("[VTRM] IV address (key_addr):     0x%08x", key_addr);
+    sys_ss.todo("[VTRM] Data address (data_addr):  0x%08x", data_addr);
+    sys_ss.todo("[VTRM] PAID (Program Authority ID): 0x%016llx", paid);
+    sys_ss.todo("[VTRM] LAID (License Authority ID): 0x%016llx", laid);
+
+    /* ===== DEBUG: IV Buffer (16 bytes) ===== */
+    sys_ss.todo("[VTRM] IV (Initialization Vector) [16 bytes]:");
+    sys_ss.todo(
+       "  %02x %02x %02x %02x %02x %02x %02x %02x "
+       "%02x %02x %02x %02x %02x %02x %02x %02x",
+       iv[0],  iv[1],  iv[2],  iv[3],
+       iv[4],  iv[5],  iv[6],  iv[7],
+       iv[8],  iv[9],  iv[10], iv[11],
+       iv[12], iv[13], iv[14], iv[15]);
+
+    /* ===== DEBUG: Ciphertext Buffer (64 bytes, PRE-DECRYPTION) ===== */
+    sys_ss.todo("[VTRM] CIPHERTEXT (PRE-DECRYPTION) [64 bytes]:");
+    for (size_t i = 0; i < 0x40; i += 16)
+    {
+       sys_ss.todo(
+          "  [+%02zx] %02x %02x %02x %02x %02x %02x %02x %02x "
+          "%02x %02x %02x %02x %02x %02x %02x %02x",
+          i,
+          ciphertext[i+0],  ciphertext[i+1],  ciphertext[i+2],  ciphertext[i+3],
+          ciphertext[i+4],  ciphertext[i+5],  ciphertext[i+6],  ciphertext[i+7],
+          ciphertext[i+8],  ciphertext[i+9],  ciphertext[i+10], ciphertext[i+11],
+          ciphertext[i+12], ciphertext[i+13], ciphertext[i+14], ciphertext[i+15]);
+    }
+
+    // Three master key variants: sc_type 4.0 (SC_ISO_SERIES_INTERNAL_KEY_3, fw < 3.10),
+    // 4.1 (SC_KEY_FOR_MASTER_1, fw 3.10–3.55), 4.2 (SC_KEY_FOR_MASTER_2, fw ≥ 3.56).
+    // Real VTRM picks the variant recorded in EEPROM; default to the most common (4.2).
+    sys_ss.todo("[VTRM] Master key derivation:");
+    sys_ss.todo("[VTRM]   Variant: SC_KEY_FOR_MASTER_2 (firmware >= 3.56)");
+    sys_ss.todo("[VTRM]   Input LAID: 0x%016llx", laid);
+    sys_ss.todo("[VTRM]   Input PAID: 0x%016llx", paid);
+
+    sc_derive_key(SC_KEY_FOR_MASTER_2, laid, paid, derived_key);
+
+    /* ===== DEBUG: Derived Key (16 bytes, AES-128) ===== */
+    sys_ss.todo("[VTRM] DERIVED KEY (AES-128) [16 bytes]:");
+    sys_ss.todo(
+       "  %02x %02x %02x %02x %02x %02x %02x %02x "
+       "%02x %02x %02x %02x %02x %02x %02x %02x",
+       derived_key[0],  derived_key[1],  derived_key[2],  derived_key[3],
+       derived_key[4],  derived_key[5],  derived_key[6],  derived_key[7],
+       derived_key[8],  derived_key[9],  derived_key[10], derived_key[11],
+       derived_key[12], derived_key[13], derived_key[14], derived_key[15]);
+
+    /* ===== DEBUG: Decryption Operation ===== */
+    sys_ss.todo("[VTRM] Performing AES-128-CBC decryption...");
+    sys_ss.todo("[VTRM]   Mode:       AES-CBC");
+    sys_ss.todo("[VTRM]   Key size:   128 bits (16 bytes)");
+    sys_ss.todo("[VTRM]   IV size:    128 bits (16 bytes)");
+    sys_ss.todo("[VTRM]   Data size:  0x40 bytes (64 bytes, 4 blocks)");
+    sys_ss.todo("[VTRM]   Direction:  Decrypt (false)");
+
+    if (!vtrm_aes_cbc(false, derived_key, iv, ciphertext, plaintext, 0x40))
+    {
+       sys_ss.error("[VTRM] ✗ AES-CBC DECRYPTION FAILED!");
+       sys_ss.error("[VTRM] Possible causes:");
+       sys_ss.error("[VTRM]   - Invalid derived key");
+       sys_ss.error("[VTRM]   - Corrupted ciphertext");
+       sys_ss.error("[VTRM]   - Wrong IV");
+       sys_ss.error("[VTRM]   - Hardware error");
+       return CELL_EINVAL;
+    }
+
+    sys_ss.todo("[VTRM] ✓ AES-CBC decryption completed successfully");
+
+    /* ===== DEBUG: Plaintext Buffer (64 bytes, POST-DECRYPTION) ===== */
+    sys_ss.todo("[VTRM] PLAINTEXT (POST-DECRYPTION) [64 bytes]:");
+    for (size_t i = 0; i < 0x40; i += 16)
+    {
+       sys_ss.todo(
+          "  [+%02zx] %02x %02x %02x %02x %02x %02x %02x %02x "
+          "%02x %02x %02x %02x %02x %02x %02x %02x",
+          i,
+          plaintext[i+0],  plaintext[i+1],  plaintext[i+2],  plaintext[i+3],
+          plaintext[i+4],  plaintext[i+5],  plaintext[i+6],  plaintext[i+7],
+          plaintext[i+8],  plaintext[i+9],  plaintext[i+10], plaintext[i+11],
+          plaintext[i+12], plaintext[i+13], plaintext[i+14], plaintext[i+15]);
+    }
+
+    /* ===== DEBUG: Plaintext Analysis & Marker Detection ===== */
+    sys_ss.todo("[VTRM] Plaintext structure analysis:");
+
+    // First 4 bytes often contain key variant marker
+    sys_ss.todo("[VTRM]   Bytes [0-3]:  %02x %02x %02x %02x (key marker candidate)",
+       plaintext[0], plaintext[1], plaintext[2], plaintext[3]);
+
+    // Check for known PSN decryption key marker "b7fe802b" (4 bytes)
+    if (plaintext[0] == 0xb7 && plaintext[1] == 0xfe &&
+        plaintext[2] == 0x80 && plaintext[3] == 0x2b)
+    {
+       sys_ss.todo("[VTRM] ✓✓✓ PLAINTEXT MARKER DETECTED: b7fe802b");
+       sys_ss.todo("[VTRM] This is a valid PSN/platform key variant!");
+    }
+    else
+    {
+       sys_ss.todo("[VTRM] ⚠ Plaintext marker MISMATCH");
+       sys_ss.todo("[VTRM]   Expected: b7 fe 80 2b");
+       sys_ss.todo("[VTRM]   Got:      %02x %02x %02x %02x",
+          plaintext[0], plaintext[1], plaintext[2], plaintext[3]);
+       sys_ss.todo("[VTRM] This may be a different key variant or corrupted data");
+    }
+
+    // Second part (bytes 8-23) often contains the actual credential/passphrase
+    sys_ss.todo("[VTRM]   Bytes [8-23]: (credential/passphrase section)");
+    sys_ss.todo(
+       "    %02x %02x %02x %02x %02x %02x %02x %02x "
+       "%02x %02x %02x %02x %02x %02x %02x %02x",
+       plaintext[8],  plaintext[9],  plaintext[10], plaintext[11],
+       plaintext[12], plaintext[13], plaintext[14], plaintext[15],
+       plaintext[16], plaintext[17], plaintext[18], plaintext[19],
+       plaintext[20], plaintext[21], plaintext[22], plaintext[23]);
+
+    // Remaining bytes
+    sys_ss.todo("[VTRM]   Bytes [24-63]: (padding/additional data)");
+    for (size_t i = 24; i < 0x40; i += 16)
+    {
+       if (i + 16 <= 0x40)
+       {
+          sys_ss.todo(
+             "    %02x %02x %02x %02x %02x %02x %02x %02x "
+             "%02x %02x %02x %02x %02x %02x %02x %02x",
+             plaintext[i+0],  plaintext[i+1],  plaintext[i+2],  plaintext[i+3],
+             plaintext[i+4],  plaintext[i+5],  plaintext[i+6],  plaintext[i+7],
+             plaintext[i+8],  plaintext[i+9],  plaintext[i+10], plaintext[i+11],
+             plaintext[i+12], plaintext[i+13], plaintext[i+14], plaintext[i+15]);
+       }
+    }
+
+    // Check for null padding (common in PKCS#7 or custom padding)
+    size_t non_null_bytes = 0;
+    for (size_t i = 0; i < 0x40; i++)
+    {
+       if (plaintext[i] != 0x00)
+          non_null_bytes++;
+    }
+    sys_ss.todo("[VTRM]   Non-null bytes: %zu / 64 (%.1f%% data)", non_null_bytes, (non_null_bytes / 64.0) * 100.0);
+
+    /* ===== DEBUG: Write-back to VM memory ===== */
+    sys_ss.todo("[VTRM] Writing plaintext back to VM memory...");
+    sys_ss.todo("[VTRM]   Destination: 0x%08x", data_addr);
+    sys_ss.todo("[VTRM]   Size:        0x40 bytes (64 bytes)");
+
+    std::memcpy(vm::_ptr<u8>(data_addr), plaintext, 0x40);
+
+    sys_ss.todo("[VTRM] Write-back complete");
+
+    /* ===== DEBUG: Memory Verification ===== */
+    // Read back and verify
+    u8 verify_buffer[0x40];
+    std::memcpy(verify_buffer, vm::_ptr<u8>(data_addr), 0x40);
+    bool verify_ok = std::memcmp(verify_buffer, plaintext, 0x40) == 0;
+
+    if (verify_ok)
+    {
+       sys_ss.todo("[VTRM] ✓ Memory verification passed (write-back confirmed)");
+    }
+    else
+    {
+       sys_ss.todo("[VTRM] ⚠ Memory verification FAILED");
+       sys_ss.todo("[VTRM] Data mismatch detected after write-back!");
+    }
+
+    /* ===== DEBUG: Summary ===== */
+    sys_ss.todo("[VTRM DECRYPT MASTER] ════════════════════════════════════════");
+    sys_ss.todo("[VTRM] Operation completed successfully");
+    sys_ss.todo("[VTRM] Input:  64-byte ciphertext + 16-byte IV");
+    sys_ss.todo("[VTRM] Key:    Derived from LAID/PAID using SC_KEY_FOR_MASTER_2");
+    sys_ss.todo("[VTRM] Output: 64-byte plaintext → 0x%08x", data_addr);
+    sys_ss.todo("[VTRM] Status: %s", verify_ok ? "VERIFIED ✓" : "UNVERIFIED ⚠");
+    sys_ss.todo("[VTRM] ════════════════════════════════════════════════════════");
+
+    break;
+}
+
+	// 0x200F–0x2011 not implemented in lv2 (fall through to default → 0x8001051d)
+
+	case 0x2012:
+		// Backup Flash — reads VTRM EEPROM region into caller buffer; requires product mode flag
+		sys_ss.todo("sys_ss_virtual_trm_manager(cmd=BACKUP_FLASH, pos=0x%llx, size=0x%llx, buf=0x%llx, nread=0x%llx)", a1, a2, a3, a4);
+		break;
+
+	case 0x2013:
+		// Restore Flash — writes caller buffer into VTRM EEPROM region; requires product mode flag
+		sys_ss.todo("sys_ss_virtual_trm_manager(cmd=RESTORE_FLASH, pos=0x%llx, size=0x%llx, buf=0x%llx, nwritten=0x%llx)", a1, a2, a3, a4);
+		break;
+
+	case 0x2014:
+		// Backup SRK/SRH — copies 128-byte SRK/SRH from VTRM into caller buffer
+		sys_ss.todo("sys_ss_virtual_trm_manager(cmd=BACKUP_SRK_SRH, size=0x%llx, buf=0x%llx)", a1, a2);
+		break;
+
+	case 0x2015:
+		// Restore SRK/SRH — writes caller's 128 bytes back to VTRM
+		sys_ss.todo("sys_ss_virtual_trm_manager(cmd=RESTORE_SRK_SRH, size=0x%llx, buf=0x%llx)", a1, a2);
+		break;
+
+	case 0x2016:
+		// Flash Info — returns VTRM flash base address and size to caller
+		sys_ss.todo("sys_ss_virtual_trm_manager(cmd=FLASH_INFO, addr_out=0x%llx, size_out=0x%llx)", a1, a2);
+		break;
+
+	case 0x2017:
+		// Force Restart — tells VTRM to restart its firmware
+		sys_ss.todo("sys_ss_virtual_trm_manager(cmd=FORCE_RESTART)");
+		break;
+
+	default:
+		return 0x8001051d; // unknown op — no IPC sent
+	}
 
 	return CELL_OK;
 }
@@ -586,6 +1048,43 @@ error_code sys_ss_individual_info_manager(u64 pkg_id, u64 a2, vm::ptr<u64> out_s
 	// Get EID size
 	case 0x17001: *out_size = 0x100; break;
 	default: break;
+	}
+
+	return CELL_OK;
+}
+
+// storage_manager_if
+error_code sys_ss_sec_hw_framework(u32 packet_id, vm::ptr<void> buf)
+{
+	sys_ss.todo("sys_ss_sec_hw_framework(packet_id=0x%llx, buf=*0x%x)", packet_id, buf);
+
+	switch (packet_id)
+	{
+	case 0x5004:
+		// Authenticate BD Drive (cellSsDrvAuthDrive)
+		break;
+
+	case 0x5007:
+		// Authenticate PS3 Game (cellSsDrvAuthDiscPs3)
+		break;
+
+	case 0x5008:
+		// HW mc
+		break;
+
+	case 0x5011:
+		// Retrieve M1m for bdv (Bluray Disc Voucher)
+		break;
+
+	case 0x5012:
+		// Retrieve "X-I-5-Passphrase" NPpp (Network Product passphrase)
+		// Copy 0x10 from user
+		// TODO, will cause pain and suffering
+		// Need to load the isolated spu from firmware and use it for this.. *Screams*
+		break;
+
+	default:
+		return 0x8001051d;
 	}
 
 	return CELL_OK;

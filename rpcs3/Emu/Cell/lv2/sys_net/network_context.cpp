@@ -1,6 +1,7 @@
 #include "Emu/NP/ip_address.h"
 #include "stdafx.h"
 #include "Emu/Cell/lv2/sys_sync.h"
+#include "Emu/Cell/lv2/sys_process.h" // for lv2_process (per-process vm context)
 #include "Emu/Cell/Modules/sceNp.h" // for SCE_NP_PORT
 
 #include "network_context.h"
@@ -179,6 +180,18 @@ void network_thread::operator()()
 	std::vector<shared_ptr<lv2_socket>> socklist;
 	socklist.reserve(lv2_socket::id_count);
 
+	// Owning process of each entry in socklist, parallel-indexed.
+	std::vector<u32> sockprocs;
+	sockprocs.reserve(lv2_socket::id_count);
+
+	// vm::g_base_addr and friends are thread_local and default to nullptr. Socket poll
+	// callbacks (sys_net_bnet_recvfrom/sendto/accept) dereference guest vm::ptr's, and they
+	// run here rather than on the owning PPU thread - so without this the translation is
+	// nullptr + guest_ea, which faults on an unmapped page and spins forever inside memcpy
+	// while holding the socket's mutex, jamming all networking. Mirrors what the RSX thread
+	// does in rsx::thread::on_task().
+	u32 cur_proc = umax;
+
 	{
 		std::lock_guard lock(mutex_ppu_to_awake);
 		ppu_to_awake.clear();
@@ -211,6 +224,27 @@ void network_thread::operator()()
 
 		for (usz i = 0; i < socklist.size(); i++)
 		{
+			// Switch to this socket's process vm context before running its callbacks.
+			if (const u32 proc = ::at32(sockprocs, i); proc != cur_proc)
+			{
+				if (const auto process = idm::get_unlocked<lv2_obj, lv2_process>(proc))
+				{
+					vm::g_base_addr = process->memory_4GB_model->base_addr;
+					vm::g_sudo_addr = process->memory_4GB_model->sudo_addr;
+					vm::g_vm_image  = process->memory_4GB_model;
+					cur_proc        = proc;
+				}
+				else
+				{
+					// Process is gone - don't let a stale context translate its pointers.
+					vm::g_base_addr = nullptr;
+					vm::g_sudo_addr = nullptr;
+					vm::g_vm_image.reset();
+					cur_proc = umax;
+					continue;
+				}
+			}
+
 #ifdef _WIN32
 			socklist[i]->handle_events(fds[i], was_connecting[i] && !connecting[i]);
 #else
@@ -220,13 +254,16 @@ void network_thread::operator()()
 
 		wake_threads();
 		socklist.clear();
+		sockprocs.clear();
 
-		// Obtain all native active sockets
-		idm::select<lv2_socket>([&](u32 id, lv2_socket& s)
+		// Obtain all native active sockets, remembering which process each belongs to so
+		// their poll callbacks can be run with that process's vm context (see below).
+		idm::select<lv2_socket>([&](u32 id, u32 proc, lv2_socket& s)
 			{
 				if (s.get_type() == SYS_NET_SOCK_DGRAM || s.get_type() == SYS_NET_SOCK_STREAM)
 				{
 					socklist.emplace_back(idm::get_unlocked<lv2_socket>(id));
+					sockprocs.emplace_back(proc);
 				}
 			});
 

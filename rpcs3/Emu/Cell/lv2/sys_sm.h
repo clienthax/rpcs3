@@ -11,4 +11,5 @@ error_code sys_sm_get_params(vm::ptr<u8> a, vm::ptr<u8> b, vm::ptr<u32> c, vm::p
 error_code sys_sm_set_shop_mode(s32 mode);
 error_code sys_sm_control_led(u8 led, u8 action);
 error_code sys_sm_ring_buzzer(u64 packet, u64 a1, u64 a2);
+error_code sys_sm_get_hw_config(vm::ptr<u8> out_res, vm::ptr<u64> out_config);
 constexpr auto sys_sm_ring_buzzer2 = sys_sm_ring_buzzer;
