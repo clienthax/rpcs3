@@ -175,7 +175,6 @@ namespace rsx
 		draw_command_processor m_draw_processor;
 
 	public:
-		atomic_t<u64> new_get_put = u64{umax};
 		u32 restore_point = 0;
 		u32 dbg_step_pc = 0;
 		u32 last_known_code_start = 0;
@@ -393,6 +392,11 @@ namespace rsx
 		virtual void write_barrier(u32 /*memory_address*/, u32 /*memory_range*/) {}
 		virtual void sync_hint(FIFO::interrupt_hint hint, reports::sync_hint_payload_t payload);
 		virtual bool release_GCM_label(u32 /*type*/, u32 /*address*/, u32 /*value*/) { return false; }
+
+		bool has_urgent_interrupts() const
+		{
+			return !!(m_eng_interrupt_mask & rsx::dma_control_interrupt);
+		}
 
 	protected:
 

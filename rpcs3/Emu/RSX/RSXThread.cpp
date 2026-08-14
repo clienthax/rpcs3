@@ -924,6 +924,11 @@ namespace rsx
 	{
 		bool changed = false;
 
+		if (fifo_ctrl)
+		{
+			fifo_ctrl->sync_get();
+		}
+
 		idm::select<lv2_rsx_context>([&](u32 id, u32 proc, lv2_rsx_context& context)
 		{
 			if (lv2_context != &context)
@@ -933,6 +938,7 @@ namespace rsx
 				const auto process = ensure(idm::get_unlocked<lv2_obj, lv2_process>(proc));
 
 				lv2_context = &context;
+				lv2_context_id = id;
 				lv2_rsx_process = process->rsx_info.get();
 				vm::g_base_addr = process->memory_4GB_model->base_addr;
 				vm::g_sudo_addr = process->memory_4GB_model->sudo_addr;
@@ -941,7 +947,7 @@ namespace rsx
 			}
 		});
 
-		if (changed)
+		if (changed && lv2_context)
 		{
 			fifo_ctrl = std::make_unique<::rsx::FIFO::FIFO_control>(this);
 			fifo_ctrl->set_get(ctrl->get);
@@ -1323,7 +1329,20 @@ namespace rsx
 
 			if (m_eng_interrupt_mask & rsx::dma_control_interrupt && !is_stopped())
 			{
-				if (const u64 get_put = new_get_put.exchange(u64{umax});
+				if (const u64 get_put = !lv2_context ? u64{umax} : lv2_context->new_get_put.exchange(u64{umax});
+					get_put != umax)
+				{
+					vm::_ptr<atomic_be_t<u64>>(lv2_context->dma_address + ::offset32(&RsxDmaControl::put))->release(get_put);
+					fifo_ctrl->set_get(static_cast<u32>(get_put));
+					fifo_ctrl->abort();
+					fifo_ret_addr = RSX_CALL_STACK_EMPTY;
+					last_known_code_start = static_cast<u32>(get_put);
+					sync_point_request.release(true);
+				}
+
+				decide_rsx_context_queue(0, 0);
+
+				if (const u64 get_put = !lv2_context ? u64{umax} : lv2_context->new_get_put.exchange(u64{umax});
 					get_put != umax)
 				{
 					vm::_ptr<atomic_be_t<u64>>(lv2_context->dma_address + ::offset32(&RsxDmaControl::put))->release(get_put);
@@ -2557,16 +2576,11 @@ namespace rsx
 
 	void thread::init(shared_ptr<lv2_rsx_context> _lv2_context, std::shared_ptr<lv2_rsx_process_info> _lv2_rsx_process, u32 id)
 	{
-		ctrl = vm::_ptr<RsxDmaControl>(_lv2_context->dma_address);
-		flip_status = CELL_GCM_DISPLAY_FLIP_STATUS_DONE;
-		fifo_ret_addr = RSX_CALL_STACK_EMPTY;
-
-		vm::write32(_lv2_rsx_process->device_addr[8] + 0x30, 1);
+		//vm::write32(_lv2_rsx_process->device_addr[8] + 0x30, 1);
 		std::memset(_lv2_context->display_buffers, 0, sizeof(_lv2_context->display_buffers));
 
-		lv2_context = _lv2_context.get();
-		lv2_rsx_process = _lv2_rsx_process.get();
-		lv2_context_id = id;
+		// Schedule FIFO interrupt to deal with this immediately
+		m_eng_interrupt_mask |= rsx::dma_control_interrupt;
 	}
 
 	std::pair<u32, u32> thread::calculate_memory_requirements(const vertex_input_layout& layout, u32 first_vertex, u32 vertex_count)
